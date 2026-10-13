@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <pattern id="k" width="64" height="64" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <rect width="16" height="64" fill="#e0553a"/><rect x="16" width="16" height="64" fill="#f3b41b"/><rect x="32" width="16" height="64" fill="#232a63"/><rect x="48" width="16" height="64" fill="#f3b41b"/>
+    </pattern>
+    <clipPath id="c"><rect width="512" height="512" rx="112"/></clipPath>
+  </defs>
+  <g clip-path="url(#c)">
+    <rect width="512" height="512" fill="#141838"/>
+    <rect y="404" width="512" height="108" fill="url(#k)"/>
+    <circle cx="256" cy="214" r="150" fill="#1e9b57"/>
+    <path d="M256 92 L366 352 H306 L284 296 H228 L206 352 H146 Z M256 178 L238 248 H274 Z" fill="#f3b41b"/>
+  </g>
+</svg>
