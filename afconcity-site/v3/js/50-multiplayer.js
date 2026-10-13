@@ -54,7 +54,7 @@ function onPeers(change) {
     }
     if (pr === r.prev) continue;
     r.prev = pr; r.by = p.by; r.guest = p.guest;
-    r.x = clamp(numOr(pr.x, r.x), -2000, 2000); r.z = clamp(numOr(pr.z, r.z), -2000, 2000); r.ry = numOr(pr.ry, r.ry); r.sp = clamp(numOr(pr.sp, 0), 0, 40);
+    { const nx = clamp(numOr(pr.x, r.x), -2000, 2000), nz = clamp(numOr(pr.z, r.z), -2000, 2000); if (nx !== r.x || nz !== r.z) r.updT = performance.now(); r.x = nx; r.z = nz; } r.ry = numOr(pr.ry, r.ry); r.sp = clamp(numOr(pr.sp, 0), 0, 40);
     r.cash = clamp(Math.floor(numOr(pr.cash, 0)), 0, 1e10); r.nick = strOr(pr.nick, 16); r.typ = pr.typ ? 1 : 0; r.down = pr.dn ? 1 : 0; r.done = !!pr.done; r.st = clamp(Math.floor(numOr(pr.st, 0)), 0, 99); r.vip = !!pr.vip; r.inside = !!pr.in; r.hm = clamp(Math.floor(numOr(pr.hm, -1)), -1, 2);
     if (kit !== r.kit || lk !== r.lk) { r.kit = kit; r.lk = lk; const pos = r.h.position.clone(), ry = r.h.rotation.y, par = r.h.parent; par.remove(r.h); r.h = remoteHuman(kit, p.peer, lk); r.h.position.copy(pos); r.h.rotation.y = ry; par.add(r.h); }
     const vk = (pr.v === 'bajaji' || pr.v === 'boda') ? pr.v : '', vc = numOr(pr.vc, 0x1f5fbf) & 0xffffff;
@@ -94,8 +94,11 @@ function onPeers(change) {
 function updateRemotes(dt, t) {
   const nowMs = performance.now();
   for (const r of remotes.values()) {
-    const gap = Math.hypot(r.x - r.cx, r.z - r.cz);
-    if (gap > 60) { r.cx = r.x; r.cz = r.z; } else { r.cx = damp(r.cx, r.x, 9, dt); r.cz = damp(r.cz, r.z, 9, dt); }
+    /* updates arrive a few times a second: lead the last known position along the heading for a moment so movement looks continuous */
+    const lead = r.sp > 0.5 && r.updT ? Math.min(0.3, (nowMs - r.updT) / 1000) : 0;
+    const tx = r.x + Math.sin(r.ry) * r.sp * lead, tz = r.z + Math.cos(r.ry) * r.sp * lead;
+    const gap = Math.hypot(tx - r.cx, tz - r.cz);
+    if (gap > 60) { r.cx = tx; r.cz = tz; } else { r.cx = damp(r.cx, tx, r.veh ? 7 : 9, dt); r.cz = damp(r.cz, tz, r.veh ? 7 : 9, dt); }
     if (r.veh) {
       r.veh.position.set(r.cx, 0.04, r.cz); r.veh.rotation.y = angDamp(r.veh.rotation.y, r.ry, 10, dt);
       for (const w of r.veh.userData.wheels) w.g.rotation.x += r.sp * dt / w.r;

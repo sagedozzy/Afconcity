@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<script>if (location.hostname === 'www.afconcity.com') location.replace('https://afconcity.com' + location.pathname + location.search + location.hash);</script>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="description" content="Explore real Fumba, Zanzibar in 3D: ride bodas and bajajis, work jobs, rent a home and collect stamps on your Fan Passport on the road to AFCON 2027.">
 <meta name="theme-color" content="#0a0c1c">
@@ -6145,14 +6146,14 @@ function webRoom() {
   const emitPeers = () => { const peers = peersNow(); for (const f of peersCbs) { try { f({ peers }); } catch (e) { console.error(e); } } };
   const setLive = (v) => { if (v === live) return; live = v; for (const f of conn) { try { f(v); } catch (e) {} } };
   const track = () => {
-    trackTimer = 0; if (!ch || !live) return;
+    clearTimeout(trackTimer); trackTimer = 0; if (!ch || !live) return;
     trackT = performance.now();
     const meta = Object.assign({}, state, { by: WEB.uid || '' });
     delete meta.msg; delete meta.msgt;
     ch.track(meta).catch(() => {});
   };
   const sendMove = () => {
-    moveTimer = 0; if (!ch || !live || !pendingMove) return;
+    clearTimeout(moveTimer); moveTimer = 0; if (!ch || !live || !pendingMove) return;
     moveT = performance.now();
     ch.send({ type: 'broadcast', event: 'mv', payload: Object.assign({ p: myPeer }, pendingMove) }).catch(() => {});
     pendingMove = null;
@@ -6160,6 +6161,13 @@ function webRoom() {
   const join = () => {
     ch = WEB.sb.channel(SB_CFG.room, { config: { presence: { key: myPeer }, broadcast: { self: false, ack: false } } });
     ch.on('presence', { event: 'sync' }, emitPeers);
+    /* a newcomer only gets each player's last presence, so re-send where we are right now */
+    ch.on('presence', { event: 'join' }, (ev) => {
+      if (!ev || ev.key === myPeer || !live) return;
+      clearTimeout(trackTimer); trackTimer = setTimeout(track, 200 + Math.random() * 500);
+      const mv = {}; for (const k of MOVE_KEYS) if (k in state) mv[k] = state[k];
+      pendingMove = mv; clearTimeout(moveTimer); moveTimer = setTimeout(sendMove, 250 + Math.random() * 400);
+    });
     ch.on('broadcast', { event: 'mv' }, (msg) => {
       const p = msg && msg.payload; if (!p || typeof p.p !== 'string' || p.p === myPeer) return;
       const cur = Object.assign({}, moves[p.p] || {});
@@ -6188,7 +6196,9 @@ function webRoom() {
         pendingMove = pendingMove || {}; for (const k of MOVE_KEYS) if (k in patch) pendingMove[k] = patch[k];
         const wait = 200 - (performance.now() - moveT); if (wait <= 0) sendMove(); else if (!moveTimer) moveTimer = setTimeout(sendMove, wait);
       }
-      if (other || !trackT) { const wait = 1200 - (performance.now() - trackT); if (wait <= 0 && !trackTimer) track(); else if (!trackTimer) trackTimer = setTimeout(track, Math.max(0, wait)); }
+      /* presence also carries the position, refreshed every few seconds while moving, so the room's memory never goes stale */
+      const since = performance.now() - trackT;
+      if (other || !trackT || (moved && since > 3000)) { const wait = 1200 - since; if (wait <= 0 && !trackTimer) track(); else if (!trackTimer) trackTimer = setTimeout(track, Math.max(0, wait)); }
     },
     /* chat goes through the database: the server filters words, limits the rate and enforces bans */
     async chat(text, nick) {
@@ -6269,7 +6279,7 @@ function onPeers(change) {
     }
     if (pr === r.prev) continue;
     r.prev = pr; r.by = p.by; r.guest = p.guest;
-    r.x = clamp(numOr(pr.x, r.x), -2000, 2000); r.z = clamp(numOr(pr.z, r.z), -2000, 2000); r.ry = numOr(pr.ry, r.ry); r.sp = clamp(numOr(pr.sp, 0), 0, 40);
+    { const nx = clamp(numOr(pr.x, r.x), -2000, 2000), nz = clamp(numOr(pr.z, r.z), -2000, 2000); if (nx !== r.x || nz !== r.z) r.updT = performance.now(); r.x = nx; r.z = nz; } r.ry = numOr(pr.ry, r.ry); r.sp = clamp(numOr(pr.sp, 0), 0, 40);
     r.cash = clamp(Math.floor(numOr(pr.cash, 0)), 0, 1e10); r.nick = strOr(pr.nick, 16); r.typ = pr.typ ? 1 : 0; r.down = pr.dn ? 1 : 0; r.done = !!pr.done; r.st = clamp(Math.floor(numOr(pr.st, 0)), 0, 99); r.vip = !!pr.vip; r.inside = !!pr.in; r.hm = clamp(Math.floor(numOr(pr.hm, -1)), -1, 2);
     if (kit !== r.kit || lk !== r.lk) { r.kit = kit; r.lk = lk; const pos = r.h.position.clone(), ry = r.h.rotation.y, par = r.h.parent; par.remove(r.h); r.h = remoteHuman(kit, p.peer, lk); r.h.position.copy(pos); r.h.rotation.y = ry; par.add(r.h); }
     const vk = (pr.v === 'bajaji' || pr.v === 'boda') ? pr.v : '', vc = numOr(pr.vc, 0x1f5fbf) & 0xffffff;
@@ -6309,8 +6319,11 @@ function onPeers(change) {
 function updateRemotes(dt, t) {
   const nowMs = performance.now();
   for (const r of remotes.values()) {
-    const gap = Math.hypot(r.x - r.cx, r.z - r.cz);
-    if (gap > 60) { r.cx = r.x; r.cz = r.z; } else { r.cx = damp(r.cx, r.x, 9, dt); r.cz = damp(r.cz, r.z, 9, dt); }
+    /* updates arrive a few times a second: lead the last known position along the heading for a moment so movement looks continuous */
+    const lead = r.sp > 0.5 && r.updT ? Math.min(0.3, (nowMs - r.updT) / 1000) : 0;
+    const tx = r.x + Math.sin(r.ry) * r.sp * lead, tz = r.z + Math.cos(r.ry) * r.sp * lead;
+    const gap = Math.hypot(tx - r.cx, tz - r.cz);
+    if (gap > 60) { r.cx = tx; r.cz = tz; } else { r.cx = damp(r.cx, tx, r.veh ? 7 : 9, dt); r.cz = damp(r.cz, tz, r.veh ? 7 : 9, dt); }
     if (r.veh) {
       r.veh.position.set(r.cx, 0.04, r.cz); r.veh.rotation.y = angDamp(r.veh.rotation.y, r.ry, 10, dt);
       for (const w of r.veh.userData.wheels) w.g.rotation.x += r.sp * dt / w.r;

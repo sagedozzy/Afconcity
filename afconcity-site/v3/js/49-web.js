@@ -151,14 +151,14 @@ function webRoom() {
   const emitPeers = () => { const peers = peersNow(); for (const f of peersCbs) { try { f({ peers }); } catch (e) { console.error(e); } } };
   const setLive = (v) => { if (v === live) return; live = v; for (const f of conn) { try { f(v); } catch (e) {} } };
   const track = () => {
-    trackTimer = 0; if (!ch || !live) return;
+    clearTimeout(trackTimer); trackTimer = 0; if (!ch || !live) return;
     trackT = performance.now();
     const meta = Object.assign({}, state, { by: WEB.uid || '' });
     delete meta.msg; delete meta.msgt;
     ch.track(meta).catch(() => {});
   };
   const sendMove = () => {
-    moveTimer = 0; if (!ch || !live || !pendingMove) return;
+    clearTimeout(moveTimer); moveTimer = 0; if (!ch || !live || !pendingMove) return;
     moveT = performance.now();
     ch.send({ type: 'broadcast', event: 'mv', payload: Object.assign({ p: myPeer }, pendingMove) }).catch(() => {});
     pendingMove = null;
@@ -166,6 +166,13 @@ function webRoom() {
   const join = () => {
     ch = WEB.sb.channel(SB_CFG.room, { config: { presence: { key: myPeer }, broadcast: { self: false, ack: false } } });
     ch.on('presence', { event: 'sync' }, emitPeers);
+    /* a newcomer only gets each player's last presence, so re-send where we are right now */
+    ch.on('presence', { event: 'join' }, (ev) => {
+      if (!ev || ev.key === myPeer || !live) return;
+      clearTimeout(trackTimer); trackTimer = setTimeout(track, 200 + Math.random() * 500);
+      const mv = {}; for (const k of MOVE_KEYS) if (k in state) mv[k] = state[k];
+      pendingMove = mv; clearTimeout(moveTimer); moveTimer = setTimeout(sendMove, 250 + Math.random() * 400);
+    });
     ch.on('broadcast', { event: 'mv' }, (msg) => {
       const p = msg && msg.payload; if (!p || typeof p.p !== 'string' || p.p === myPeer) return;
       const cur = Object.assign({}, moves[p.p] || {});
@@ -194,7 +201,9 @@ function webRoom() {
         pendingMove = pendingMove || {}; for (const k of MOVE_KEYS) if (k in patch) pendingMove[k] = patch[k];
         const wait = 200 - (performance.now() - moveT); if (wait <= 0) sendMove(); else if (!moveTimer) moveTimer = setTimeout(sendMove, wait);
       }
-      if (other || !trackT) { const wait = 1200 - (performance.now() - trackT); if (wait <= 0 && !trackTimer) track(); else if (!trackTimer) trackTimer = setTimeout(track, Math.max(0, wait)); }
+      /* presence also carries the position, refreshed every few seconds while moving, so the room's memory never goes stale */
+      const since = performance.now() - trackT;
+      if (other || !trackT || (moved && since > 3000)) { const wait = 1200 - since; if (wait <= 0 && !trackTimer) track(); else if (!trackTimer) trackTimer = setTimeout(track, Math.max(0, wait)); }
     },
     /* chat goes through the database: the server filters words, limits the rate and enforces bans */
     async chat(text, nick) {

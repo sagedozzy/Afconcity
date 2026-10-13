@@ -6,7 +6,9 @@ STEPS = int(sys.argv[1]) if len(sys.argv) > 1 else 150
 SEED = int(sys.argv[2]) if len(sys.argv) > 2 else 1
 MOBILE = len(sys.argv) > 3 and sys.argv[3] == 'mobile'
 random.seed(SEED)
-s = Session(390, 844, touch=True, mobile=True) if MOBILE else Session()
+WEBMODE = len(sys.argv) > 4 and sys.argv[4] == 'web'
+CL = open(ROOT + '/tools/sbmock.js').read() if WEBMODE else None
+s = Session(390, 844, touch=True, mobile=True, claude=CL) if MOBILE else Session(claude=CL)
 s.load(); s.ev("() => { window.__noRender = true; window.__errs = []; window.addEventListener('error', e => window.__errs.push(String((e.error && e.error.stack) || e.message).slice(0, 600))); window.addEventListener('unhandledrejection', e => window.__errs.push('rej ' + String(e.reason && (e.reason.stack || e.reason)).slice(0, 400))); }")
 G = lambda e: s.run(e)
 s.play(); s.wait(1)

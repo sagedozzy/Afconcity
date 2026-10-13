@@ -80,13 +80,13 @@
       const key = opts && opts.config && opts.config.presence && opts.config.presence.key;
       const hs = [], state = {};
       let joined = false;
-      const fire = (type, ev, payload) => { for (const h of hs) if (h.type === type && (!h.f.event || h.f.event === ev || h.f.event === '*')) { if (type === 'postgres_changes' && (h.f.table !== payload.table || (h.f.filter && !matchFilter(h.f.filter, payload.new || {})))) continue; h.cb(payload); } };
+      const fire = (type, ev, payload) => { for (const h of hs) if (h.type === type && (!h.f.event || h.f.event === ev || h.f.event === '*')) { if (type === 'presence' && ev === 'join' && h.f.event !== 'join') continue; if (type === 'postgres_changes' && (h.f.table !== payload.table || (h.f.filter && !matchFilter(h.f.filter, payload.new || {})))) continue; h.cb(payload); } };
       const matchFilter = (f, row) => { const m = /^(\w+)=eq\.(.*)$/.exec(f); return !m || String(row[m[1]]) === m[2]; };
       const onMsg = (m) => {
         if (!joined) return;
         if (m.t === 'pg') fire('postgres_changes', m.event, { table: m.table, eventType: m.event, new: m.event === 'DELETE' ? {} : m.row, old: m.event === 'DELETE' ? m.row : {} });
         if (m.ch !== name || m.local) return;
-        if (m.t === 'presence') { state[m.key] = [m.meta]; fire('presence', 'sync'); }
+        if (m.t === 'presence') { const isNew = !state[m.key]; state[m.key] = [m.meta]; if (isNew) fire('presence', 'join', { key: m.key }); fire('presence', 'sync'); }
         if (m.t === 'leave') { delete state[m.key]; fire('presence', 'sync'); }
         if (m.t === 'hello' && key && state[key]) bc.postMessage({ t: 'presence', ch: name, key, meta: state[key][0] });
         if (m.t === 'bc') fire('broadcast', m.event, { event: m.event, payload: m.payload });
