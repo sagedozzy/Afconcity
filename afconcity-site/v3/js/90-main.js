@@ -582,7 +582,14 @@ const nextFrame = () => new Promise(r => requestAnimationFrame(() => r()));
 async function start(data) {
   if (booted) return; booted = true;
   const sd = $('#startDays'); if (sd) sd.textContent = DAYS;
-  const btn = $('#btnPlay'), step = async (msg) => { btn.textContent = msg; await nextFrame(); };
+  /* the progress bar: on the website the loader fills the first part while downloading, the boot steps fill the rest */
+  const STEPS = 10, base = window.__afcLoad ? window.__afcLoad.base : 0;
+  let stepN = 0;
+  const btn = $('#btnPlay'), step = async (msg) => {
+    btn.textContent = msg; stepN++;
+    btn.classList.add('loading'); btn.style.setProperty('--load', `${Math.round(base + (100 - base) * Math.min(1, stepN / STEPS))}%`);
+    await nextFrame();
+  };
   let saved = (data && data.save && data.save.v === SAVE_V) ? data.save : readSave();
   if (!saved && data && data.save && data.save.nick) saved = { v: SAVE_V, nick: data.save.nick };
   if (saved) { state = Object.assign(defaultState(), saved); state.stats = Object.assign(defaultState().stats, saved.stats || {}); }
@@ -603,6 +610,7 @@ async function start(data) {
   buildCoins(); buildSparkles(); buildJobMarkers(); buildQuestProps(); buildPenaltyProps(); buildFireworks(); drawMapBase();
   restoreFrom(state);
   wireUI();
+  btn.classList.remove('loading'); btn.style.removeProperty('--load');
   btn.disabled = false; btn.textContent = saved && saved.intro ? 'Twende · Continue' : 'Twende · Play';
   $('#mmPlayHint').textContent = saved && saved.intro ? `Continue · ${tsh(money())}` : 'Start in Fumba';
   $('#btnNew').hidden = !(saved && saved.intro);

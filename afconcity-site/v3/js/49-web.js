@@ -228,3 +228,21 @@ async function webBan(uid, reason) { const { error } = await WEB.sb.from('chat_b
 async function webUnban(uid) { const { error } = await WEB.sb.from('chat_bans').delete().eq('uid', uid); if (error) throw webErr(error); }
 async function webBans() { const { data } = await WEB.sb.from('chat_bans').select('uid,reason,created_at').order('created_at', { ascending: false }).limit(50); return data || []; }
 async function webDismissReport(id) { await WEBDB.doc('reports/' + id).delete(); }
+
+/* ---------- install to the home screen (website only) ---------- */
+function initInstall() {
+  if (window.claude || !('serviceWorker' in navigator) || location.protocol !== 'https:' && location.hostname !== '127.0.0.1') return;
+  const item = $('#mmInstall'), btn = $('#btnInstall'); if (!item || !btn) return;
+  const standalone = matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: fullscreen)').matches || navigator.standalone === true;
+  if (standalone) return;
+  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const ready = () => { item.hidden = false; btn.hidden = !window.__bip; $('#installIOS').hidden = !ios || !!window.__bip; $('#installOther').hidden = ios || !!window.__bip; };
+  window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); window.__bip = e; ready(); });
+  window.addEventListener('appinstalled', () => { window.__bip = null; btn.hidden = true; $('#installIOS').hidden = true; $('#installOther').hidden = true; $('#installDone').hidden = false; });
+  btn.addEventListener('click', async () => {
+    const p = window.__bip; if (!p) return;
+    p.prompt(); try { const r = await p.userChoice; if (r && r.outcome === 'accepted') { window.__bip = null; btn.hidden = true; $('#installDone').hidden = false; } } catch (e) {}
+  });
+  if (window.__bip || isCoarse) ready();
+}
+try { initInstall(); } catch (e) {}

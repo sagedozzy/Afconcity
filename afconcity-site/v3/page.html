@@ -319,6 +319,8 @@ b.hr{color:var(--loss);font-weight:700}
 .controls dt{display:flex;gap:3px;flex:none}
 .controls dd{margin:0}
 .load-note{font:600 13px/1.4 var(--f-body);color:var(--turmeric)}
+/* loading progress fills the Play button from left to right */
+#btnPlay.loading{background:linear-gradient(90deg,var(--turmeric) 0 var(--load,0%),#d9cdb4 var(--load,0%) 100%);color:var(--ink);opacity:1;white-space:nowrap;font-size:clamp(15px,4.4vw,22px)}
 .touch-note{display:none}
 
 /* shop / vendor panel: docked right so the street stays visible */
@@ -859,6 +861,7 @@ input[type=range]{accent-color:var(--turmeric);width:200px}
         <button class="mm-item" type="button" data-p="settings"><span>Settings</span><small>Graphics · sound</small></button>
         <button class="mm-item" type="button" data-p="ads"><span>Advertise</span><small>Billboards and phones</small></button>
         <button class="mm-item" type="button" data-p="about"><span>About the map</span><small>Real Fumba data</small></button>
+        <button class="mm-item" type="button" data-p="install" id="mmInstall" hidden><span>Install the app</span><small>Play from your home screen</small></button>
       </nav>
       <p class="load-note" id="loadNote" hidden></p>
     </div>
@@ -943,6 +946,21 @@ input[type=range]{accent-color:var(--turmeric);width:200px}
       <div class="sp" data-p="ads" hidden>
         <div class="sp-head"><span class="eyebrow">For brands</span><h2>Your billboard in AfconCity</h2></div>
         <div id="adsMain" class="ads-main"></div>
+      </div>
+
+      <div class="sp" data-p="install" hidden>
+        <div class="sp-head"><span class="eyebrow">On your phone</span><h2>Install AfconCity</h2></div>
+        <p class="lede">Add the game to your home screen: it opens full screen like an app, and after the first visit it starts fast, even on a weak connection.</p>
+        <button class="btn" type="button" id="btnInstall" hidden>Install AfconCity</button>
+        <ol class="steps" id="installIOS" hidden>
+          <li>In Safari, tap the <b>Share</b> button (the square with an arrow).</li>
+          <li>Scroll down and tap <b>Add to Home Screen</b>, then <b>Add</b>.</li>
+        </ol>
+        <ol class="steps" id="installOther" hidden>
+          <li>Open the browser menu (<b>⋮</b> in Chrome).</li>
+          <li>Tap <b>Install app</b> or <b>Add to Home screen</b>.</li>
+        </ol>
+        <p class="fine" id="installDone" hidden>AfconCity is installed. Open it from your home screen.</p>
       </div>
 
       <div class="sp" data-p="about" hidden>

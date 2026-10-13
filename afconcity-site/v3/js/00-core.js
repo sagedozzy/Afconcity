@@ -318,8 +318,12 @@ function paint(size, seed, fn) {
 const TEX = {};
 /* image textures (generated offline, embedded as WebP); normal maps are linear, the rest sRGB */
 const TEXDATA = /*TEXDATA*/null;
+/* In the Claude page every texture is inlined. On the website the loader has already downloaded them (window.__AFC_TEX);
+   phones on Fast graphics get half-size ground textures and skip the fine surface-detail (normal) maps. */
 async function loadTextures() {
-  const jobs = Object.entries(TEXDATA || {}).map(([name, url]) => new Promise((res) => {
+  const src = (typeof window !== 'undefined' && window.__AFC_TEX) || TEXDATA || {};
+  const jobs = Object.entries(src).map(([name, url]) => new Promise((res) => {
+    if (!url) { res(); return; }
     const im = new Image();
     im.onload = () => { const t = new T.Texture(im); t.wrapS = t.wrapT = T.RepeatWrapping; t.anisotropy = Math.min(8, maxAniso); if (!/N$/.test(name)) t.encoding = T.sRGBEncoding; if (name === 'frond' || name === 'leaves' || name === 'tuft') { t.wrapS = t.wrapT = T.ClampToEdgeWrapping; } t.needsUpdate = true; TEX[name] = t; res(); };
     im.onerror = () => res();

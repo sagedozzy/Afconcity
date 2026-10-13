@@ -53,3 +53,13 @@ On afconcity.com, multiplayer, ad bookings, owner sign-in, chat moderation, feed
 - Owner sign-in: the owner emails in the `admins` table get a sign-in code (or link) by email. Add another owner with `insert into admins values ('name@example.com');`
 - Chat: the server stars out words in `chat_words`, allows one message per 1.5 seconds and 12 a minute, blocks banned players, and stops all chat when the owner switches it off. Add a filtered word with `insert into chat_words values ('word');`
 - `supabase/test_policies.sh` tests the rules against a local Postgres; `tools/web_mp.py` tests two players against an in-browser stand-in for Supabase.
+
+## Fast loading
+
+The website build (`python3 v3/build.py web`) writes:
+
+- `dist/index.html`: a small page, always checked for updates.
+- `dist/assets/game.<fingerprint>.js` and `dist/assets/tex/*.<fingerprint>.webp`: cached by browsers for a year (see `web/_headers`). A new build changes the fingerprints, so players get updates straight away.
+- `dist/sw.js`: an offline helper, so repeat visits start from the phone's own copy and the game opens without a connection.
+
+The loader in `v3/web_loader.js` shows real download progress in the Play button. Phones on Fast graphics get half-size ground textures and skip the fine surface-detail maps. `tools/swtest.py` checks caching and offline play, and `tools/loadtime.py` times each loading step.
