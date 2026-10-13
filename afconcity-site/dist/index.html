@@ -615,6 +615,15 @@ input[type=range]{accent-color:var(--turmeric);width:200px}
 .ad-ph-thumb{display:grid;place-items:center;padding:12px;border-radius:10px;background:#141838;min-height:120px}
 .ad-ph-thumb .ph-banner{max-width:260px}
 .ad-form textarea.fb-text{min-height:64px}
+.pl-acts{display:flex;gap:4px;margin-left:6px}
+.pl-act{padding:3px 8px;border-radius:999px;border:0;background:rgba(255,255,255,.08);box-shadow:inset 0 0 0 1px var(--line-2);color:var(--sand);font:700 10.5px/1.2 var(--f-body);letter-spacing:.04em;cursor:pointer}
+.pl-act:disabled{opacity:.6;cursor:default}
+.ad-owner{margin-top:22px;display:grid;gap:10px}
+.ad-owner-top{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.ad-owner-login summary{cursor:pointer;font:700 13px/1.3 var(--f-body);color:var(--muted)}
+.ad-owner-login .ad-form{margin-top:8px;max-width:420px}
+.ad-reports{display:grid;gap:8px}
+.ad-report{display:grid;gap:4px;padding:10px;border-radius:10px;background:rgba(0,0,0,.22);box-shadow:inset 0 0 0 1px var(--line)}
 /* the home hub */
 .homep{position:fixed;right:clamp(10px,2vw,28px);top:clamp(16px,6vh,60px);z-index:20;width:min(400px,calc(100vw - 20px));max-height:calc(100vh - clamp(16px,6vh,60px) - 16px);overflow:auto;display:grid;align-content:start;gap:12px;padding:0 0 16px;border-radius:14px;background:rgba(10,12,30,.9);box-shadow:0 24px 60px rgba(0,0,0,.5),inset 0 0 0 1px var(--line);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);animation:vin .22s ease}
 .homep-head{padding:16px 18px 14px;background:linear-gradient(120deg,#1e6f5c,#14504a 60%,var(--ink-2));border-radius:14px 14px 0 0;position:relative}
@@ -5983,6 +5992,217 @@ function updateLife(dt, t) {
   updateFishing(dt);
   updatePolice(dt, t);
 }
+/* ===================== 49 web backend: on afconcity.com, Supabase stands in for Claude's runtime ===================== */
+/* The game asks for 'db', 'user' and 'room' the same way in both places; here they are small shims over Supabase.
+   Players sign in anonymously (no form); the owner signs in by email code; chat goes through the database so the
+   word filter, rate limits, bans and the owner's off switch are enforced on the server (see supabase/setup.sql). */
+const SB_CFG = {
+  url: 'https://duwxnxvrrzqiaeortusg.supabase.co',
+  key: 'sb_publishable_ViPUHhYZaXfCQk133yMzhA_JLE4Rz_2',
+  lib: 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.2/dist/umd/supabase.js',
+  room: 'fumba-v1',
+};
+const WEB = { sb: null, ready: null, uid: null, email: '', anon: true, admin: false, err: '', listeners: [], room: null };
+function loadScript(src) { return new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.async = true; s.crossOrigin = 'anonymous'; s.onload = res; s.onerror = () => rej(new Error('Could not load ' + src)); document.head.append(s); }); }
+function webErr(e) { return { code: (e && (e.code || e.status)) || 'error', message: (e && e.message) || String(e) }; }
+function webBackend() {
+  if (WEB.ready) return WEB.ready;
+  WEB.ready = (async () => {
+    if (!(window.supabase && window.supabase.createClient)) await loadScript(SB_CFG.lib);
+    const sb = window.supabase.createClient(SB_CFG.url, SB_CFG.key, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, storageKey: 'afc-auth' }, realtime: { params: { eventsPerSecond: 20 } } });
+    WEB.sb = sb;
+    let session = null;
+    try { session = (await sb.auth.getSession()).data.session; } catch (e) {}
+    if (!session) { const r = await sb.auth.signInAnonymously(); if (r.error) WEB.err = r.error.message; else session = r.data.session; }
+    await webSetSession(session);
+    // never await other Supabase calls inside this callback (supabase-js can deadlock); hop out first
+    sb.auth.onAuthStateChange((ev, s) => { setTimeout(() => webSetSession(s).then(() => { for (const f of WEB.listeners) { try { f(ev); } catch (e) {} } }), 0); });
+    return sb;
+  })();
+  return WEB.ready;
+}
+async function webSetSession(s) {
+  const u = s && s.user;
+  WEB.uid = u ? u.id : null; WEB.email = (u && u.email) || ''; WEB.anon = !u || !!u.is_anonymous; WEB.admin = false;
+  if (u && !WEB.anon) { try { const r = await WEB.sb.rpc('is_admin'); WEB.admin = !!r.data; } catch (e) {} }
+}
+function onWebAuth(f) { WEB.listeners.push(f); }
+/* the shape the game expects from claude.use(): null when this browser cannot run it */
+const webClaude = SB_CFG.url && SB_CFG.key ? {
+  web: true,
+  async use(name) {
+    try { await webBackend(); } catch (e) { WEB.err = (e && e.message) || 'offline'; return null; }
+    if (name === 'db') return WEBDB;
+    if (name === 'user') return WEBUSER;
+    if (name === 'room') return webRoom();
+    return null;
+  },
+} : null;
+
+/* ---------- db: documents addressed by path, like 'billboards/b1' or 'feedback/<uid>/items/<id>' ---------- */
+const splitPath = (p) => { const i = p.lastIndexOf('/'); return [p.slice(0, i), p.slice(i + 1)]; };
+const webDoc = (row) => ({ id: row ? row.id : '', exists: !!row, data: () => (row ? row.data : undefined) });
+const rid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+function webWatch(coll, id, fetch, cb, err) {
+  let alive = true;
+  const run = () => fetch().then((v) => { if (alive) cb(v); }, (e) => { if (alive && err) err(webErr(e)); });
+  run();
+  const hit = (row) => { if (row && row.coll === coll && (!id || row.id === id)) run(); };
+  // Supabase cannot filter delete events, so deletes arrive for every collection and are matched here (only the owner deletes)
+  const ch = WEB.sb.channel(`docs:${coll}:${id || '*'}:${rid()}`)
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'docs', filter: `coll=eq.${coll}` }, (p) => hit(p.new))
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'docs', filter: `coll=eq.${coll}` }, (p) => hit(p.new))
+    .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'docs' }, (p) => hit(p.old))
+    .subscribe();
+  return () => { alive = false; WEB.sb.removeChannel(ch); };
+}
+function webQuery(coll, o) {
+  o = o || {};
+  const fetch = async () => {
+    let q = WEB.sb.from('docs').select('id,data').eq('coll', coll).order('updated_at', { ascending: !o.desc });
+    if (o.n) q = q.limit(o.n);
+    const { data, error } = await q; if (error) throw error;
+    return { docs: (data || []).map(webDoc), size: (data || []).length };
+  };
+  return {
+    orderBy: (f, dir) => webQuery(coll, Object.assign({}, o, { desc: dir === 'desc' })),
+    limit: (n) => webQuery(coll, Object.assign({}, o, { n })),
+    get: () => fetch().catch((e) => { throw webErr(e); }),
+    onSnapshot: (cb, err) => webWatch(coll, null, fetch, cb, err),
+    add: async (d) => { const id = rid(); await WEBDB.doc(coll + '/' + id).set(d); return { id }; },
+    doc: (id) => WEBDB.doc(coll + '/' + id),
+  };
+}
+const WEBDB = {
+  collection: (path) => webQuery(path),
+  doc(path) {
+    const [coll, id] = splitPath(path);
+    const fetch = async () => { const { data, error } = await WEB.sb.from('docs').select('id,data').eq('coll', coll).eq('id', id).maybeSingle(); if (error) throw error; return webDoc(data); };
+    return {
+      id,
+      get: () => fetch().catch((e) => { throw webErr(e); }),
+      async set(d) { const { error } = await WEB.sb.from('docs').upsert({ coll, id, data: d }, { onConflict: 'coll,id' }); if (error) throw webErr(error); },
+      async delete() { const { error } = await WEB.sb.from('docs').delete().eq('coll', coll).eq('id', id); if (error) throw webErr(error); },
+      onSnapshot: (cb, err) => webWatch(coll, id, fetch, cb, err),
+    };
+  },
+};
+
+/* ---------- user ---------- */
+const WEBUSER = {
+  async me() { return { id: WEB.uid, name: '' }; },
+  async id() { return WEB.uid; },
+  async canEdit() { return WEB.admin; },
+  isOwner() { return WEB.admin; },
+  async can(what) { return what === 'data.write' ? !!WEB.uid : false; },
+  async profiles() { return {}; },
+};
+/* the owner signs in with a code sent to their email (or the link in the same email) */
+async function webOwnerSendCode(email) {
+  const { error } = await WEB.sb.auth.signInWithOtp({ email, options: { emailRedirectTo: location.origin + location.pathname, shouldCreateUser: true } });
+  if (error) throw webErr(error);
+}
+async function webOwnerVerify(email, code) {
+  const { error } = await WEB.sb.auth.verifyOtp({ email, token: code, type: 'email' });
+  if (error) throw webErr(error);
+  await webSetSession((await WEB.sb.auth.getSession()).data.session);
+}
+async function webSignOut() {
+  await WEB.sb.auth.signOut();
+  const r = await WEB.sb.auth.signInAnonymously();
+  await webSetSession(r.data && r.data.session);
+}
+
+/* ---------- room: everyone on the website shares one Fumba ---------- */
+const MOVE_KEYS = new Set(['x', 'z', 'ry', 'sp', 'v', 'vc']);
+function webRoom() {
+  if (WEB.room) return WEB.room;
+  const myPeer = 'p' + rid();
+  const state = {}, moves = {}, merged = new Map(), conn = [], peersCbs = [], chatCbs = [];
+  let ch = null, live = false, trackT = 0, trackTimer = 0, moveT = 0, moveTimer = 0, pendingMove = null;
+  const peersNow = () => {
+    const out = [], st = ch ? ch.presenceState() : {};
+    for (const key of Object.keys(st)) {
+      const metas = st[key]; if (!metas || !metas.length) continue;
+      const m = metas[metas.length - 1], mv = moves[key];
+      let e = merged.get(key);
+      if (!e || e.m !== m || e.mv !== mv) { e = { m, mv, obj: Object.assign({}, m, mv || {}) }; merged.set(key, e); }
+      out.push({ kind: 'viewer', peer: key, by: m.by || '', isMe: !!WEB.uid && m.by === WEB.uid, sameTab: key === myPeer, guest: false, presence: e.obj });
+    }
+    for (const k of [...merged.keys()]) if (!st[k]) { merged.delete(k); delete moves[k]; }
+    return out;
+  };
+  const emitPeers = () => { const peers = peersNow(); for (const f of peersCbs) { try { f({ peers }); } catch (e) { console.error(e); } } };
+  const setLive = (v) => { if (v === live) return; live = v; for (const f of conn) { try { f(v); } catch (e) {} } };
+  const track = () => {
+    trackTimer = 0; if (!ch || !live) return;
+    trackT = performance.now();
+    const meta = Object.assign({}, state, { by: WEB.uid || '' });
+    delete meta.msg; delete meta.msgt;
+    ch.track(meta).catch(() => {});
+  };
+  const sendMove = () => {
+    moveTimer = 0; if (!ch || !live || !pendingMove) return;
+    moveT = performance.now();
+    ch.send({ type: 'broadcast', event: 'mv', payload: Object.assign({ p: myPeer }, pendingMove) }).catch(() => {});
+    pendingMove = null;
+  };
+  const join = () => {
+    ch = WEB.sb.channel(SB_CFG.room, { config: { presence: { key: myPeer }, broadcast: { self: false, ack: false } } });
+    ch.on('presence', { event: 'sync' }, emitPeers);
+    ch.on('broadcast', { event: 'mv' }, (msg) => {
+      const p = msg && msg.payload; if (!p || typeof p.p !== 'string' || p.p === myPeer) return;
+      const cur = Object.assign({}, moves[p.p] || {});
+      for (const k of MOVE_KEYS) if (k in p) cur[k] = p[k];
+      moves[p.p] = cur; emitPeers();
+    });
+    ch.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, (p) => {
+      const r = p && p.new; if (!r) return;
+      for (const f of chatCbs) { try { f({ id: r.id, by: r.owner, nick: r.nick, body: r.body, at: Date.parse(r.created_at) || Date.now() }); } catch (e) {} }
+    });
+    ch.subscribe((status) => {
+      if (status === 'SUBSCRIBED') { setLive(true); track(); emitPeers(); }
+      else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') setLive(false);
+    });
+  };
+  WEB.room = {
+    web: true,
+    connected: () => live,
+    onConnection(cb) { conn.push(cb); if (!ch) join(); else cb(live); },
+    onPeers(cb) { peersCbs.push(cb); if (!ch) join(); else cb({ peers: peersNow() }); },
+    /* the game sends small patches; movement goes out as a light broadcast (up to 5 a second), everything else as presence */
+    async presence(patch) {
+      let moved = false, other = false;
+      for (const k in patch) { state[k] = patch[k]; if (MOVE_KEYS.has(k)) moved = true; else other = true; }
+      if (moved) {
+        pendingMove = pendingMove || {}; for (const k of MOVE_KEYS) if (k in patch) pendingMove[k] = patch[k];
+        const wait = 200 - (performance.now() - moveT); if (wait <= 0) sendMove(); else if (!moveTimer) moveTimer = setTimeout(sendMove, wait);
+      }
+      if (other || !trackT) { const wait = 1200 - (performance.now() - trackT); if (wait <= 0 && !trackTimer) track(); else if (!trackTimer) trackTimer = setTimeout(track, Math.max(0, wait)); }
+    },
+    /* chat goes through the database: the server filters words, limits the rate and enforces bans */
+    async chat(text, nick) {
+      if (!WEB.uid) return { error: 'Chat needs a moment to connect. Try again.' };
+      const { data, error } = await WEB.sb.from('chat_messages').insert({ nick: (nick || 'Fan').slice(0, 16), body: text.slice(0, 90) }).select('id,body,nick').single();
+      if (error) return { error: error.message || 'Message not sent.' };
+      return { id: data.id, body: data.body, nick: data.nick };
+    },
+    onChat(cb) { chatCbs.push(cb); if (!ch) join(); },
+    async report(target, nick, lines) {
+      if (!WEB.uid) return false;
+      try { await WEBDB.doc('reports/' + rid()).set({ target, nick: String(nick || '').slice(0, 16), lines: (lines || []).slice(-5).map(s => String(s).slice(0, 90)), at: Date.now(), by: WEB.uid }); return true; } catch (e) { return false; }
+    },
+  };
+  return WEB.room;
+}
+/* ---------- the owner's chat controls ---------- */
+async function webChatEnabled() { try { const d = await WEBDB.doc('config/chat').get(); return !d.exists || d.data().chat !== false; } catch (e) { return true; } }
+async function webSetChat(on) { await WEBDB.doc('config/chat').set({ chat: !!on, at: Date.now() }); }
+async function webReports() { const s = await WEBDB.collection('reports').orderBy('at', 'desc').limit(30).get(); return s.docs.map(d => Object.assign({ id: d.id }, d.data())); }
+async function webBan(uid, reason) { const { error } = await WEB.sb.from('chat_bans').upsert({ uid, reason: String(reason || '').slice(0, 120) }); if (error) throw webErr(error); }
+async function webUnban(uid) { const { error } = await WEB.sb.from('chat_bans').delete().eq('uid', uid); if (error) throw webErr(error); }
+async function webBans() { const { data } = await WEB.sb.from('chat_bans').select('uid,reason,created_at').order('created_at', { ascending: false }).limit(50); return data || []; }
+async function webDismissReport(id) { await WEBDB.doc('reports/' + id).delete(); }
 /* ===================== 50 multiplayer: presence, chat, shared coins and drops, events ===================== */
 const remotes = new Map();
 const MP = { joined: false, room: null, user: null, status: 'connecting', myPeer: null, uid: null, myName: '', last: {}, lastSend: 0, em: '', emt: 0, msg: '', msgt: 0, typ: 0, hf: '', hft: 0, ev: '', evt: 0, evk: '', hiDone: new Set(), names: {}, viewers: 0, chatT: 0 };
@@ -5996,13 +6216,14 @@ const NET_WHY = {
   revoked: 'Solo. Your access to this game changed. Reload the page to rejoin.',
   timeout: 'Solo for now. The live room did not answer. Reload the page, or check your connection.',
   error: 'Solo for now. The live room is unavailable. Reload the page to try again.',
+  webdown: 'Solo for now. The live server did not answer. Check your connection and reload the page.',
 };
 function setNet(status, why) {
   MP.status = status; if (why !== undefined) MP.why = why;
   const live = status === 'live', n = MP.viewers;
   ui.online.classList.toggle('live', live);
   ui.onlineText.textContent = live ? (n <= 1 ? 'Live · only you' : `${n} online`) : status === 'connecting' ? 'Connecting…' : 'Solo';
-  const msg = live ? (n <= 1 ? 'Live, and you are the only fan here right now. Friends the host adds by email in Share appear when they open the game signed in. Test it: open this game in a second tab.' : `Live. ${n - 1} other fan${n === 2 ? ' is' : 's are'} in Fumba with you right now.`)
+  const msg = live ? (n <= 1 ? (MP.web ? 'Live, and you are the only fan here right now. Send friends the link afconcity.com and they appear in Fumba with you.' : 'Live, and you are the only fan here right now. Friends the host adds by email in Share appear when they open the game signed in. Test it: open this game in a second tab.') : `Live. ${n - 1} other fan${n === 2 ? ' is' : 's are'} in Fumba with you right now.`)
     : status === 'connecting' ? 'Connecting to the live room…'
     : NET_WHY[MP.why] || NET_WHY.error;
   for (const id of ['#netNote', '#pmNet', '#playersNote']) { const el = $(id); if (!el) continue; el.classList.toggle('live', live); (el.querySelector('span') || el).textContent = msg; }
@@ -6106,7 +6327,7 @@ function renderPlayers() {
 function fillPlayers(list) {
   list.innerHTML = '';
   const rows = [{ name: state.nick || 'You', st: state.cash, kit: state.kit, note: `you · ${state.ticket ? 'VIP' : `${stampCount()}/${REQUIRED.length} stamps`}` }];
-  for (const r of remotes.values()) rows.push({ name: displayName(r), st: r.cash, kit: r.kit, note: [r.isMe ? 'your other tab' : r.guest ? 'guest' : '', r.vip ? 'VIP' : `${r.st || 0}/${REQUIRED.length} stamps`, r.inside ? 'at home' : r.hm === 2 ? 'Burj resident' : '', r.vk ? `on a ${VEH[r.vk].name.toLowerCase()}` : ''].filter(Boolean).join(' · ') });
+  for (const r of remotes.values()) rows.push({ remote: r.isMe ? null : r, name: displayName(r), st: r.cash, kit: r.kit, note: [r.isMe ? 'your other tab' : r.guest ? 'guest' : '', r.vip ? 'VIP' : `${r.st || 0}/${REQUIRED.length} stamps`, r.inside ? 'at home' : r.hm === 2 ? 'Burj resident' : '', r.vk ? `on a ${VEH[r.vk].name.toLowerCase()}` : ''].filter(Boolean).join(' · ') });
   rows.sort((a, b) => b.st - a.st);
   rows.forEach((r, i) => {
     const li = document.createElement('li'); if (i === 0 && rows.length > 1) li.className = 'top';
@@ -6114,7 +6335,15 @@ function fillPlayers(list) {
     const nm = document.createElement('span'); nm.textContent = r.name;
     if (r.note) { const sm = document.createElement('small'); sm.textContent = ` · ${r.note}`; nm.append(sm); }
     const st = document.createElement('b'); st.textContent = tsh(r.st);
-    li.append(dot, nm, st); list.append(li);
+    li.append(dot, nm, st);
+    if (r.remote && MP.web && MP.room && r.remote.by) {
+      const by = r.remote.by, muted = MUTED.has(by), acts = document.createElement('span'); acts.className = 'pl-acts';
+      const mb = document.createElement('button'); mb.type = 'button'; mb.className = 'pl-act'; mb.textContent = muted ? 'Unmute' : 'Mute'; mb.onclick = () => setMuted(by, !muted);
+      const rb = document.createElement('button'); rb.type = 'button'; rb.className = 'pl-act'; rb.textContent = 'Report';
+      rb.onclick = async () => { rb.disabled = true; const ok = await MP.room.report(by, displayName(r.remote), r.remote.lines || []); rb.textContent = ok ? 'Reported' : 'Try later'; if (ok) setMuted(by, true); };
+      acts.append(mb, rb); li.append(acts);
+    }
+    list.append(li);
   });
 }
 const escapeHtml = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -6148,20 +6377,27 @@ function sendPresence(force) {
   MP.room.presence(patch).catch(() => {});
 }
 async function initMultiplayer() {
-  const cl = window.claude;
-  if (!cl || typeof cl.use !== 'function') {
-    /* on the public website: single player, with multiplayer marked as coming soon */
+  const cl = (window.claude && typeof window.claude.use === 'function') ? window.claude : webClaude;
+  if (!cl) {
+    /* a copy with no backend at all: single player, with multiplayer marked as coming soon */
     document.querySelectorAll('.mp-claude').forEach(e => { e.hidden = true; }); document.querySelectorAll('.mp-web').forEach(e => { e.hidden = false; });
     const pn = $('#playersNote'); if (pn) pn.textContent = 'Multiplayer is coming soon.';
     setNet('solo', 'outside'); return;
+  }
+  if (cl.web) {
+    /* afconcity.com: everyone who opens the site shares one Fumba */
+    MP.web = true;
+    document.querySelectorAll('.mp-claude').forEach(e => { e.hidden = true; });
+    document.querySelectorAll('.mp-web').forEach(e => { e.hidden = false; e.textContent = 'Everyone at afconcity.com shares the same Fumba: chat, high-fives, races and dropped cash. Send friends the link and meet up at the Uptown Gate.'; });
   }
   try {
     const [room, user] = await Promise.all([cl.use('room'), cl.use('user')]);
     MP.user = user;
     let uid = null;
     if (user) { try { const me = await user.me(); uid = me.id; MP.uid = me.id; MP.myName = me.name || ''; const nick = $('#nick'); if (!state.nick && MP.myName && nick && !nick.value) nick.placeholder = MP.myName.split(' ')[0].slice(0, 16); } catch (e) {} }
-    if (!room) { setNet('solo', uid ? 'noaccess' : 'signedout'); return; }
+    if (!room) { setNet('solo', MP.web ? 'webdown' : uid ? 'noaccess' : 'signedout'); return; }
     MP.room = room;
+    if (room.onChat) room.onChat(onServerChat);
     const dead = (e) => { MP.terminal = true; const c = e && e.code; setNet('solo', c === 'not_granted' ? (uid ? 'noaccess' : 'signedout') : c === 'revoked' ? 'revoked' : 'error'); };
     room.onConnection((c) => { if (MP.terminal) return; setNet(c ? 'live' : (MP.status === 'live' ? 'connecting' : MP.status), c ? '' : undefined); if (c) { MP.last = {}; sendPresence(true); } }, dead);
     room.onPeers(onPeers, dead);
@@ -6175,9 +6411,36 @@ function mpEvent(text, kind) {
   sendPresence(true);
 }
 function doEmote(e) { if (!EMOTE_LEN[e] || mode !== 'play' || playerVeh) return; playEmote(player, e); MP.em = e; MP.emt = Date.now(); sendPresence(true); if (e === 'cheer') sfx.clap(); }
+function showMyChat(msg) {
+  chatLine(state.nick || 'You', msg, KITS[state.kit].css);
+  if (playerTag) { playerTag.bub.textContent = msg; playerTag.bub.hidden = false; playerTag.bubUntil = performance.now() + 7000; }
+  sfx.chat();
+}
+/* website chat: the server filters, limits and can block messages; what it stores is what everyone sees */
+const MUTED = new Set((() => { try { return JSON.parse(localStorage.getItem('afc-muted') || '[]'); } catch (e) { return []; } })());
+function setMuted(by, on) { if (on) MUTED.add(by); else MUTED.delete(by); try { localStorage.setItem('afc-muted', JSON.stringify([...MUTED].slice(-200))); } catch (e) {} renderPlayers(); }
+function onServerChat(m) {
+  if (!m || !m.by || MUTED.has(m.by)) return;
+  if (m.by === WEB.uid && MP.mine && MP.mine.has(m.id)) return;
+  const nick = strOr(m.nick, 16) || 'Fan', body = strOr(m.body, 90); if (!body) return;
+  let r = null; for (const x of remotes.values()) if (x.by === m.by && !x.isMe) r = x;
+  if (r) { r.tag.bub.textContent = body; r.tag.bub.hidden = false; r.tag.bubUntil = performance.now() + 7000; (r.lines = r.lines || []).push(body); if (r.lines.length > 8) r.lines.shift(); }
+  chatLine(r ? displayName(r) : nick, body, r ? KITS[r.kit].css : 'var(--turmeric)'); sfx.chat();
+  (MP.log = MP.log || []).push({ by: m.by, nick, body, at: m.at }); if (MP.log.length > 40) MP.log.shift();
+  if (PH.open && (PH.app === 'msgs' || (PH.app === 'thread' && PH.arg === '#live'))) renderPhone();
+}
 function sendChat(text) {
   const msg = strOr(text, 90).trim(); if (!msg) return;
   if (performance.now() - MP.chatT < 900) { help('Slow down a little. One message a second.', 1500); return; }
+  if (MP.room && MP.room.chat) {
+    MP.chatT = performance.now(); MP.typ = 0; sendPresence(true);
+    MP.room.chat(msg, state.nick || 'Fan').then((r) => {
+      if (r.error) { help(escapeHtml(r.error), 2600); sfx.deny(); return; }
+      (MP.mine = MP.mine || new Set()).add(r.id); showMyChat(r.body);
+      (MP.log = MP.log || []).push({ by: WEB.uid, nick: state.nick || 'You', body: r.body, at: Date.now(), me: true }); if (MP.log.length > 40) MP.log.shift();
+    });
+    return;
+  }
   MP.chatT = performance.now(); MP.msg = msg; MP.msgt = Date.now(); MP.typ = 0; sendPresence(true);
   chatLine(state.nick || 'You', msg, KITS[state.kit].css);
   if (playerTag) { playerTag.bub.textContent = msg; playerTag.bub.hidden = false; playerTag.bubUntil = performance.now() + 7000; }
@@ -6241,9 +6504,12 @@ async function applyAds() {
 /* booking contact for brands on the public website (no shared database there yet): an email, a WhatsApp number with country code, or an https link */
 const SITE_CONTACT = 'support@afconcity.com';
 async function initAds() {
-  const cl = window.claude;
-  if (!cl || typeof cl.use !== 'function') { if (SITE_CONTACT) { AD.contact = SITE_CONTACT; renderAdsAll(); } return; }
+  const cl = (window.claude && typeof window.claude.use === 'function') ? window.claude : webClaude;
+  if (!cl) { if (SITE_CONTACT) { AD.contact = SITE_CONTACT; renderAdsAll(); } return; }
+  AD.web = !!cl.web;
+  if (AD.web) { AD.contact = SITE_CONTACT; renderAdsAll(); }
   try { [AD.db, AD.user] = await Promise.all([cl.use('db'), cl.use('user')]); } catch (e) { return; }
+  if (AD.web) onWebAuth(() => { AD.canEdit = WEB.admin; AD.uid = WEB.uid; AD.write = !!WEB.uid; loadStatsBase(); renderAdsAll(); });
   if (AD.user) { try { AD.canEdit = !!(await AD.user.canEdit()); AD.uid = await AD.user.id(); AD.write = await AD.user.can('data.write'); } catch (e) {} }
   AD.ready = true;
   if (!AD.db) { renderAdsAll(); return; }
@@ -6251,7 +6517,7 @@ async function initAds() {
     const next = {}; for (const d of snap.docs) if (d.exists) next[d.id] = d.data();
     AD.live = next; applyAds(); renderAdsAll(); if (PH.open && (PH.app === 'home' || PH.app === 'brand' || PH.app === 'ads')) renderPhone(); if (HOME.inside) { HOME.tvKey = ''; updateHomeTV(); }
   }, () => {});
-  AD.db.doc('config/ads').onSnapshot((s) => { const d = s.exists ? s.data() : {}; AD.contact = typeof d.contact === 'string' ? d.contact : ''; AD.rates = d.rates && typeof d.rates === 'object' ? d.rates : {}; renderAdsAll(); }, () => {});
+  AD.db.doc('config/ads').onSnapshot((s) => { const d = s.exists ? s.data() : {}; AD.contact = typeof d.contact === 'string' && d.contact ? d.contact : (AD.web ? SITE_CONTACT : ''); AD.rates = d.rates && typeof d.rates === 'object' ? d.rates : {}; renderAdsAll(); }, () => {});
   renderAdsAll();
 }
 function renderAdsAll() { if (!ui.pause.hidden && pmTab === 'ads') renderAds($('#pmAds'), true); const m = $('#adsMain'); if (m && !m.closest('[hidden]')) renderAds(m, false); }
@@ -6368,7 +6634,8 @@ function renderAds(root, inGame) {
   root.append(grid);
   root.append(renderPhoneAds(inGame), renderRadioAd());
   if (AD.canEdit && AD.db) root.append(ownerConfig(), ownerInsights());
-  else if (AD.ready && AD.canEdit === false) root.append(el('p', 'fine', 'Ad artwork is managed by the game’s owner.'));
+  else if (AD.ready && AD.canEdit === false && !AD.web) root.append(el('p', 'fine', 'Ad artwork is managed by the game’s owner.'));
+  if (AD.web && AD.db) root.append(webOwnerBox());
 }
 function slotMeta(slot, ad) {
   const live = adActive(ad), rate = AD.rates[slot.id], meta = el('p', 'ad-meta');
@@ -6502,6 +6769,70 @@ function ownerForm(slot, ad) {
   f.addEventListener('keydown', (e) => e.stopPropagation());
   return f;
 }
+/* afconcity.com: the owner signs in with a code sent to the owner email, then manages ads and chat here */
+function webOwnerBox() {
+  const box = el('section', 'ad-owner');
+  if (WEB.admin) {
+    const top = el('div', 'ad-owner-top'); top.append(el('p', 'fine', `Signed in as owner · ${WEB.email}`));
+    const out = el('button', 'btn btn-ghost btn-sm', 'Sign out'); out.type = 'button'; out.onclick = async () => { out.disabled = true; await webSignOut(); renderAdsAll(); }; top.append(out);
+    box.append(top, webModeration()); return box;
+  }
+  const d = el('details', 'ad-owner-login'); d.append(el('summary', '', 'Owner sign-in'));
+  const f = el('form', 'ad-form'); f.autocomplete = 'off';
+  f.innerHTML = `<label>Owner email<input name="email" type="email" autocomplete="email" maxlength="120" required></label>
+    <div class="ad-actions"><button class="btn btn-sm" type="submit">Email me a sign-in code</button></div>
+    <label class="otp" hidden>Code from the email<input name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="10"></label>
+    <div class="ad-actions otp" hidden><button class="btn btn-sm" type="button" data-verify>Sign in</button></div>
+    <p class="fine ad-msg" aria-live="polite"></p>`;
+  const msg = f.querySelector('.ad-msg'), em = f.querySelector('[name=email]');
+  for (const i of f.querySelectorAll('input')) i.addEventListener('keydown', (e) => e.stopPropagation());
+  f.addEventListener('submit', async (e) => {
+    e.preventDefault(); const email = em.value.trim().toLowerCase(); if (!email) return;
+    msg.textContent = 'Sending…';
+    try { await webOwnerSendCode(email); msg.textContent = 'Check your email. Enter the code here, or open the link in the email on this device.'; f.querySelectorAll('.otp').forEach(x => { x.hidden = false; }); f.querySelector('[name=code]').focus(); }
+    catch (err) { msg.textContent = /rate|security purposes|seconds/i.test(err.message) ? 'Too many emails just now. Wait a minute and try again.' : 'Could not send the email: ' + err.message; }
+  });
+  f.querySelector('[data-verify]').onclick = async () => {
+    const code = f.querySelector('[name=code]').value.replace(/\s/g, ''); if (!code) return;
+    msg.textContent = 'Checking…';
+    try { await webOwnerVerify(em.value.trim().toLowerCase(), code); AD.canEdit = WEB.admin; AD.uid = WEB.uid; msg.textContent = WEB.admin ? 'Signed in.' : 'Signed in, but this email is not an owner of AfconCity.'; renderAdsAll(); }
+    catch (err) { msg.textContent = 'That code did not work. Check it, or request a new one.'; }
+  };
+  d.append(f); box.append(d); return box;
+}
+function webModeration() {
+  const sec = el('section', 'ad-insights');
+  sec.append(el('h3', '', 'Chat and players (owner)'));
+  const row = el('div', 'ad-actions'), st = el('p', 'fine', 'Loading…');
+  const tog = el('button', 'btn btn-sm', '…'); tog.type = 'button';
+  const draw = (on) => { tog.textContent = on ? 'Switch chat off' : 'Switch chat on'; st.textContent = on ? 'Chat is on for everyone. Swear words are starred out, and each player can send one message every 1.5 seconds.' : 'Chat is off: nobody can send messages.'; tog.onclick = async () => { tog.disabled = true; try { await webSetChat(!on); draw(!on); } catch (e) { st.textContent = 'Could not change it: ' + e.message; } tog.disabled = false; }; };
+  webChatEnabled().then(draw);
+  row.append(tog); sec.append(st, row);
+  const rep = el('div', 'ad-reports'); sec.append(el('h4', '', 'Reports from players'), rep);
+  const bans = el('div', 'ad-reports'); sec.append(el('h4', '', 'Blocked from chat'), bans);
+  const load = async () => {
+    rep.innerHTML = ''; bans.innerHTML = '';
+    let rs = []; try { rs = await webReports(); } catch (e) {}
+    if (!rs.length) rep.append(el('p', 'fine', 'No reports.'));
+    for (const r of rs) {
+      const c = el('div', 'ad-report'); c.append(el('b', '', r.nick || 'Fan'), el('p', 'fine', (r.lines || []).join(' · ') || '(no recent messages)'));
+      const a = el('div', 'ad-actions');
+      const ban = el('button', 'btn btn-sm', 'Block from chat'); ban.type = 'button'; ban.onclick = async () => { ban.disabled = true; try { await webBan(r.target, `${r.nick}: ${(r.lines || []).slice(-1)[0] || ''}`); await webDismissReport(r.id); } catch (e) { alert0(e); } load(); };
+      const dis = el('button', 'btn btn-ghost btn-sm', 'Dismiss'); dis.type = 'button'; dis.onclick = async () => { dis.disabled = true; try { await webDismissReport(r.id); } catch (e) {} load(); };
+      a.append(ban, dis); c.append(a); rep.append(c);
+    }
+    let bs = []; try { bs = await webBans(); } catch (e) {}
+    if (!bs.length) bans.append(el('p', 'fine', 'Nobody is blocked.'));
+    for (const b of bs) {
+      const c = el('div', 'ad-report'); c.append(el('p', 'fine', b.reason || 'Blocked player'));
+      const un = el('button', 'btn btn-ghost btn-sm', 'Unblock'); un.type = 'button'; un.onclick = async () => { un.disabled = true; try { await webUnban(b.uid); } catch (e) {} load(); };
+      c.append(un); bans.append(c);
+    }
+  };
+  const alert0 = (e) => { st.textContent = 'Could not do that: ' + ((e && e.message) || e); };
+  load();
+  return sec;
+}
 function ownerConfig() {
   const f = el('form', 'ad-form wide'); f.autocomplete = 'off';
   f.innerHTML = `<h3>Booking details (owner)</h3>
@@ -6565,7 +6896,7 @@ function renderFeedback() {
       try { send.disabled = true; msg.textContent = 'Sending…'; await AD.db.doc('feedback/' + AD.uid).set({ last: item.at, n: ((AD.fbN || 0) + 1) }); AD.fbN = (AD.fbN || 0) + 1; await AD.db.collection('feedback/' + AD.uid + '/items').add(item); ta.value = ''; msg.textContent = 'Asante! Your feedback was sent.'; sfx.ding(); }
       catch (e) { msg.textContent = 'This view cannot send feedback. Copy it instead and send it to the AfconCity team.'; offerCopy(root, item); }
       finally { send.disabled = false; }
-    } else { msg.textContent = window.claude ? 'Sending needs a Claude sign-in with Contributor access to this game. Copy your note instead and send it to the AfconCity team.' : 'Sending feedback from the game is coming soon. Copy your note and send it to the AfconCity team.'; offerCopy(root, item); }
+    } else { msg.textContent = AD.web ? 'Feedback could not connect just now. Copy your note and email it to support@afconcity.com.' : window.claude ? 'Sending needs a Claude sign-in with Contributor access to this game. Copy your note instead and send it to the AfconCity team.' : 'Sending feedback from the game is coming soon. Copy your note and send it to the AfconCity team.'; offerCopy(root, item); }
   };
   root.append(chips, ta, send, msg);
 }

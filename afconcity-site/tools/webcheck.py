@@ -26,7 +26,7 @@ with sync_playwright() as p:
         check(label + ': hidden elements stay hidden', pg.evaluate("() => getComputedStyle(document.querySelector('#phone')).display === 'none' && getComputedStyle(document.querySelector('#menuCard')).display === 'none'"))
         pg.evaluate("() => document.querySelector('#btnPlay').click()"); pg.wait_for_timeout(6000)
         check(label + ': game starts and HUD shows', pg.evaluate("() => !document.querySelector('.hud').hidden && document.querySelector('#cash') !== null"))
-        check(label + ': multiplayer marked coming soon', pg.evaluate("() => [...document.querySelectorAll('.mp-web')].every(e => !e.hidden) && [...document.querySelectorAll('.mp-claude')].every(e => e.hidden)"))
+        check(label + ': website multiplayer text shown', pg.evaluate("() => [...document.querySelectorAll('.mp-web')].every(e => !e.hidden) && [...document.querySelectorAll('.mp-claude')].every(e => e.hidden)"))
         check(label + ': online pill says Solo', 'Solo' in pg.evaluate("() => document.querySelector('#onlineText').textContent"))
         pg.wait_for_timeout(6000)
         check(label + ': progress is saved in the browser', pg.evaluate("() => !!localStorage.getItem('afconcity-fumba-v4')"))

@@ -43,3 +43,13 @@ Optional build settings:
 On the public website the game runs in single-player mode, and saves are kept in each player's browser.
 
 Multiplayer, the shared ad-booking database and in-game feedback use Claude's runtime, so they only work in the Claude-hosted copy for now. On this website they show as "coming soon" until a backend (for example Supabase) is connected.
+
+## Online features (Supabase)
+
+On afconcity.com, multiplayer, ad bookings, owner sign-in, chat moderation, feedback and stats run on Supabase. The project URL and publishable key are in `v3/js/49-web.js`. Inside Claude, the game still uses Claude's own runtime, so both copies work.
+
+- `supabase/setup.sql` creates the tables and the rules for who can read and write what. Paste it into the Supabase SQL Editor and click Run. Running it again is safe.
+- In Supabase, under **Authentication → Sign In / Providers**, turn on **Allow anonymous sign-ins**. Players are signed in silently, with no form.
+- Owner sign-in: the owner emails in the `admins` table get a sign-in code (or link) by email. Add another owner with `insert into admins values ('name@example.com');`
+- Chat: the server stars out words in `chat_words`, allows one message per 1.5 seconds and 12 a minute, blocks banned players, and stops all chat when the owner switches it off. Add a filtered word with `insert into chat_words values ('word');`
+- `supabase/test_policies.sh` tests the rules against a local Postgres; `tools/web_mp.py` tests two players against an in-browser stand-in for Supabase.

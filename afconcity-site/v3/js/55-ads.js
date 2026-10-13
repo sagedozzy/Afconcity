@@ -44,9 +44,12 @@ async function applyAds() {
 /* booking contact for brands on the public website (no shared database there yet): an email, a WhatsApp number with country code, or an https link */
 const SITE_CONTACT = 'support@afconcity.com';
 async function initAds() {
-  const cl = window.claude;
-  if (!cl || typeof cl.use !== 'function') { if (SITE_CONTACT) { AD.contact = SITE_CONTACT; renderAdsAll(); } return; }
+  const cl = (window.claude && typeof window.claude.use === 'function') ? window.claude : webClaude;
+  if (!cl) { if (SITE_CONTACT) { AD.contact = SITE_CONTACT; renderAdsAll(); } return; }
+  AD.web = !!cl.web;
+  if (AD.web) { AD.contact = SITE_CONTACT; renderAdsAll(); }
   try { [AD.db, AD.user] = await Promise.all([cl.use('db'), cl.use('user')]); } catch (e) { return; }
+  if (AD.web) onWebAuth(() => { AD.canEdit = WEB.admin; AD.uid = WEB.uid; AD.write = !!WEB.uid; loadStatsBase(); renderAdsAll(); });
   if (AD.user) { try { AD.canEdit = !!(await AD.user.canEdit()); AD.uid = await AD.user.id(); AD.write = await AD.user.can('data.write'); } catch (e) {} }
   AD.ready = true;
   if (!AD.db) { renderAdsAll(); return; }
@@ -54,7 +57,7 @@ async function initAds() {
     const next = {}; for (const d of snap.docs) if (d.exists) next[d.id] = d.data();
     AD.live = next; applyAds(); renderAdsAll(); if (PH.open && (PH.app === 'home' || PH.app === 'brand' || PH.app === 'ads')) renderPhone(); if (HOME.inside) { HOME.tvKey = ''; updateHomeTV(); }
   }, () => {});
-  AD.db.doc('config/ads').onSnapshot((s) => { const d = s.exists ? s.data() : {}; AD.contact = typeof d.contact === 'string' ? d.contact : ''; AD.rates = d.rates && typeof d.rates === 'object' ? d.rates : {}; renderAdsAll(); }, () => {});
+  AD.db.doc('config/ads').onSnapshot((s) => { const d = s.exists ? s.data() : {}; AD.contact = typeof d.contact === 'string' && d.contact ? d.contact : (AD.web ? SITE_CONTACT : ''); AD.rates = d.rates && typeof d.rates === 'object' ? d.rates : {}; renderAdsAll(); }, () => {});
   renderAdsAll();
 }
 function renderAdsAll() { if (!ui.pause.hidden && pmTab === 'ads') renderAds($('#pmAds'), true); const m = $('#adsMain'); if (m && !m.closest('[hidden]')) renderAds(m, false); }
@@ -171,7 +174,8 @@ function renderAds(root, inGame) {
   root.append(grid);
   root.append(renderPhoneAds(inGame), renderRadioAd());
   if (AD.canEdit && AD.db) root.append(ownerConfig(), ownerInsights());
-  else if (AD.ready && AD.canEdit === false) root.append(el('p', 'fine', 'Ad artwork is managed by the game’s owner.'));
+  else if (AD.ready && AD.canEdit === false && !AD.web) root.append(el('p', 'fine', 'Ad artwork is managed by the game’s owner.'));
+  if (AD.web && AD.db) root.append(webOwnerBox());
 }
 function slotMeta(slot, ad) {
   const live = adActive(ad), rate = AD.rates[slot.id], meta = el('p', 'ad-meta');
@@ -305,6 +309,70 @@ function ownerForm(slot, ad) {
   f.addEventListener('keydown', (e) => e.stopPropagation());
   return f;
 }
+/* afconcity.com: the owner signs in with a code sent to the owner email, then manages ads and chat here */
+function webOwnerBox() {
+  const box = el('section', 'ad-owner');
+  if (WEB.admin) {
+    const top = el('div', 'ad-owner-top'); top.append(el('p', 'fine', `Signed in as owner · ${WEB.email}`));
+    const out = el('button', 'btn btn-ghost btn-sm', 'Sign out'); out.type = 'button'; out.onclick = async () => { out.disabled = true; await webSignOut(); renderAdsAll(); }; top.append(out);
+    box.append(top, webModeration()); return box;
+  }
+  const d = el('details', 'ad-owner-login'); d.append(el('summary', '', 'Owner sign-in'));
+  const f = el('form', 'ad-form'); f.autocomplete = 'off';
+  f.innerHTML = `<label>Owner email<input name="email" type="email" autocomplete="email" maxlength="120" required></label>
+    <div class="ad-actions"><button class="btn btn-sm" type="submit">Email me a sign-in code</button></div>
+    <label class="otp" hidden>Code from the email<input name="code" inputmode="numeric" autocomplete="one-time-code" maxlength="10"></label>
+    <div class="ad-actions otp" hidden><button class="btn btn-sm" type="button" data-verify>Sign in</button></div>
+    <p class="fine ad-msg" aria-live="polite"></p>`;
+  const msg = f.querySelector('.ad-msg'), em = f.querySelector('[name=email]');
+  for (const i of f.querySelectorAll('input')) i.addEventListener('keydown', (e) => e.stopPropagation());
+  f.addEventListener('submit', async (e) => {
+    e.preventDefault(); const email = em.value.trim().toLowerCase(); if (!email) return;
+    msg.textContent = 'Sending…';
+    try { await webOwnerSendCode(email); msg.textContent = 'Check your email. Enter the code here, or open the link in the email on this device.'; f.querySelectorAll('.otp').forEach(x => { x.hidden = false; }); f.querySelector('[name=code]').focus(); }
+    catch (err) { msg.textContent = /rate|security purposes|seconds/i.test(err.message) ? 'Too many emails just now. Wait a minute and try again.' : 'Could not send the email: ' + err.message; }
+  });
+  f.querySelector('[data-verify]').onclick = async () => {
+    const code = f.querySelector('[name=code]').value.replace(/\s/g, ''); if (!code) return;
+    msg.textContent = 'Checking…';
+    try { await webOwnerVerify(em.value.trim().toLowerCase(), code); AD.canEdit = WEB.admin; AD.uid = WEB.uid; msg.textContent = WEB.admin ? 'Signed in.' : 'Signed in, but this email is not an owner of AfconCity.'; renderAdsAll(); }
+    catch (err) { msg.textContent = 'That code did not work. Check it, or request a new one.'; }
+  };
+  d.append(f); box.append(d); return box;
+}
+function webModeration() {
+  const sec = el('section', 'ad-insights');
+  sec.append(el('h3', '', 'Chat and players (owner)'));
+  const row = el('div', 'ad-actions'), st = el('p', 'fine', 'Loading…');
+  const tog = el('button', 'btn btn-sm', '…'); tog.type = 'button';
+  const draw = (on) => { tog.textContent = on ? 'Switch chat off' : 'Switch chat on'; st.textContent = on ? 'Chat is on for everyone. Swear words are starred out, and each player can send one message every 1.5 seconds.' : 'Chat is off: nobody can send messages.'; tog.onclick = async () => { tog.disabled = true; try { await webSetChat(!on); draw(!on); } catch (e) { st.textContent = 'Could not change it: ' + e.message; } tog.disabled = false; }; };
+  webChatEnabled().then(draw);
+  row.append(tog); sec.append(st, row);
+  const rep = el('div', 'ad-reports'); sec.append(el('h4', '', 'Reports from players'), rep);
+  const bans = el('div', 'ad-reports'); sec.append(el('h4', '', 'Blocked from chat'), bans);
+  const load = async () => {
+    rep.innerHTML = ''; bans.innerHTML = '';
+    let rs = []; try { rs = await webReports(); } catch (e) {}
+    if (!rs.length) rep.append(el('p', 'fine', 'No reports.'));
+    for (const r of rs) {
+      const c = el('div', 'ad-report'); c.append(el('b', '', r.nick || 'Fan'), el('p', 'fine', (r.lines || []).join(' · ') || '(no recent messages)'));
+      const a = el('div', 'ad-actions');
+      const ban = el('button', 'btn btn-sm', 'Block from chat'); ban.type = 'button'; ban.onclick = async () => { ban.disabled = true; try { await webBan(r.target, `${r.nick}: ${(r.lines || []).slice(-1)[0] || ''}`); await webDismissReport(r.id); } catch (e) { alert0(e); } load(); };
+      const dis = el('button', 'btn btn-ghost btn-sm', 'Dismiss'); dis.type = 'button'; dis.onclick = async () => { dis.disabled = true; try { await webDismissReport(r.id); } catch (e) {} load(); };
+      a.append(ban, dis); c.append(a); rep.append(c);
+    }
+    let bs = []; try { bs = await webBans(); } catch (e) {}
+    if (!bs.length) bans.append(el('p', 'fine', 'Nobody is blocked.'));
+    for (const b of bs) {
+      const c = el('div', 'ad-report'); c.append(el('p', 'fine', b.reason || 'Blocked player'));
+      const un = el('button', 'btn btn-ghost btn-sm', 'Unblock'); un.type = 'button'; un.onclick = async () => { un.disabled = true; try { await webUnban(b.uid); } catch (e) {} load(); };
+      c.append(un); bans.append(c);
+    }
+  };
+  const alert0 = (e) => { st.textContent = 'Could not do that: ' + ((e && e.message) || e); };
+  load();
+  return sec;
+}
 function ownerConfig() {
   const f = el('form', 'ad-form wide'); f.autocomplete = 'off';
   f.innerHTML = `<h3>Booking details (owner)</h3>
@@ -368,7 +436,7 @@ function renderFeedback() {
       try { send.disabled = true; msg.textContent = 'Sending…'; await AD.db.doc('feedback/' + AD.uid).set({ last: item.at, n: ((AD.fbN || 0) + 1) }); AD.fbN = (AD.fbN || 0) + 1; await AD.db.collection('feedback/' + AD.uid + '/items').add(item); ta.value = ''; msg.textContent = 'Asante! Your feedback was sent.'; sfx.ding(); }
       catch (e) { msg.textContent = 'This view cannot send feedback. Copy it instead and send it to the AfconCity team.'; offerCopy(root, item); }
       finally { send.disabled = false; }
-    } else { msg.textContent = window.claude ? 'Sending needs a Claude sign-in with Contributor access to this game. Copy your note instead and send it to the AfconCity team.' : 'Sending feedback from the game is coming soon. Copy your note and send it to the AfconCity team.'; offerCopy(root, item); }
+    } else { msg.textContent = AD.web ? 'Feedback could not connect just now. Copy your note and email it to support@afconcity.com.' : window.claude ? 'Sending needs a Claude sign-in with Contributor access to this game. Copy your note instead and send it to the AfconCity team.' : 'Sending feedback from the game is coming soon. Copy your note and send it to the AfconCity team.'; offerCopy(root, item); }
   };
   root.append(chips, ta, send, msg);
 }

@@ -11,13 +11,14 @@ const NET_WHY = {
   revoked: 'Solo. Your access to this game changed. Reload the page to rejoin.',
   timeout: 'Solo for now. The live room did not answer. Reload the page, or check your connection.',
   error: 'Solo for now. The live room is unavailable. Reload the page to try again.',
+  webdown: 'Solo for now. The live server did not answer. Check your connection and reload the page.',
 };
 function setNet(status, why) {
   MP.status = status; if (why !== undefined) MP.why = why;
   const live = status === 'live', n = MP.viewers;
   ui.online.classList.toggle('live', live);
   ui.onlineText.textContent = live ? (n <= 1 ? 'Live · only you' : `${n} online`) : status === 'connecting' ? 'Connecting…' : 'Solo';
-  const msg = live ? (n <= 1 ? 'Live, and you are the only fan here right now. Friends the host adds by email in Share appear when they open the game signed in. Test it: open this game in a second tab.' : `Live. ${n - 1} other fan${n === 2 ? ' is' : 's are'} in Fumba with you right now.`)
+  const msg = live ? (n <= 1 ? (MP.web ? 'Live, and you are the only fan here right now. Send friends the link afconcity.com and they appear in Fumba with you.' : 'Live, and you are the only fan here right now. Friends the host adds by email in Share appear when they open the game signed in. Test it: open this game in a second tab.') : `Live. ${n - 1} other fan${n === 2 ? ' is' : 's are'} in Fumba with you right now.`)
     : status === 'connecting' ? 'Connecting to the live room…'
     : NET_WHY[MP.why] || NET_WHY.error;
   for (const id of ['#netNote', '#pmNet', '#playersNote']) { const el = $(id); if (!el) continue; el.classList.toggle('live', live); (el.querySelector('span') || el).textContent = msg; }
@@ -121,7 +122,7 @@ function renderPlayers() {
 function fillPlayers(list) {
   list.innerHTML = '';
   const rows = [{ name: state.nick || 'You', st: state.cash, kit: state.kit, note: `you · ${state.ticket ? 'VIP' : `${stampCount()}/${REQUIRED.length} stamps`}` }];
-  for (const r of remotes.values()) rows.push({ name: displayName(r), st: r.cash, kit: r.kit, note: [r.isMe ? 'your other tab' : r.guest ? 'guest' : '', r.vip ? 'VIP' : `${r.st || 0}/${REQUIRED.length} stamps`, r.inside ? 'at home' : r.hm === 2 ? 'Burj resident' : '', r.vk ? `on a ${VEH[r.vk].name.toLowerCase()}` : ''].filter(Boolean).join(' · ') });
+  for (const r of remotes.values()) rows.push({ remote: r.isMe ? null : r, name: displayName(r), st: r.cash, kit: r.kit, note: [r.isMe ? 'your other tab' : r.guest ? 'guest' : '', r.vip ? 'VIP' : `${r.st || 0}/${REQUIRED.length} stamps`, r.inside ? 'at home' : r.hm === 2 ? 'Burj resident' : '', r.vk ? `on a ${VEH[r.vk].name.toLowerCase()}` : ''].filter(Boolean).join(' · ') });
   rows.sort((a, b) => b.st - a.st);
   rows.forEach((r, i) => {
     const li = document.createElement('li'); if (i === 0 && rows.length > 1) li.className = 'top';
@@ -129,7 +130,15 @@ function fillPlayers(list) {
     const nm = document.createElement('span'); nm.textContent = r.name;
     if (r.note) { const sm = document.createElement('small'); sm.textContent = ` · ${r.note}`; nm.append(sm); }
     const st = document.createElement('b'); st.textContent = tsh(r.st);
-    li.append(dot, nm, st); list.append(li);
+    li.append(dot, nm, st);
+    if (r.remote && MP.web && MP.room && r.remote.by) {
+      const by = r.remote.by, muted = MUTED.has(by), acts = document.createElement('span'); acts.className = 'pl-acts';
+      const mb = document.createElement('button'); mb.type = 'button'; mb.className = 'pl-act'; mb.textContent = muted ? 'Unmute' : 'Mute'; mb.onclick = () => setMuted(by, !muted);
+      const rb = document.createElement('button'); rb.type = 'button'; rb.className = 'pl-act'; rb.textContent = 'Report';
+      rb.onclick = async () => { rb.disabled = true; const ok = await MP.room.report(by, displayName(r.remote), r.remote.lines || []); rb.textContent = ok ? 'Reported' : 'Try later'; if (ok) setMuted(by, true); };
+      acts.append(mb, rb); li.append(acts);
+    }
+    list.append(li);
   });
 }
 const escapeHtml = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -163,20 +172,27 @@ function sendPresence(force) {
   MP.room.presence(patch).catch(() => {});
 }
 async function initMultiplayer() {
-  const cl = window.claude;
-  if (!cl || typeof cl.use !== 'function') {
-    /* on the public website: single player, with multiplayer marked as coming soon */
+  const cl = (window.claude && typeof window.claude.use === 'function') ? window.claude : webClaude;
+  if (!cl) {
+    /* a copy with no backend at all: single player, with multiplayer marked as coming soon */
     document.querySelectorAll('.mp-claude').forEach(e => { e.hidden = true; }); document.querySelectorAll('.mp-web').forEach(e => { e.hidden = false; });
     const pn = $('#playersNote'); if (pn) pn.textContent = 'Multiplayer is coming soon.';
     setNet('solo', 'outside'); return;
+  }
+  if (cl.web) {
+    /* afconcity.com: everyone who opens the site shares one Fumba */
+    MP.web = true;
+    document.querySelectorAll('.mp-claude').forEach(e => { e.hidden = true; });
+    document.querySelectorAll('.mp-web').forEach(e => { e.hidden = false; e.textContent = 'Everyone at afconcity.com shares the same Fumba: chat, high-fives, races and dropped cash. Send friends the link and meet up at the Uptown Gate.'; });
   }
   try {
     const [room, user] = await Promise.all([cl.use('room'), cl.use('user')]);
     MP.user = user;
     let uid = null;
     if (user) { try { const me = await user.me(); uid = me.id; MP.uid = me.id; MP.myName = me.name || ''; const nick = $('#nick'); if (!state.nick && MP.myName && nick && !nick.value) nick.placeholder = MP.myName.split(' ')[0].slice(0, 16); } catch (e) {} }
-    if (!room) { setNet('solo', uid ? 'noaccess' : 'signedout'); return; }
+    if (!room) { setNet('solo', MP.web ? 'webdown' : uid ? 'noaccess' : 'signedout'); return; }
     MP.room = room;
+    if (room.onChat) room.onChat(onServerChat);
     const dead = (e) => { MP.terminal = true; const c = e && e.code; setNet('solo', c === 'not_granted' ? (uid ? 'noaccess' : 'signedout') : c === 'revoked' ? 'revoked' : 'error'); };
     room.onConnection((c) => { if (MP.terminal) return; setNet(c ? 'live' : (MP.status === 'live' ? 'connecting' : MP.status), c ? '' : undefined); if (c) { MP.last = {}; sendPresence(true); } }, dead);
     room.onPeers(onPeers, dead);
@@ -190,9 +206,36 @@ function mpEvent(text, kind) {
   sendPresence(true);
 }
 function doEmote(e) { if (!EMOTE_LEN[e] || mode !== 'play' || playerVeh) return; playEmote(player, e); MP.em = e; MP.emt = Date.now(); sendPresence(true); if (e === 'cheer') sfx.clap(); }
+function showMyChat(msg) {
+  chatLine(state.nick || 'You', msg, KITS[state.kit].css);
+  if (playerTag) { playerTag.bub.textContent = msg; playerTag.bub.hidden = false; playerTag.bubUntil = performance.now() + 7000; }
+  sfx.chat();
+}
+/* website chat: the server filters, limits and can block messages; what it stores is what everyone sees */
+const MUTED = new Set((() => { try { return JSON.parse(localStorage.getItem('afc-muted') || '[]'); } catch (e) { return []; } })());
+function setMuted(by, on) { if (on) MUTED.add(by); else MUTED.delete(by); try { localStorage.setItem('afc-muted', JSON.stringify([...MUTED].slice(-200))); } catch (e) {} renderPlayers(); }
+function onServerChat(m) {
+  if (!m || !m.by || MUTED.has(m.by)) return;
+  if (m.by === WEB.uid && MP.mine && MP.mine.has(m.id)) return;
+  const nick = strOr(m.nick, 16) || 'Fan', body = strOr(m.body, 90); if (!body) return;
+  let r = null; for (const x of remotes.values()) if (x.by === m.by && !x.isMe) r = x;
+  if (r) { r.tag.bub.textContent = body; r.tag.bub.hidden = false; r.tag.bubUntil = performance.now() + 7000; (r.lines = r.lines || []).push(body); if (r.lines.length > 8) r.lines.shift(); }
+  chatLine(r ? displayName(r) : nick, body, r ? KITS[r.kit].css : 'var(--turmeric)'); sfx.chat();
+  (MP.log = MP.log || []).push({ by: m.by, nick, body, at: m.at }); if (MP.log.length > 40) MP.log.shift();
+  if (PH.open && (PH.app === 'msgs' || (PH.app === 'thread' && PH.arg === '#live'))) renderPhone();
+}
 function sendChat(text) {
   const msg = strOr(text, 90).trim(); if (!msg) return;
   if (performance.now() - MP.chatT < 900) { help('Slow down a little. One message a second.', 1500); return; }
+  if (MP.room && MP.room.chat) {
+    MP.chatT = performance.now(); MP.typ = 0; sendPresence(true);
+    MP.room.chat(msg, state.nick || 'Fan').then((r) => {
+      if (r.error) { help(escapeHtml(r.error), 2600); sfx.deny(); return; }
+      (MP.mine = MP.mine || new Set()).add(r.id); showMyChat(r.body);
+      (MP.log = MP.log || []).push({ by: WEB.uid, nick: state.nick || 'You', body: r.body, at: Date.now(), me: true }); if (MP.log.length > 40) MP.log.shift();
+    });
+    return;
+  }
   MP.chatT = performance.now(); MP.msg = msg; MP.msgt = Date.now(); MP.typ = 0; sendPresence(true);
   chatLine(state.nick || 'You', msg, KITS[state.kit].css);
   if (playerTag) { playerTag.bub.textContent = msg; playerTag.bub.hidden = false; playerTag.bubUntil = performance.now() + 7000; }
