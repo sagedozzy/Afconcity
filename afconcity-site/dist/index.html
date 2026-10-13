@@ -8,10 +8,10 @@
 <meta property="og:type" content="website">
 <meta property="og:title" content="AfconCity Quest">
 <meta property="og:description" content="Real Fumba, Zanzibar in 3D. Ride a boda, work the streets and earn your seat at AFCON 2027.">
-<meta property="og:image" content="/og.jpg">
+<meta property="og:image" content="https://afconcity.com/og.jpg">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:url" content="/">
+<meta property="og:url" content="https://afconcity.com/">
 <meta name="twitter:card" content="summary_large_image">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="/icon-192.png" sizes="192x192" type="image/png">
@@ -6239,7 +6239,7 @@ async function applyAds() {
 
 /* ---------- shared data ---------- */
 /* booking contact for brands on the public website (no shared database there yet): an email, a WhatsApp number with country code, or an https link */
-const SITE_CONTACT = '';
+const SITE_CONTACT = 'support@afconcity.com';
 async function initAds() {
   const cl = window.claude;
   if (!cl || typeof cl.use !== 'function') { if (SITE_CONTACT) { AD.contact = SITE_CONTACT; renderAdsAll(); } return; }

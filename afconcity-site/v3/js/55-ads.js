@@ -42,7 +42,7 @@ async function applyAds() {
 
 /* ---------- shared data ---------- */
 /* booking contact for brands on the public website (no shared database there yet): an email, a WhatsApp number with country code, or an https link */
-const SITE_CONTACT = '';
+const SITE_CONTACT = 'support@afconcity.com';
 async function initAds() {
   const cl = window.claude;
   if (!cl || typeof cl.use !== 'function') { if (SITE_CONTACT) { AD.contact = SITE_CONTACT; renderAdsAll(); } return; }

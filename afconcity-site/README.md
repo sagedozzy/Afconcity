@@ -28,7 +28,7 @@ Every push to `main` goes live automatically. Every other branch gets its own pr
 ## Updating the game
 
 ```
-python3 v3/build.py web      # rebuilds dist/ from the source
+AFC_SITE_URL=https://afconcity.com python3 v3/build.py web   # rebuilds dist/ from the source
 ```
 
 Commit `dist/` together with the source changes, then push.
