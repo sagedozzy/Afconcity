@@ -6008,6 +6008,8 @@ function webErr(e) { return { code: (e && (e.code || e.status)) || 'error', mess
 function webBackend() {
   if (WEB.ready) return WEB.ready;
   WEB.ready = (async () => {
+    /* arriving from the owner's sign-in email: the link carries the session in the address */
+    WEB.fromLink = /access_token=|[?&]code=|type=(magiclink|signup)/.test(location.hash + location.search);
     if (!(window.supabase && window.supabase.createClient)) await loadScript(SB_CFG.lib);
     const sb = window.supabase.createClient(SB_CFG.url, SB_CFG.key, { auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, storageKey: 'afc-auth' }, realtime: { params: { eventsPerSecond: 20 } } });
     WEB.sb = sb;
@@ -6015,6 +6017,7 @@ function webBackend() {
     try { session = (await sb.auth.getSession()).data.session; } catch (e) {}
     if (!session) { const r = await sb.auth.signInAnonymously(); if (r.error) WEB.err = r.error.message; else session = r.data.session; }
     await webSetSession(session);
+    if (WEB.fromLink) webOwnerWelcome();
     // never await other Supabase calls inside this callback (supabase-js can deadlock); hop out first
     sb.auth.onAuthStateChange((ev, s) => { setTimeout(() => webSetSession(s).then(() => { for (const f of WEB.listeners) { try { f(ev); } catch (e) {} } }), 0); });
     return sb;
@@ -6027,6 +6030,13 @@ async function webSetSession(s) {
   if (u && !WEB.anon) { try { const r = await WEB.sb.rpc('is_admin'); WEB.admin = !!r.data; } catch (e) {} }
 }
 function onWebAuth(f) { WEB.listeners.push(f); }
+/* after the sign-in link: say so on the start screen, and again once the game starts */
+function webOwnerWelcome() {
+  try { history.replaceState(null, '', location.pathname); } catch (e) {}
+  const msg = WEB.admin ? `Signed in as owner (${WEB.email}). Press Play, then open the menu and choose Billboards to manage ads and chat.` : `Signed in as ${WEB.email}, but this email is not on the owner list.`;
+  const n = document.querySelector('#loadNote'); if (n) { n.hidden = false; n.textContent = msg; }
+  const t = setInterval(() => { if (mode === 'play') { clearInterval(t); help(escapeHtml(msg.replace('Press Play, then open', 'Open')), 7000); if (n) n.hidden = true; } }, 500);
+}
 /* the shape the game expects from claude.use(): null when this browser cannot run it */
 const webClaude = SB_CFG.url && SB_CFG.key ? {
   web: true,
