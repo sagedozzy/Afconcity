@@ -6,7 +6,8 @@
   const db = () => JSON.parse(LS.getItem('sbmock.db') || '{"docs":[],"chat_messages":[],"chat_bans":[]}');
   const save = (d) => LS.setItem('sbmock.db', JSON.stringify(d));
   const listeners = new Set();
-  bc.onmessage = (e) => { for (const f of listeners) f(e.data); };
+  // database changes arrive a moment later, as after a real commit: storage written in one tab takes a little while to show in another
+  bc.onmessage = (e) => { const m = e.data; if (m && m.t === 'pg') setTimeout(() => { for (const f of listeners) f(m); }, 200); else for (const f of listeners) f(m); };
   const post = (m) => { bc.postMessage(m); for (const f of listeners) f(Object.assign({ local: true }, m)); };
   window.__sbmock = { log: [], fail: false };
   function createClient() {

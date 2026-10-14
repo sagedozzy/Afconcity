@@ -1,6 +1,7 @@
 """Website caching: second visit loads from the saved copy, and the game opens with no connection."""
 import sys, time, threading, functools, http.server, socketserver
 from playwright.sync_api import sync_playwright
+import os; sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); from harness import ABOUT_DONE
 ROOT = '/home/claude/afconcity'
 THREE = '/tmp/claude-0/-home-claude/e1d17048-b07c-5512-9164-14e2ccd3c77e/scratchpad/h/node_modules/three/build/three.min.js'
 hits = []
@@ -16,7 +17,7 @@ def check(n, ok, info=''):
 three_hits = []
 with sync_playwright() as p:
     b = p.chromium.launch(args=['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'])
-    ctx = b.new_context(viewport={'width': 390, 'height': 844}, has_touch=True, is_mobile=True)
+    ctx = b.new_context(viewport={'width': 390, 'height': 844}, has_touch=True, is_mobile=True); ctx.add_init_script(ABOUT_DONE)
     def three(r): three_hits.append(1); r.fulfill(path=THREE, content_type='application/javascript', headers={'Access-Control-Allow-Origin': '*', 'Cache-Control': 'public, max-age=31536000'})
     ctx.route('**/three.min.js', three)
     ctx.route('https://fonts.**', lambda r: r.fulfill(body='', status=404)); ctx.route('https://cdn.jsdelivr.net/**', lambda r: r.fulfill(body='', status=404))

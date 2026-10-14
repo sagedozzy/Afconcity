@@ -327,7 +327,7 @@ function findClear(x, z, r, avoidRoad) {
 function prepSimNPCs() {
   for (const id of ['rashid', 'hassan', 'mwajuma']) { const n = NPC_BY_ID[id], p = findClear(n.x, n.z, 1.2, true); n.x = p.x; n.z = p.z; }
 }
-const SIM = { washCars: [], truck: null, crates: [], tourists: [], shops: [], radioT: 40 };
+const SIM = { washCars: [], truck: null, crates: [], tourists: [], shops: [], radioT: 40, tourN: 0 };
 function buildSimProps() {
   // three dusty cars beside Fundi Rashid
   const r = NPC_BY_ID.rashid;
@@ -386,7 +386,7 @@ const TOUR_STOPS = [
 ];
 function startTour() {
   if (job) failJobSilently();
-  const looks = [{ skin: 0x9a6a46, shirt: 0xf3b41b, lower: 0x3b5a7a, pants: true, hair: 'cap', cap: 0xf6f1e7, shoes: 0xf4f4f0 }, { skin: 0x6b4226, shirt: 0x8e3b8f, lower: 0x232a63, f: true, hair: 'braids', shoes: 0xf4f4f0, pants: true }, { skin: 0xd8b090, shirt: 0xf6f1e7, lower: 0xd8cfc0, pants: true, hair: 'short', shoes: 0x7a4a2a }];
+  const looks = [styledLook(811 + SIM.tourN, { skin: 0x9a6a46, f: false }), styledLook(812 + SIM.tourN, { skin: 0x6b4226, f: true }), styledLook(813 + SIM.tourN, { skin: 0xd8b090, hairCol: 0x8a6a3a, tourist: true, f: false })]; SIM.tourN += 3;
   for (const t of SIM.tourists) scene.remove(t.h);
   SIM.tourists = looks.map((lk, i) => { const h = makeHuman(lk); h.position.set(P.x - 2 - i, 0.04, P.z - 2); scene.add(h); return { h, x: P.x - 2 - i, z: P.z - 2, sp: 0 }; });
   job = { type: 'tour', title: 'Walking tour', desc: 'Lead the visitors to each stop on foot.', i: 0, t0: now(), limit: 540, x: TOUR_STOPS[0].x, z: TOUR_STOPS[0].z };

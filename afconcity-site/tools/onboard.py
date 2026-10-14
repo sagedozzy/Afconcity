@@ -1,0 +1,56 @@
+"""Welcome questions (starting purse) and the island wardrobe."""
+import os, sys; os.environ['AFC_ONBOARD'] = '1'
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from harness import *
+res = []
+def answer(k):
+    q = s.g("document.querySelector('.ob-q h3').textContent")
+    s.ev("(k) => document.querySelectorAll('.ob-opt')[k].click()", k)
+    s.page.wait_for_function("(q) => { const h = document.querySelector('.ob-q h3'); return !h || h.textContent !== q; }", arg=q, timeout=30000)
+def check(name, ok, info=''):
+    res.append(ok); print(('PASS ' if ok else 'FAIL ') + name, '' if ok else info)
+
+s = Session(w=1280, h=800, gfx='low').load()
+G = lambda e: s.run(e)
+check('Play panel promises up to TSh 250,000', s.g("document.querySelector('#factCash').textContent") == '250k', s.g("document.querySelector('#factCash').textContent"))
+# --- wardrobe on the start screen
+s.ev("() => document.querySelector('#btnStyle').click()"); s.wait(1.5)
+check('the wardrobe opens a photo shoot', G("STYLE.on") is True and s.g("document.body.classList.contains('styling')"))
+check('a new player starts in an island look', G("lookName(state.look)") == 'Nungwi Sunset', G("lookName(state.look)"))
+s.ev("() => document.querySelectorAll('.st-preset')[1].click()"); s.wait(0.6)
+check('a curated look dresses the player', G("lookName(state.look)") == 'Stone Town Linen' and G("player.userData.look.hat") == 'panama', G("lookName(state.look)"))
+s.ev("() => [...document.querySelectorAll('#styleMain input')].find(x => x.name === 's-body' && !x.checked).click()"); s.wait(0.6)
+check('switching to a woman picks a women\'s look', G("state.look.f") is True and G("PRESETS.some(p => p.f && p.n === lookName(state.look))"), G("lookName(state.look)"))
+check('the code other players receive round-trips', G("JSON.stringify(fixLook(lookFrom(lookCode(state.look)))) === JSON.stringify(fixLook(Object.assign({}, state.look)))"))
+check('old three-character codes still read (jersey look)', G("TOPS[lookFrom('103').t].id") == 'jersey' and G("lookFrom('1z3')") is None and G("lookFrom('<b>')") is None)
+check('no women\'s outfit shows the thigh', G("""(() => { for (let t = 0; t < TOPS.length; t++) for (let b = 0; b < BOTTOMS.length; b++) { const lk = fixLook({ f: true, s: 1, h: 'bun', t, b }); const L = makeHuman(kitLook(0, lk)).userData.look; if (!(L.dress || L.robe || (L.pants && (L.plen === undefined || L.plen <= 0.3)))) return TOPS[t].id + '/' + BOTTOMS[b].id; } return true; })()""") is True)
+check('every curated look builds', G("PRESETS.every(p => { const h = makeHuman(Object.assign(kitLook(0, applyPreset({ s: 2, h: 'short' }, p)), { eager: true })); return h.userData.hiM && h.userData.loM; })"))
+check('prints reach the near model and fall back to an average colour far away', G("(() => { const h = makeHuman(Object.assign(kitLook(0, applyPreset({ s: 2, h: 'short' }, PRESETS[0])), { eager: true })); return !!h.userData.hiM.geometry.attributes.aPat && !h.userData.loM.geometry.attributes.aPat; })()"))
+s.ev("() => document.querySelector('.st-acts .btn').click()"); s.wait(0.5)
+check('shuffle gives a valid outfit', G("JSON.stringify(fixLook(Object.assign({}, state.look))) === JSON.stringify(state.look)"))
+s.ev("() => document.querySelector('#btnStyleDone').click()"); s.wait(0.6)
+check('Done leaves the shoot and the look card shows the outfit', G("STYLE.on") is False and len(s.g("document.querySelector('#lookDesc').textContent")) > 10)
+# --- welcome questions
+s.ev("() => document.querySelector('#btnPlay').click()"); s.wait(0.8)
+check('Play asks the welcome questions first', s.g("!!document.querySelector('#onboard')") and G("mode") == 'intro')
+for k in range(3): answer(2)
+s.ev("() => document.querySelector('.ob-foot .btn').click()"); s.wait(0.5)
+check('skipping moves on without paying', s.g("document.querySelector('.ob-q h3').textContent") == 'How much football do you watch?', s.g("document.querySelector('.ob-q h3').textContent"))
+s.ev("() => document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }))"); s.wait(1)
+check('three answers start you with TSh 145,000', G("mode") == 'play' and G("state.cash") == 145000, G("state.cash"))
+check('answers are kept on the device', s.g("Object.keys(JSON.parse(localStorage.getItem('afc-about')).a).length") == 3)
+check('junk answers never count', G("aboutCount({ where: 'Mars', team: 5, age: '25 to 34' })") == 1)
+# a new game asks only the questions still open, and answering them all pays the bonus
+G("(newGame(), renderKits(), startPlay(), 1)"); s.wait(0.8)
+check('a new game asks the open questions', s.g("!!document.querySelector('#onboard')") and s.g("document.querySelector('.ob-q h3').textContent") == 'Which age group are you in?', s.g("document.querySelector('.ob-q h3') && document.querySelector('.ob-q h3').textContent"))
+for k in range(5): answer(0)
+s.wait(0.5)
+check('all eight answered shows the bonus', 'TSh 250,000' in s.g("document.querySelector('.ob-q h3').textContent"))
+s.ev("() => document.querySelector('.ob-foot .btn:last-child').click()"); s.wait(1)
+check('all eight answered: TSh 250,000', G("state.cash") == 250000, G("state.cash"))
+G("(newGame(), renderKits(), startPlay(), 1)"); s.wait(0.8)
+check('after that, new games start at TSh 250,000 without asking', not s.g("!!document.querySelector('#onboard')") and G("state.cash") == 250000)
+check('the owner sees answers and looks in play stats', G("(() => { const ab = aboutRead(); return Object.keys(aboutClean(ab.a)).length === 8 && typeof lookCode(state.look) === 'string'; })()"))
+check('no page errors', not s.errors, s.errors[:3])
+s.close()
+print('\n%d/%d passed' % (sum(res), len(res)))

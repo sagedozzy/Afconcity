@@ -402,6 +402,18 @@ function ownerInsights() {
       for (const s of [RADIO_SLOT]) { const li = el('li'); li.append(el('b', '', s.name), el('span', '', `${Math.round((ph.views.radio || 0) / 60)} min heard · ${fmt(ph.opens.radio || 0)} page opens · ${fmt(ph.clicks.radio || 0)} link taps`)); ul.append(li); }
       for (const s of PHONE_SLOTS) { const li = el('li'); li.append(el('b', '', s.name), el('span', '', `${Math.round(((ph.views[s.id] || 0) + (s.big ? ph.views.tv || 0 : 0)) / 60)} min on screen · ${fmt(ph.opens[s.id] || 0)} page opens · ${fmt(ph.clicks[s.id] || 0)} link taps`)); ul.append(li); }
       box.append(ul);
+      // who is playing: answers to the welcome questions, and the most worn looks
+      const ab = {}, looks = {}; let nAb = 0;
+      for (const d of stats.docs) {
+        const s = d.data() || {}, a = aboutClean(s.about); if (Object.keys(a).length) nAb++;
+        for (const [k, v] of Object.entries(a)) { ab[k] = ab[k] || {}; ab[k][v] = (ab[k][v] || 0) + 1; }
+        const lk = typeof s.look === 'string' ? lookFrom(s.look) : null; if (lk) { const n = lookName(lk); looks[n] = (looks[n] || 0) + 1; }
+      }
+      box.append(el('h3', '', `Who is playing (${nAb} answered the welcome questions)`));
+      const wl = el('ul', 'jobs'), top = (m) => { const tot = Object.values(m).reduce((x, y) => x + y, 0); return tot ? Object.entries(m).sort((x, y) => y[1] - x[1]).slice(0, 4).map(([k, v]) => `${k} ${Math.round(v * 100 / tot)}%`).join(' · ') : 'No answers yet'; };
+      for (const q of ABOUT_Q) { const li = el('li'); li.append(el('b', '', q.short), el('span', '', top(ab[q.id] || {}))); wl.append(li); }
+      { const li = el('li'); li.append(el('b', '', 'Most worn looks'), el('span', '', top(looks))); wl.append(li); }
+      box.append(wl);
       const fb = await AD.db.collection('feedback').limit(100).get(), items = [];
       for (const d of fb.docs) { const its = await AD.db.collection('feedback/' + d.id + '/items').orderBy('at', 'desc').limit(10).get(); for (const it of its.docs) items.push(it.data()); }
       items.sort((a, b) => (b.at || 0) - (a.at || 0));
@@ -448,7 +460,7 @@ function offerCopy(root, item) {
 }
 
 /* ---------- play stats and billboard view time ---------- */
-const GAME_VER = '2026.10.13';
+const GAME_VER = '2026.10.14';
 function avgFps() { if (!AD.fps.length) return 0; return AD.fps.reduce((a, b) => a + b, 0) / AD.fps.length; }
 const _adV = new T.Vector3();
 function updateAdStats(dt) {
@@ -470,7 +482,8 @@ async function writeStats() {
   const prev = AD.statsBase || {};
   const ads = Object.assign({}, prev.ads || {}); for (const [k, v] of Object.entries(AD.seen)) ads[k] = Math.round((ads[k] || 0) + v);
   const ph = { views: {}, opens: {}, clicks: {} }; for (const kind of ['views', 'opens', 'clicks']) { Object.assign(ph[kind], (prev.ph && prev.ph[kind]) || {}); for (const [k, v] of Object.entries(AD.ph[kind])) ph[kind][k] = Math.round((ph[kind][k] || 0) + v); }
-  const body = { ver: GAME_VER, sessions: (prev.sessions || 0) + (AD.sessionCounted ? 0 : 1), minutes: Math.round(((prev.minutes || 0) + (state.playMs - (AD.playMs0 || 0)) / 60000) * 10) / 10, device: isCoarse ? 'touch' : 'desktop', gfx, fpsAvg: Math.round(avgFps()), fpsLow: Math.round(sorted[Math.floor(sorted.length * 0.05)] || 0), stamps: stampCount(), money: money(), jobs: state.stats.jobs, area: areaAt(P.x, P.z), ads, ph, home: state.home ? state.home.id : '', day: clockDay(), updatedAt: Date.now() };
+  const ab = aboutRead();
+  const body = { ver: GAME_VER, look: lookCode(state.look), about: ab ? aboutClean(ab.a) : {}, purse: state.bonus === undefined ? null : PRICES.start + state.bonus, sessions: (prev.sessions || 0) + (AD.sessionCounted ? 0 : 1), minutes: Math.round(((prev.minutes || 0) + (state.playMs - (AD.playMs0 || 0)) / 60000) * 10) / 10, device: isCoarse ? 'touch' : 'desktop', gfx, fpsAvg: Math.round(avgFps()), fpsLow: Math.round(sorted[Math.floor(sorted.length * 0.05)] || 0), stamps: stampCount(), money: money(), jobs: state.stats.jobs, area: areaAt(P.x, P.z), ads, ph, home: state.home ? state.home.id : '', day: clockDay(), updatedAt: Date.now() };
   const key = JSON.stringify(Object.assign({}, body, { updatedAt: 0 }));
   if (key === AD.lastStats) return;
   try { await AD.db.doc('stats/' + AD.uid).set(body); AD.lastStats = key; AD.statsBase = body; AD.seen = {}; AD.ph = { views: {}, opens: {}, clicks: {} }; AD.playMs0 = state.playMs; AD.sessionCounted = true; } catch (e) { if (e && e.code === 'invalid_argument') AD.write = false; }

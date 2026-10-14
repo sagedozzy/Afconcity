@@ -6,6 +6,8 @@ ROOT = '/home/claude/afconcity'
 SP = '/tmp/claude-0/-home-claude/e1d17048-b07c-5512-9164-14e2ccd3c77e/scratchpad'
 THREE = SP + '/h/node_modules/three/build/three.min.js'
 
+ABOUT_DONE = """try{if(!localStorage.getItem('afc-about'))localStorage.setItem('afc-about',JSON.stringify({v:1,at:1,a:{where:'Zanzibar',team:'Another team',zanzibar:'I live here',age:'25 to 34',watch:'Most weekends',match:'Not sure yet',found:'A friend',love:'Football'}}));}catch(e){}"""
+
 class _Quiet(http.server.SimpleHTTPRequestHandler):
     def log_message(self, *a): pass
 
@@ -26,6 +28,8 @@ class Session:
         self.errors, self.logs = [], []
         init = "try{localStorage.setItem('afconcity-gfx','%s');localStorage.setItem('afconcity-sound','%s');}catch(e){}" % (gfx, sound)
         self.ctx.add_init_script(init)
+        # tests skip the welcome questions (tools/onboard.py tests them)
+        if os.environ.get('AFC_ONBOARD') != '1': self.ctx.add_init_script(ABOUT_DONE)
         if claude: self.ctx.add_init_script(claude)
         self.page = self.ctx.new_page()
         self.page.on('pageerror', lambda e: self.errors.append(str(e)))

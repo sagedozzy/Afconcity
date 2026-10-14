@@ -569,7 +569,9 @@ const SPICE_SPOTS = [];
 /* tourists lounging on the beach: they buy cold madafu */
 const TOURISTS = [];
 function buildTourists() {
-  const looks = [{ skin: 0xe8c4a8, shirt: 0x19b5b1, lower: 0xf6f1e7, hair: 'hat', hairCol: 0x8a6a3a }, { skin: 0xf1d2bc, shirt: 0xf3b41b, lower: 0x1f4f8f, hair: 'short', hairCol: 0xc8a060 }, { skin: 0xd9a78a, shirt: 0xe0553a, lower: 0x232a63, hair: 'hat', hairCol: 0x3a2a1a }, { skin: 0xf1d2bc, shirt: 0xf6f1e7, lower: 0xd8452c, hair: 'scarf', scarf: 0x19b5b1 }, { skin: 0x7a4a2a, shirt: 0x8e3b8f, lower: 0x141838, hair: 'hat' }, { skin: 0xe8c4a8, shirt: 0x1e9b57, lower: 0xf6f1e7, hair: 'short', hairCol: 0x6a4a2a }];
+  // visitors from abroad in resort clothes
+  const TSK = [0xe8c4a8, 0xf1d2bc, 0xd9a78a, 0xf1d2bc, 0x7a4a2a, 0xe8c4a8], THC = [0x8a6a3a, 0xc8a060, 0x3a2a1a, 0xd8b878, 0x141010, 0x6a4a2a];
+  const looks = TSK.map((skin, i) => styledLook(700 + i, { skin, hairCol: THC[i], tourist: true, f: i % 2 === 1 }));
   const spots = [[-150, 0], [-40, 0], [26, 0], [60, 0], [140, 0], [-190, 0], [-255, 0], [190, 0]];
   spots.forEach(([x], i) => {
     const z = coastZ(x) - 13 - (i % 2) * 3; if (!walkable(x, z)) return;

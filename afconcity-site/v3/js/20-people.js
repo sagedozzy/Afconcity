@@ -40,6 +40,8 @@ function randomLook(i) {
   const shirts = [0xf3b41b, 0xe0553a, 0x19b5b1, 0x1e9b57, 0xf6f1e7, 0x1f8fd0, 0x232a63, 0x8e3b8f, 0xff8a3d, 0x2b2b30, 0xd8cfc0, 0x7a2a4a];
   const lowers = [0x232a63, 0x2a2d33, 0xd8cfc0, 0x3b5a7a, 0x4a4a52, 0x6a5a3a];
   const skin = SKINS[Math.floor(r() * SKINS.length)];
+  // about a third of town dresses in the island wardrobe the player can wear too
+  if (r() < 0.34) return styledLook(i, { skin });
   if (r() < 0.45) {
     const hair = pick(['scarf', 'scarf', 'scarf', 'braids', 'braids', 'afro']), dressy = hair === 'scarf' ? r() < 0.8 : r() < 0.45;
     return { f: true, skin, hair, scarf: pick(shirts), shirt: pick(shirts), lower: pick(lowers), dress: dressy ? pick(shirts) : null, long: dressy && r() < 0.6, pants: !dressy, style: dressy && r() < 0.6 ? 'kanga' : 'tee', trim: pick(shirts), trim2: pick(shirts), longSleeve: hair === 'scarf' && r() < 0.5, sandals: r() < 0.65, shoes: pick([0x7a4a2a, 0xd8452c, 0x1d1d22, 0xf4f4f0, 0xf3b41b]), h: 0.93 + r() * 0.07 };

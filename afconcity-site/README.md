@@ -63,3 +63,11 @@ The website build (`python3 v3/build.py web`) writes:
 - `dist/sw.js`: an offline helper, so repeat visits start from the phone's own copy and the game opens without a connection.
 
 The loader in `v3/web_loader.js` shows real download progress in the Play button. Phones on Fast graphics get half-size ground textures and skip the fine surface-detail maps. `tools/swtest.py` checks caching and offline play, and `tools/loadtime.py` times each loading step.
+
+## Wardrobe and welcome questions
+
+- The island wardrobe (`v3/js/19b-style.js`) holds the tops, bottoms, shoes, hats, sunglasses, colours, fabric prints and curated looks. Add a look to `PRESETS`, or an item to `TOPS`/`BOTTOMS` with the prints it can come in. Women's choices always cover the thigh.
+- Prints are drawn once into a small texture atlas in the same file; `PAT_M` sets how big a print repeat is on the cloth.
+- A look travels to other players as a short code (`lookCode`/`lookFrom`), so older copies of the game still see a jersey.
+- The welcome questions (`v3/js/48-onboard.js`) add TSh 15,000 per answer to a new player's starting cash, plus TSh 30,000 for answering all eight. Answers stay on the player's device and go anonymously into their play stats. The owner sees the totals under Advertise → Tester insights.
+- `tools/onboard.py` tests both.

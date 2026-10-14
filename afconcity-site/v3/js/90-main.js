@@ -183,7 +183,8 @@ function camRay(ax, ay, az, dx, dy, dz, L) {
   return best;
 }
 function updateCamera(dt, t) {
-  if (mode === 'intro' && AD.view) { const v = AD.view; camera.position.set(v.cx, v.cy, v.cz); camera.lookAt(v.lx, v.ly, v.lz); sun.target.position.set(v.lx, 0, v.lz); }
+  if (mode === 'intro' && STYLE.on) styleCamera(dt, t);
+  else if (mode === 'intro' && AD.view) { const v = AD.view; camera.position.set(v.cx, v.cy, v.cz); camera.lookAt(v.lx, v.ly, v.lz); sun.target.position.set(v.lx, 0, v.lz); }
   else if (mode === 'intro') {
     const shot = Math.floor(t / 14) % 3, k = (t % 14) * (reduceMotion ? 0.2 : 1), a = k * 0.02 + (shot === 1 ? 2.4 : 0.6);
     if (shot === 0) { camera.position.set(SC.x + Math.sin(a) * 330, 120, SC.z + Math.cos(a) * 290); camera.lookAt(SC.x, 10, SC.z); sun.target.position.set(SC.x, 0, SC.z); }
@@ -346,7 +347,8 @@ function loop(nowMs) {
 /* ---------- UI wiring ---------- */
 function segSet(sel, v) { document.querySelectorAll(sel + ' button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === v))); }
 function enterPlay() {
-  audioInit(); AD.view = null;
+  audioInit(); AD.view = null; setStyling(false);
+  const bonus = applyStartBonus(); if (bonus) setTimeout(writeStats, 5000);
   const nick = strOr($('#nick').value, 16).trim();
   state.nick = nick || state.nick || $('#nick').placeholder || 'Fan 27';
   ui.start.hidden = true; ui.hud.hidden = false; ui.tags.hidden = false;
@@ -355,7 +357,7 @@ function enterPlay() {
   if (!playerTag) playerTag = makeTag(state.nick, true); else playerTag.nm.textContent = state.nick;
   cam.yaw = playerVeh ? playerVeh.yaw + Math.PI : player.rotation.y + Math.PI; cam.pitch = 0.26;
   camTarget.set(P.x, 1.6, P.z);
-  if (!state.intro) help(isCoarse ? 'You just got off the daladala on Fumba Road. Walk to <b class="hl">Amina</b> with the joystick and tap <b class="hl">E</b> to talk.' : 'You just got off the daladala on Fumba Road. Walk to <b class="hl">Amina</b> with <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>, click the game to look around, press <kbd>E</kbd> to talk.', 8000);
+  if (!state.intro) help((bonus ? `Your purse: <b class="hg">${tsh(state.cash)}</b>. ` : '') + (isCoarse ? 'You just got off the daladala on Fumba Road. Walk to <b class="hl">Amina</b> with the joystick and tap <b class="hl">E</b> to talk.' : 'You just got off the daladala on Fumba Road. Walk to <b class="hl">Amina</b> with <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>, click the game to look around, press <kbd>E</kbd> to talk.'), 8000);
   else help(`Welcome back, ${escapeHtml(state.nick)}. You have <b class="hg">${tsh(state.cash)}</b> in cash and <b class="hg">${tsh(state.bank || 0)}</b> on Pesa.`, 3500);
   buildLegend(); renderPlayers(); MP.joined = true; MP.last = {}; sendPresence(true); armWatch(); applyHudVis(); updatePhoneBadge();
   if (!state.msgsInit) { state.msgsInit = 1; const hm = myHome(); if (hm) phoneMsg('amina', `Karibu Fumba! Your cousin Saidi paid this week on a ${hm.name.toLowerCase()} for you: ${hm.where.toLowerCase()}. Rent is ${tsh(hm.rent)} every Jumamosi, from Pesa.`); phoneMsg('afcon', 'Your phone: press P (or tap Phone) for boda rides, food delivery, jobs with GPS, your Pesa wallet and your home.'); }
@@ -446,41 +448,13 @@ function renderStats() {
 function openChat() { if (mode !== 'play') return; ui.chat.classList.add('open'); ui.chatbox.hidden = false; ui.chatHint.hidden = true; ui.chatInput.value = ''; if (document.pointerLockElement) document.exitPointerLock(); ui.chatInput.focus(); MP.typ = 1; sendPresence(true); }
 function closeChat() { ui.chat.classList.remove('open'); ui.chatbox.hidden = true; ui.chatHint.hidden = false; MP.typ = 0; sendPresence(true); canvas.focus(); }
 function openPause(tab) { if (mode !== 'play' && mode !== 'paused' && mode !== 'ride') return; if (mode !== 'paused') pausedFrom = mode; mode = 'paused'; ui.pause.hidden = false; if (document.pointerLockElement) document.exitPointerLock(); pmShow(typeof tab === 'string' ? tab : pmTab); $('#btnResume').focus(); }
-function renderKits() {
-  const row = $('#kitRow'); row.innerHTML = '';
-  state.owned.forEach((i) => {
-    const k = KITS[i], l = document.createElement('label'); l.className = 'kit';
-    l.innerHTML = `<input type="radio" name="kit" id="kit${i}" value="${i}"><span><i style="--sw:${k.css}"></i></span>`;
-    l.querySelector('span').append(k.name);
-    const inp = l.querySelector('input'); inp.checked = i === state.kit; inp.addEventListener('change', () => setKit(i));
-    row.append(l);
-  });
-  const hint = document.createElement('span'); hint.className = 'fine'; hint.style.alignSelf = 'center'; hint.textContent = state.owned.length < KITS.length ? 'More jerseys at the Fan Zone shop' : ''; row.append(hint);
-  renderLook();
-}
-/* character creator: body, skin tone, hair */
-function renderLook(o) {
-  o = o || {};
-  const lk = state.look || (state.look = { f: false, s: 3, h: 'short' }), nm = o.name || '';
-  const chip = (row, name, val, checked, label, sw, on) => {
-    const l = document.createElement('label'); l.className = 'kit';
-    l.innerHTML = `<input type="radio" name="${nm}${name}"><span>${sw ? `<i style="--sw:${sw}"></i>` : ''}</span>`;
-    if (label) l.querySelector('span').append(label);
-    const inp = l.querySelector('input'); inp.checked = checked; inp.setAttribute('aria-label', label || name + ' ' + val); inp.addEventListener('change', on);
-    row.append(l);
-  };
-  const apply = () => { state.look = Object.assign({}, lk); if (player) buildPlayer(); mpDirty = true; writeSave(); if (o.after) o.after(); };
-  const rb = o.rb || $('#lookBody'), rs = o.rs || $('#lookSkin'), rh = o.rh || $('#lookHair'); rb.innerHTML = rs.innerHTML = rh.innerHTML = '';
-  [[false, 'Man'], [true, 'Woman']].forEach(([f, n]) => chip(rb, 'lookBody', n, !!lk.f === f, n, null, () => { lk.f = f; apply(); }));
-  PLAYER_SKINS.forEach((c, i) => chip(rs, 'lookSkin', i, lk.s === i, '', '#' + c.toString(16).padStart(6, '0'), () => { lk.s = i; apply(); }));
-  HAIRS.forEach((h) => chip(rh, 'lookHair', h, lk.h === h, HAIR_NAMES[h], null, () => { lk.h = h; apply(); }));
-  rs.querySelectorAll('input').forEach((inp, i) => inp.setAttribute('aria-label', `Skin tone ${i + 1}`));
-}
+/* the look card on Play and the wardrobe panel */
+function renderKits() { renderLookSum(); renderPurseFact(); if (STYLE.on || !$('.sp[data-p="style"]').hidden) renderStyle($('#styleMain')); }
 function wireUI() {
   renderKits();
   if (state.nick) $('#nick').value = state.nick;
-  $('#btnPlay').addEventListener('click', enterPlay);
-  $('#btnNew').addEventListener('click', () => { newGame(); renderKits(); enterPlay(); });
+  $('#btnPlay').addEventListener('click', startPlay);
+  $('#btnNew').addEventListener('click', () => { newGame(); renderKits(); startPlay(); });
   ui.prompt.addEventListener('click', () => { if (curInter) curInter.act(); canvas.focus(); });
   ui.prompt2.addEventListener('click', () => { if (curSec) curSec.act(); canvas.focus(); });
   ui.mClose.addEventListener('click', closeMenu);
@@ -490,7 +464,10 @@ function wireUI() {
   $('#btnUnstick').addEventListener('click', () => { closeOverlays(); stuckMenu(); });
   wireBigMap();
   // main menu: each item shows its panel
-  const showSP = (k) => { document.querySelectorAll('.mm-item').forEach(b => b.setAttribute('aria-current', String(b.dataset.p === k))); document.querySelectorAll('.sp').forEach(p2 => { p2.hidden = p2.dataset.p !== k; }); if (k === 'ads') renderAds($('#adsMain'), false); else AD.view = null; };
+  const showSP = (k) => { document.querySelectorAll('.mm-item').forEach(b => b.setAttribute('aria-current', String(b.dataset.p === k))); document.querySelectorAll('.sp').forEach(p2 => { p2.hidden = p2.dataset.p !== k; }); if (k === 'ads') renderAds($('#adsMain'), false); else AD.view = null; if (mode === 'intro') setStyling(k === 'style'); if (k === 'style') renderStyle($('#styleMain')); };
+  $('#btnStyle').addEventListener('click', () => showSP('style'));
+  $('#btnStyleDone').addEventListener('click', () => { showSP('play'); $('#btnPlay').focus(); });
+  window.addEventListener('keydown', (e) => { if (STYLE.on && mode === 'intro' && e.key === 'Escape') { e.preventDefault(); showSP('play'); $('#btnPlay').focus(); } });
   document.querySelectorAll('.mm-item').forEach(b => { b.addEventListener('click', () => { showSP(b.dataset.p); if (b.dataset.p === 'play' && !$('#btnPlay').disabled) $('#btnPlay').focus(); }); b.addEventListener('focus', () => showSP(b.dataset.p)); });
   const sens = $('#sens'); sens.value = SETTINGS.sens; sens.addEventListener('input', () => { SETTINGS.sens = parseFloat(sens.value) || 1; try { localStorage.setItem('afconcity-sens', String(SETTINGS.sens)); } catch (e) {} });
   $('#btnResume').addEventListener('click', closeOverlays);
@@ -594,6 +571,8 @@ async function start(data) {
   if (!saved && data && data.save && data.save.nick) saved = { v: SAVE_V, nick: data.save.nick };
   if (saved) { state = Object.assign(defaultState(), saved); state.stats = Object.assign(defaultState().stats, saved.stats || {}); }
   state.tips = state.tips || {};
+  // new players start in an island look (returning players keep what they wore)
+  if (!saved || !saved.intro) { if (!state.look || state.look.t === undefined) state.look = newPlayerLook(!!(state.look && state.look.f)); }
   initMultiplayer();
   try { await Promise.race([Promise.all([document.fonts.load(`900 64px "Big Shoulders Display"`), document.fonts.load(`600 32px Figtree`)]), new Promise(r => setTimeout(r, 2500))]); } catch (e) {}
   await step('Painting textures…'); await loadTextures(); buildTextures();

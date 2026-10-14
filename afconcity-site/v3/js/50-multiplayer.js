@@ -43,7 +43,7 @@ function onPeers(change) {
     const pr = p.presence || {};
     let r = remotes.get(p.peer);
     if (typeof pr.x !== 'number') { if (!r) continue; }
-    const kit = clamp(Math.floor(numOr(pr.kit, 0)), 0, KITS.length - 1), lk = strOr(pr.lk, 3);
+    const kit = clamp(Math.floor(numOr(pr.kit, 0)), 0, KITS.length - 1), lk = strOr(pr.lk, 16);
     if (!r) {
       const h = remoteHuman(kit, p.peer, lk), x = clamp(numOr(pr.x, START.x), -2000, 2000), z = clamp(numOr(pr.z, START.z), -2000, 2000);
       h.position.set(x, 0.04, z); scene.add(h);

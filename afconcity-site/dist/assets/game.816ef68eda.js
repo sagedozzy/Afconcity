@@ -2195,7 +2195,9 @@ const SPICE_SPOTS = [];
 /* tourists lounging on the beach: they buy cold madafu */
 const TOURISTS = [];
 function buildTourists() {
-  const looks = [{ skin: 0xe8c4a8, shirt: 0x19b5b1, lower: 0xf6f1e7, hair: 'hat', hairCol: 0x8a6a3a }, { skin: 0xf1d2bc, shirt: 0xf3b41b, lower: 0x1f4f8f, hair: 'short', hairCol: 0xc8a060 }, { skin: 0xd9a78a, shirt: 0xe0553a, lower: 0x232a63, hair: 'hat', hairCol: 0x3a2a1a }, { skin: 0xf1d2bc, shirt: 0xf6f1e7, lower: 0xd8452c, hair: 'scarf', scarf: 0x19b5b1 }, { skin: 0x7a4a2a, shirt: 0x8e3b8f, lower: 0x141838, hair: 'hat' }, { skin: 0xe8c4a8, shirt: 0x1e9b57, lower: 0xf6f1e7, hair: 'short', hairCol: 0x6a4a2a }];
+  // visitors from abroad in resort clothes
+  const TSK = [0xe8c4a8, 0xf1d2bc, 0xd9a78a, 0xf1d2bc, 0x7a4a2a, 0xe8c4a8], THC = [0x8a6a3a, 0xc8a060, 0x3a2a1a, 0xd8b878, 0x141010, 0x6a4a2a];
+  const looks = TSK.map((skin, i) => styledLook(700 + i, { skin, hairCol: THC[i], tourist: true, f: i % 2 === 1 }));
   const spots = [[-150, 0], [-40, 0], [26, 0], [60, 0], [140, 0], [-190, 0], [-255, 0], [190, 0]];
   spots.forEach(([x], i) => {
     const z = coastZ(x) - 13 - (i % 2) * 3; if (!walkable(x, z)) return;
@@ -2280,7 +2282,7 @@ const W = (...a) => { const o = []; for (let i = 0; i < a.length; i += 2) o.push
 /* ---------- geometry accumulator with skin weights and roughness ---------- */
 const _sv = new T.Vector3(), _sn = new T.Vector3();
 class SkinGeo {
-  constructor() { this.p = []; this.n = []; this.c = []; this.si = []; this.sw = []; this.r = []; this.idx = []; }
+  constructor() { this.p = []; this.n = []; this.c = []; this.si = []; this.sw = []; this.r = []; this.idx = []; this.pt = []; this.uv = []; this.pw = []; }
   get count() { return this.p.length / 3; }
   pushW(w) {
     if (typeof w === 'number') { this.si.push(w, 0, 0, 0); this.sw.push(1, 0, 0, 0); return; }
@@ -2295,7 +2297,7 @@ class SkinGeo {
       if (m) { _sv.applyMatrix4(m); _sn.applyMatrix3(nm).normalize(); }
       this.p.push(_sv.x, _sv.y, _sv.z); this.n.push(_sn.x, _sn.y, _sn.z);
       const cc = typeof col === 'function' ? col(_sv, _sn) : col; this.c.push(cc.r, cc.g, cc.b);
-      this.pushW(typeof wts === 'function' ? wts(_sv) : wts); this.r.push(rough === undefined ? 0.8 : rough);
+      this.pushW(typeof wts === 'function' ? wts(_sv) : wts); this.r.push(rough === undefined ? 0.8 : rough); this.pt.push(0); this.uv.push(0, 0); this.pw.push(0);
     }
     const ix = geo.index;
     if (ix) { for (let i = 0; i < ix.count; i += 3) { const a = ix.getX(i), b = ix.getX(i + 1), c = ix.getX(i + 2); if (keep && !keep(pa, a, b, c)) continue; this.idx.push(base + a, base + b, base + c); } }
@@ -2304,9 +2306,11 @@ class SkinGeo {
   build() {
     const g = new T.BufferGeometry(), n = this.count;
     // baked occlusion: undersides and creases a touch darker, a little fabric/skin variation
+    const puv = new Float32Array(n * 4);
     for (let i = 0; i < n; i++) {
       const ny = this.n[i * 3 + 1], k = (0.8 + 0.2 * (0.5 + 0.5 * ny)) * (0.97 + 0.06 * hash2(this.p[i * 3] * 91, this.p[i * 3 + 1] * 57 + this.p[i * 3 + 2] * 33));
       this.c[i * 3] *= k; this.c[i * 3 + 1] *= k; this.c[i * 3 + 2] *= k;
+      puv[i * 4] = this.uv[i * 2]; puv[i * 4 + 1] = this.uv[i * 2 + 1]; puv[i * 4 + 2] = k; puv[i * 4 + 3] = this.pw[i];
     }
     g.setAttribute('position', new T.Float32BufferAttribute(this.p, 3));
     g.setAttribute('normal', new T.Float32BufferAttribute(this.n, 3));
@@ -2314,12 +2318,14 @@ class SkinGeo {
     g.setAttribute('skinIndex', new T.Uint16BufferAttribute(this.si, 4));
     g.setAttribute('skinWeight', new T.Float32BufferAttribute(this.sw, 4));
     g.setAttribute('aRough', new T.Float32BufferAttribute(this.r, 1));
+    if (this.pt.some(v => v > 0)) { g.setAttribute('aPat', new T.Float32BufferAttribute(this.pt, 1)); g.setAttribute('aPuv', new T.BufferAttribute(puv, 4)); }
     g.setIndex(this.idx);
     g.boundingSphere = new T.Sphere(new T.Vector3(0, 0.9, 0), 1.35);
     return g;
   }
 }
-/* vertical loft: rings bottom to top, each { y, x, z, rx, rz, w, col (Color | fn(a, ca, sa, y)), r (roughness), sq } */
+/* vertical loft: rings bottom to top, each { y, x, z, rx, rz, w (or wfn(ca) for weights that depend on the side), col (Color | fn(a, ca, sa, y)), r (roughness), sq }.
+   A colour carrying .pt is printed cloth: the seam column is doubled so the print wraps without a smear. o.both adds an inside face. */
 function addLoft(sg, rings, seg, o) {
   o = o || {};
   const pos = [], cols = [], wts = [], rs = [], idx = [];
@@ -2332,17 +2338,31 @@ function addLoft(sg, rings, seg, o) {
       if (R.fy && sa > 0) { yv = R.y - R.fy * sa * sa; if (R.at) ({ rx, rz, z: zc, fb } = R.at(yv)); }
       let bz = 0; if (fb && sa > 0) bz = fb * Math.pow(sa, 1.5) * Math.exp(-((Math.abs(ca) - 0.42) ** 2) / 0.05);
       pos.push(R.x + ex * rx, yv, zc + ez * rz + bz);
-      cols.push(typeof R.col === 'function' ? R.col(a, ca, sa, R.y) : R.col); wts.push(R.w); rs.push(R.r === undefined ? 0.8 : R.r);
+      cols.push(typeof R.col === 'function' ? R.col(a, ca, sa, R.y) : R.col); wts.push(R.wfn ? R.wfn(ca) : R.w); rs.push(R.r === undefined ? 0.8 : R.r);
     }
   }
   const nr = rings.length;
   for (let i = 0; i < nr - 1; i++) for (let k = 0; k < seg; k++) { const a = i * seg + k, b = i * seg + (k + 1) % seg, c = a + seg, d = b + seg; idx.push(a, c, b, b, c, d); }
-  if (o.capB) { const R = rings[0], ci = pos.length / 3; pos.push(R.x, R.y - (o.capB === true ? 0 : o.capB), R.z); cols.push(typeof R.col === 'function' ? R.col(-Math.PI / 2, 0, -1, R.y) : R.col); wts.push(R.w); rs.push(R.r === undefined ? 0.8 : R.r); for (let k = 0; k < seg; k++) idx.push(ci, k, (k + 1) % seg); }
-  if (o.capT) { const R = rings[nr - 1], ci = pos.length / 3, b0 = (nr - 1) * seg; pos.push(R.x, R.y + (o.capT === true ? 0 : o.capT), R.z); cols.push(typeof R.col === 'function' ? R.col(Math.PI / 2, 0, 1, R.y) : R.col); wts.push(R.w); rs.push(R.r === undefined ? 0.8 : R.r); for (let k = 0; k < seg; k++) idx.push(ci, b0 + (k + 1) % seg, b0 + k); }
+  const caps = [];
+  if (o.capB) { const R = rings[0], ci = pos.length / 3; pos.push(R.x, R.y - (o.capB === true ? 0 : o.capB), R.z); cols.push(typeof R.col === 'function' ? R.col(-Math.PI / 2, 0, -1, R.y) : R.col); wts.push(R.wfn ? R.wfn(0) : R.w); rs.push(R.r === undefined ? 0.8 : R.r); for (let k = 0; k < seg; k++) idx.push(ci, k, (k + 1) % seg); caps.push([ci, 0]); }
+  if (o.capT) { const R = rings[nr - 1], ci = pos.length / 3, b0 = (nr - 1) * seg; pos.push(R.x, R.y + (o.capT === true ? 0 : o.capT), R.z); cols.push(typeof R.col === 'function' ? R.col(Math.PI / 2, 0, 1, R.y) : R.col); wts.push(R.wfn ? R.wfn(0) : R.w); rs.push(R.r === undefined ? 0.8 : R.r); for (let k = 0; k < seg; k++) idx.push(ci, b0 + (k + 1) % seg, b0 + k); caps.push([ci, nr - 1]); }
   const g = new T.BufferGeometry(); g.setAttribute('position', new T.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
-  const base = sg.count, P = g.attributes.position, N = g.attributes.normal;
-  for (let i = 0; i < P.count; i++) { sg.p.push(P.getX(i), P.getY(i), P.getZ(i)); sg.n.push(N.getX(i), N.getY(i), N.getZ(i)); const c = cols[i]; sg.c.push(c.r, c.g, c.b); sg.pushW(wts[i]); sg.r.push(rs[i]); }
-  for (const i of idx) sg.idx.push(base + i);
+  const P = g.attributes.position, N = g.attributes.normal;
+  // print repeats: a whole number of tiles around the average girth
+  let per = 0; for (const R of rings) per += TAU * Math.sqrt((R.rx * R.rx + R.rz * R.rz) / 2); const rep = Math.max(1, Math.round(per / nr / PAT_M));
+  const base = sg.count, W1 = seg + 1, pid = cols.map(c => c.pt || 0), pw = pid.map(v => v ? 1 : 0);
+  if (pid.some(v => v)) for (let i = 0; i < nr; i++) for (let k = 0; k < seg; k++) {
+    const j = i * seg + k; if (pid[j]) continue;
+    for (const q of [i * seg + (k + 1) % seg, i * seg + (k + seg - 1) % seg, j + seg, j - seg]) if (q >= 0 && q < nr * seg && cols[q].pt) { pid[j] = cols[q].pt; break; }
+  }
+  const put = (j, u, v) => { sg.p.push(P.getX(j), P.getY(j), P.getZ(j)); sg.n.push(N.getX(j), N.getY(j), N.getZ(j)); const c = cols[j]; sg.c.push(c.r, c.g, c.b); sg.pushW(wts[j]); sg.r.push(rs[j]); sg.pt.push(pid[j] || 0); sg.pw.push(pw[j] || 0); sg.uv.push(u, v); };
+  for (let i = 0; i < nr; i++) for (let k = 0; k <= seg; k++) { const j = i * seg + (k % seg); put(j, k / seg * rep, P.getY(j) / PAT_M); }
+  const capBase = base + nr * W1; caps.forEach(([ci]) => put(ci, 0, P.getY(ci) / PAT_M));
+  const out = [];
+  for (let i = 0; i < nr - 1; i++) for (let k = 0; k < seg; k++) { const a = base + i * W1 + k, b = a + 1, c = a + W1, d = b + W1; out.push(a, c, b, b, c, d); }
+  caps.forEach(([ci, ri], n) => { const cc = capBase + n, r0 = base + ri * W1; for (let k = 0; k < seg; k++) { if (ri === 0) out.push(cc, r0 + k, r0 + k + 1); else out.push(cc, r0 + k + 1, r0 + k); } });
+  for (const i of out) sg.idx.push(i);
+  if (o.both) for (let i = 0; i < out.length; i += 3) sg.idx.push(out[i], out[i + 2], out[i + 1]);
 }
 /* piecewise-linear profile lookup: rows [y, ...values] sorted by y */
 function prof(rows, y) {
@@ -2397,61 +2417,83 @@ function buildBody(look, hi) {
   const skin = C(L.skin || 0x5a3620), shirt = C(L.shirt || 0xf6f1e7), lower = C(L.lower || 0x232a63), trim = C(L.trim || 0xf6f1e7);
   const shoeC = C(L.shoes || 0x1d1d22), soleC = C(L.sole || (L.shoes === 0xf4f4f0 ? 0xd8d4cc : 0xf2f0ea)), hairC = C(L.hairCol || 0x141010);
   const palm = skin.clone().lerp(C(0xc8957a), 0.38), lip = skin.clone().multiplyScalar(0.7).lerp(C(0x5a2424), 0.25);
-  const kit = !!L.kit, robe = !!L.robe, dress = L.dress ? C(L.dress) : null;
+  const kit = !!L.kit, kitLow = L.kitLow === undefined ? kit : !!L.kitLow, robe = !!L.robe, dress = L.dress ? C(L.dress) : null;
   const R_SKIN = 0.52, R_CLOTH = 0.86, SEG = hi ? 22 : 10, LSEG = hi ? 14 : 7;
-  const sleeveY = L.longSleeve || robe ? 0.9 : kit ? 1.275 : 1.255, shortsY = L.pants || robe ? 0.1 : kit ? 0.655 : 0.6;
+  // printed cloth: near people carry the print id for the shader; far people get the print's average colour
+  const tag = (c, p) => { const id = p ? PATS.indexOf(p) : 0; if (id <= 0) return c; if (!hi) return c.clone().lerp(PAT_AVG[id].c, PAT_AVG[id].a); const o = c.clone(); o.pt = id; return o; };
+  const shade = (c, k) => { const o = c.clone().multiplyScalar(k); o.pt = c.pt; return o; };
+  const shirtP = tag(shirt, L.tp), lowerP = tag(lower, L.bp), dressP = dress ? tag(dress, L.dp) : null, kitTrim = C(L.kitTrim || L.trim || 0xf6f1e7);
+  const SLEEVES = { none: 1.49, short: 1.255, elbow: 1.06, long: 0.9 };
+  const sleeveY = L.sleeve ? (L.sleeve === 'short' && kit ? 1.275 : SLEEVES[L.sleeve]) : L.longSleeve || robe ? 0.9 : kit ? 1.275 : 1.255;
+  const longArm = sleeveY < 1.0, shortsY = L.plen !== undefined ? L.plen : L.pants || robe ? 0.1 : kit ? 0.655 : 0.6, pantsLike = shortsY <= 0.3 || robe;
+  const neck = L.neck || (kit ? 'crew' : L.style === 'button' ? 'collar' : '');
 
   /* torso */
   const TP = f ? [[0.855, 0.140, 0.090, -0.004], [0.90, 0.172, 0.108, -0.014], [0.96, 0.170, 0.105, -0.010], [1.03, 0.140, 0.090, 0.0], [1.09, 0.128, 0.084, 0.002], [1.16, 0.140, 0.092, 0.010], [1.24, 0.152, 0.098, 0.014], [1.31, 0.158, 0.094, 0.010], [1.37, 0.163, 0.087, 0.002], [1.415, 0.150, 0.078, -0.006], [1.445, 0.105, 0.064, -0.008], [1.465, 0.06, 0.05, -0.006]]
     : [[0.855, 0.145, 0.092, -0.004], [0.90, 0.166, 0.104, -0.012], [0.96, 0.163, 0.100, -0.008], [1.03, 0.150, 0.094, 0.0], [1.10, 0.152, 0.096, 0.004], [1.18, 0.164, 0.103, 0.010], [1.26, 0.176, 0.108, 0.013], [1.33, 0.184, 0.104, 0.008], [1.385, 0.182, 0.092, 0.0], [1.425, 0.150, 0.078, -0.006], [1.45, 0.10, 0.064, -0.008], [1.465, 0.06, 0.052, -0.006]];
   const bustF = (y) => f ? 0.05 * Math.exp(-(((y - 1.262) / 0.052) ** 2)) : 0.012 * Math.exp(-(((y - 1.3) / 0.05) ** 2));
   const TW = [[0.95, W('hips', 1)], [1.07, W('spine', 1)], [1.19, W('spine', 1)], [1.29, W('chest', 1)]];
-  const hemY = kit ? 0.95 : 0.935;
+  // an untucked shirt hangs over the waistband
+  const untuck = !!L.untuck && !dress, hemY = untuck ? 0.89 : 0.985;
+  const placket = L.style === 'button' || L.style === 'polo';
   const shirtCol = (a, ca, sa, y) => {
     if (kit) {
       if (y > 1.442 || (sa > 0.86 && y > 1.39 - (1 - sa) * 0.3)) return trim;
       if (Math.abs(ca) > 0.95 && y < 1.37 && y > hemY + 0.01) return trim;
-      return shirt;
+      return shirtP;
     }
-    if (L.style === 'button') { if (Math.abs(a - Math.PI / 2) < 0.07 && y > 0.95) return shirt.clone().multiplyScalar(0.78); if (y > 1.43) return shirt.clone().multiplyScalar(1.08); }
+    // necklines: a V, a wide boat neck, an open collar, tank-top straps
+    if (neck === 'v' && sa > 0.3 && y > 1.33 + Math.abs(ca) * 0.55) return skin;
+    if (neck === 'boat' && y > 1.437 && Math.abs(ca) < 0.75) return skin;
+    if (neck === 'collar' && L.style === 'button' && sa > 0.55 && y > 1.395 + Math.abs(ca) * 0.5) return skin;
+    if (neck === 'tank' && ((y > 1.38 && Math.abs(ca) > 0.62) || (Math.abs(sa) > 0.5 && y > 1.405 + Math.abs(ca) * 0.3))) return skin;
+    if (placket && Math.abs(a - Math.PI / 2) < 0.07 && y > (L.style === 'polo' ? 1.3 : 0.9) && y < 1.42) return shade(shirtP, 0.8);
     if (L.style === 'kanga' && y < 1.32) { const band = Math.floor((y - 0.9) * 28) % 4 === 0; return band ? C(L.trim || 0xf3b41b) : shirt; }
-    return shirt;
+    return shirtP;
   };
-  const lowerCol = (a, ca) => (kit && Math.abs(ca) > 0.95) ? trim : lower;
-  const tys = hi ? [0.855, 0.88, 0.905, hemY - 0.004, hemY - 0.002, hemY, 0.975, 1.01, 1.05, 1.09, 1.13, 1.165, 1.2, 1.225, 1.25, 1.275, 1.3, 1.325, 1.35, 1.375, 1.4, 1.42, 1.44, 1.455, 1.465]
-    : [0.855, 0.9, hemY - 0.002, hemY, 1.0, 1.08, 1.18, 1.28, 1.37, 1.42, 1.455, 1.465];
+  const lowerCol = (a, ca) => (kitLow && Math.abs(ca) > 0.95) ? kitTrim : lowerP;
+  const baseY = hi ? [0.855, 0.88, 0.905, 0.94, 0.975, 1.01, 1.05, 1.09, 1.13, 1.165, 1.2, 1.225, 1.25, 1.275, 1.3, 1.325, 1.35, 1.375, 1.4, 1.42, 1.44, 1.455, 1.465] : [0.855, 0.9, 1.0, 1.08, 1.18, 1.28, 1.37, 1.42, 1.455, 1.465];
+  const tys = baseY.filter(y => Math.abs(y - hemY) > 0.007).concat(hi ? [hemY - 0.004, hemY - 0.002, hemY] : [hemY - 0.002, hemY]).sort((p, q) => p - q);
   const rings = [];
   for (const y of tys) {
     const [rx, rz, z] = prof(TP, y), below = y < hemY - 0.001, lipRing = Math.abs(y - hemY) < 0.0005;
     const inflate = robe ? 1.03 : below ? 1.0 : lipRing ? 1.045 : 1.02;
+    // an untucked shirt hangs clear of the hips and the tops of the trouser legs
+    const hang = untuck && !below && y < 1.03 ? 1 - smooth(clamp((y - hemY) / (1.03 - hemY), 0, 1)) : 0;
     const fb = bustF(y);
-    rings.push({ y, x: 0, z, rx: rx * inflate, rz: rz * inflate, fb, w: wBlend(y, TW), col: robe ? shirt : below ? lowerCol : shirtCol, r: R_CLOTH, sq: y > 1.15 && y < 1.43 ? 2.5 : 2.15 });
+    rings.push({ y, x: 0, z: z + 0.004 * hang, rx: Math.max(rx * inflate, lerp(rx * inflate, 0.218, hang)), rz: Math.max(rz * inflate, lerp(rz * inflate, 0.152, hang)), fb, w: wBlend(y, TW), col: robe ? shirtP : below ? lowerCol : shirtCol, r: R_CLOTH, sq: y > 1.15 && y < 1.43 ? 2.5 : hang > 0.05 ? 2.15 + 0.7 * hang : 2.15 });
   }
   addLoft(sg, rings, SEG * 2 - 4, { capB: 0.03 });
   /* neck */
   {
     const nr = [[1.40, 0.056, 0.058, -0.004, W('chest', 1)], [1.46, 0.052, 0.055, -0.002, W('chest', 0.45, 'neck', 0.55)], [1.515, 0.048, 0.051, 0.004, W('neck', 0.75, 'head', 0.25)], [1.575, 0.047, 0.05, 0.012, W('head', 1)]];
     addLoft(sg, nr.map(([y, rx, rz, z, w]) => ({ y, x: 0, z, rx: rx * (f ? 0.92 : 1), rz: rz * (f ? 0.92 : 1), w, col: skin, r: R_SKIN })), LSEG + 2);
-    if (kit || L.style === 'button') sg.add(new T.TorusGeometry(0.058, hi ? 0.009 : 0.012, 6, hi ? 20 : 10), mat4(0, 1.452, 0.0, 0, 1, 1, 1.05, Math.PI / 2 - 0.2), kit ? trim : shirt.clone().multiplyScalar(1.06), W('chest', 0.7, 'neck', 0.3), R_CLOTH);
+    if (neck === 'collar' || kit) {
+      // a collar stands up round the back of the neck and falls open at the front
+      sg.add(new T.TorusGeometry(0.06, hi ? 0.01 : 0.013, 6, hi ? 20 : 10, kit ? TAU : TAU * 0.78), mat4(0, 1.452, -0.004, 0, 1, 1, kit ? 1.05 : 1.8, Math.PI / 2 - 0.2, kit ? 0 : Math.PI / 2 - TAU * 0.89), kit ? trim : shirt.clone().multiplyScalar(1.06), W('chest', 0.7, 'neck', 0.3), R_CLOTH);
+      if (!kit && hi) for (const q of [1, -1]) sg.add(rb(0.045, 0.006, 0.05, 0.003), mat4(q * 0.045, 1.425, 0.05, q * 0.5, 1, 1, 1, -0.9, q * 0.3), shirt.clone().multiplyScalar(1.03), W('chest', 1), R_CLOTH);
+    } else if (neck === 'crew' && hi) sg.add(new T.TorusGeometry(0.056, 0.006, 5, 20), mat4(0, 1.448, -0.002, 0, 1, 1, 1.05, Math.PI / 2 - 0.15), shade(shirt, 0.92), W('chest', 0.7, 'neck', 0.3), R_CLOTH);
   }
   /* legs */
   const LP = f ? [[0.075, 0.030, 0.033, 0.0], [0.10, 0.032, 0.035, 0.0], [0.14, 0.034, 0.037, -0.002], [0.20, 0.040, 0.043, -0.004], [0.27, 0.048, 0.051, -0.008], [0.34, 0.054, 0.058, -0.011], [0.40, 0.052, 0.056, -0.008], [0.45, 0.049, 0.052, 0.006], [0.48, 0.050, 0.054, 0.010], [0.51, 0.053, 0.057, 0.008], [0.57, 0.060, 0.063, 0.006], [0.66, 0.071, 0.074, 0.006], [0.76, 0.081, 0.085, 0.004], [0.86, 0.089, 0.093, 0.0], [0.93, 0.094, 0.098, -0.004], [0.975, 0.096, 0.100, -0.004]]
     : [[0.075, 0.031, 0.034, 0.0], [0.10, 0.033, 0.036, 0.0], [0.14, 0.035, 0.038, -0.002], [0.20, 0.041, 0.044, -0.004], [0.27, 0.050, 0.053, -0.008], [0.34, 0.057, 0.062, -0.012], [0.40, 0.055, 0.060, -0.008], [0.45, 0.051, 0.054, 0.006], [0.48, 0.051, 0.055, 0.010], [0.51, 0.052, 0.056, 0.008], [0.57, 0.058, 0.061, 0.006], [0.66, 0.068, 0.071, 0.006], [0.76, 0.077, 0.082, 0.004], [0.86, 0.085, 0.090, 0.0], [0.93, 0.090, 0.096, -0.004], [0.975, 0.092, 0.098, -0.004]];
   const sockC = L.socks ? C(L.socks) : null;
+  // trouser legs hang straight (or wide) from the thigh; shorts sit a little loose
+  const minR = L.wide === 2 ? 0.098 : L.wide ? 0.074 : 0.06;
   for (const [s, side] of [[1, 'L'], [-1, 'R']]) {
     const th = 'thigh' + side, sh = 'shin' + side, ft = 'foot' + side, hx = RP[th][0];
     const LW = [[0.085, W(ft, 0.35, sh, 0.65)], [0.12, W(sh, 1)], [0.44, W(sh, 1)], [0.52, W(th, 1)], [0.9, W(th, 1)], [0.975, W('hips', 0.55, th, 0.45)]];
     const ys = hi ? [0.075, 0.1, 0.14, 0.2, 0.27, 0.34, 0.4, 0.45, 0.48, 0.51, 0.57, 0.66, 0.76, 0.86, 0.93, 0.975] : [0.075, 0.14, 0.27, 0.4, 0.48, 0.57, 0.76, 0.93, 0.975];
-    const hemAt = (L.pants || robe) ? 0.1 : shortsY, rl = [];
+    const hemAt = robe ? 0.1 : shortsY, rl = [];
     const push = (y, k, col, r) => { const [rx, rz, z] = prof(LP, y); rl.push({ y, x: hx - s * 0.006 * (1 - y), z, rx: rx * k, rz: rz * k, w: wBlend(y, LW), col, r }); };
     const legCol = (y) => {
-      if (y >= hemAt && !dress) return { c: (L.pants || robe) ? (robe ? lower : lower) : lowerCol, k: (L.pants || robe) ? Math.max(1.08, 0.06 / prof(LP, y)[0]) : 1.06, r: R_CLOTH };
+      if (y >= hemAt && !dress) return { c: robe ? lowerP : lowerCol, k: pantsLike ? Math.max(1.08, minR / prof(LP, y)[0] * (1 + (0.5 - Math.min(y, 0.5)) * (L.wide ? 0.25 : 0))) : 1.08, r: R_CLOTH };
       if (dress && y > (L.long ? 0.12 : 0.34)) return { c: skin, k: 0.8, r: R_SKIN };
-      if (sockC && y < 0.4) return { c: y > 0.375 ? trim : sockC, k: 1.06, r: R_CLOTH };
+      if (sockC && y < 0.4) return { c: y > 0.375 ? kitTrim : sockC, k: 1.06, r: R_CLOTH };
       return { c: skin, k: 1, r: R_SKIN };
     };
     for (const y of ys) {
-      if (sockC && !L.pants && !robe && rl.length && rl[rl.length - 1].y < 0.4 && y >= 0.4) { push(0.399, 1.07, trim, R_CLOTH); push(0.4, 1.0, skin, R_SKIN); }
+      if (sockC && !pantsLike && rl.length && rl[rl.length - 1].y < 0.4 && y >= 0.4) { push(0.399, 1.07, kitTrim, R_CLOTH); push(0.4, 1.0, skin, R_SKIN); }
       if (!dress && rl.length && rl[rl.length - 1].y < hemAt && y >= hemAt) { const a = legCol(hemAt - 0.002), b2 = legCol(hemAt + 0.002); push(hemAt - 0.001, a.k, a.c, a.r); push(hemAt, b2.k * 1.07, b2.c, b2.r); }
       if (Math.abs(y - hemAt) < 0.004 || (sockC && Math.abs(y - 0.4) < 0.004)) continue;
       const q = legCol(y); push(y, q.k, q.c, q.r);
@@ -2460,26 +2502,18 @@ function buildBody(look, hi) {
   }
   /* skirt / dress or kanzu: weights follow each thigh on its own side so hems swing with the legs */
   if (dress || robe) {
-    const top = robe ? 1.38 : 1.0, bottom = robe ? 0.08 : (L.long ? 0.12 : 0.34), col = robe ? shirt : dress, band = C(L.trim2 || (robe ? 0xf6f1e7 : 0x141838));
+    const top = robe ? 1.38 : 1.0, bottom = robe ? 0.08 : (L.long ? 0.12 : L.midi ? 0.3 : 0.34), col = robe ? shirtP : dressP, band = C(L.trim2 || (robe ? 0xf6f1e7 : 0x141838));
     const sys = hi ? [bottom, bottom + 0.03, bottom + 0.06, 0.3, 0.45, 0.6, 0.72, 0.82, 0.9, 0.96, 1.0, 1.1, 1.2, 1.3, 1.38].filter((y, i, a) => y >= bottom && y <= top && (i === 0 || y > a[i - 1])) : [bottom, 0.5, 0.75, 0.9, 1.0, 1.2, 1.38].filter(y => y >= bottom && y <= top);
-    const sk = [];
+    const sk = [], flare = L.long ? 1 : 0.9;
     for (const y of sys) {
       const [rx0, rz0, z0] = prof(TP, clamp(y, 0.9, 1.465)), k = y < 0.9 ? smooth((0.9 - y) / (0.9 - bottom + 1e-3)) : 0;
       const legW = y < 0.86 ? smooth(clamp((0.86 - y) / 0.45, 0, 1)) * 0.72 : 0;
       const wfn = (ca) => ca > 0 ? W('hips', 1 - legW * ca, 'thighL', legW * ca) : W('hips', 1 + legW * ca, 'thighR', -legW * ca);
       const rxh = Math.max(rx0 * (robe ? 1.07 : 1.06), y < 0.95 ? 0.19 : 0), rzh = Math.max(rz0 * (robe ? 1.1 : 1.08), y < 0.95 ? 0.14 : 0), kk = Math.sqrt(k);
-      sk.push({ y, x: 0, z: z0 - 0.004 * k, rx: lerp(rxh, robe ? 0.26 : 0.25, kk), rz: lerp(rzh, robe ? 0.23 : 0.215, kk), w: null, wfn, col: (a, ca, sa, yy) => (yy < bottom + 0.05 && !robe) ? band : col.clone().multiplyScalar(0.94 + 0.06 * Math.sin(a * 9)), r: R_CLOTH });
+      sk.push({ y, x: 0, z: z0 - 0.004 * k, rx: lerp(rxh, (robe ? 0.26 : 0.25) * flare, kk), rz: lerp(rzh, (robe ? 0.23 : 0.215) * flare, kk), wfn, col: (a, ca, sa, yy) => (yy < bottom + 0.05 && !robe && L.trim2 !== L.dress) ? band : shade(col, 0.94 + 0.06 * Math.sin(a * 9)), r: R_CLOTH });
     }
-    // per-vertex weights need the angle, so expand rings into the accumulator directly
-    const seg = SEG * 2 - 4, base = sg.count, pos = [], idx = [];
-    for (const R of sk) for (let k = 0; k < seg; k++) { const a = k / seg * TAU, ca = Math.cos(a), sa = Math.sin(a); pos.push(R.x + ca * R.rx, R.y, R.z + sa * R.rz); }
-    for (let i = 0; i < sk.length - 1; i++) for (let k = 0; k < seg; k++) { const a = i * seg + k, b = i * seg + (k + 1) % seg, c = a + seg, d = b + seg; idx.push(a, c, b, b, c, d); }
-    const g = new T.BufferGeometry(); g.setAttribute('position', new T.Float32BufferAttribute(pos, 3)); g.setIndex(idx); g.computeVertexNormals();
-    const N = g.attributes.normal;
-    sk.forEach((R, i) => { for (let k = 0; k < seg; k++) { const j = i * seg + k, a = k / seg * TAU, ca = Math.cos(a); sg.p.push(pos[j * 3], pos[j * 3 + 1], pos[j * 3 + 2]); sg.n.push(N.getX(j), N.getY(j), N.getZ(j)); const c = R.col(a, ca, Math.sin(a), R.y); sg.c.push(c.r, c.g, c.b); sg.pushW(R.wfn(ca)); sg.r.push(R_CLOTH); } });
-    for (const i of idx) sg.idx.push(base + i);
-    // inner side so the hem is not see-through from below
-    for (let i = 0; i < idx.length; i += 3) sg.idx.push(base + idx[i], base + idx[i + 2], base + idx[i + 1]);
+    // inner side too, so the hem is not see-through from below
+    addLoft(sg, sk, SEG * 2 - 4, { both: true });
   }
   /* vest */
   if (L.vest && !robe) {
@@ -2489,6 +2523,7 @@ function buildBody(look, hi) {
   }
   /* arms */
   const AP = [[0.875, 0.026, 0.027], [0.895, 0.027, 0.028], [0.93, 0.030, 0.031], [0.98, 0.036, 0.037], [1.05, 0.040, 0.042], [1.10, 0.037, 0.041], [1.13, 0.036, 0.040], [1.16, 0.038, 0.042], [1.20, 0.041, 0.045], [1.27, 0.045, 0.049], [1.34, 0.050, 0.054], [1.40, 0.056, 0.060], [1.44, 0.058, 0.062], [1.47, 0.050, 0.055]];
+  const sleeveK = longArm ? 1.12 : sleeveY < 1.2 ? 1.1 : 1.06;
   for (const [s, side] of [[1, 'L'], [-1, 'R']]) {
     const sh = RP['uArm' + side], el = RP['fArm' + side], wr = RP['hand' + side], ua = 'uArm' + side, fa = 'fArm' + side, hd = 'hand' + side, cl = 'clav' + side;
     const AW = [[0.885, W(fa, 0.5, hd, 0.5)], [0.91, W(fa, 1)], [1.105, W(fa, 1)], [1.165, W(ua, 1)], [1.40, W(ua, 1)], [1.445, W(ua, 0.7, cl, 0.3)], [1.47, W('chest', 0.5, ua, 0.5)]];
@@ -2496,11 +2531,11 @@ function buildBody(look, hi) {
     const cz = (y) => y > el[1] ? lerp(el[2], sh[2], (y - el[1]) / (sh[1] - el[1])) : lerp(wr[2], el[2], (y - wr[1]) / (el[1] - wr[1]));
     const ys = hi ? AP.map(r => r[0]) : [0.875, 0.93, 1.05, 1.13, 1.2, 1.34, 1.44, 1.47];
     const ar = [], fm = f ? 0.9 : 1;
-    const armCol = (y) => y >= sleeveY ? { c: (kit && y < sleeveY + 0.02) ? trim : shirt, k: L.longSleeve || robe ? 1.12 : 1.06, r: R_CLOTH } : { c: skin, k: 1, r: R_SKIN };
+    const armCol = (y) => y >= sleeveY ? { c: (kit && y < sleeveY + 0.02) ? trim : shirtP, k: sleeveK, r: R_CLOTH } : { c: skin, k: 1, r: R_SKIN };
     const push = (y, k, c, r) => { const [rx, rz] = prof(AP, y); ar.push({ y, x: cx(y), z: cz(y), rx: rx * k * fm, rz: rz * k * fm, w: wBlend(y, AW), col: c, r }); };
     for (const y of ys) {
       if (Math.abs(y - sleeveY) < 0.006) continue;
-      if (ar.length && ar[ar.length - 1].y < sleeveY && y > sleeveY) { push(sleeveY - 0.001, 1, skin, R_SKIN); const q = armCol(sleeveY + 0.001); push(sleeveY, q.k * (L.longSleeve || robe ? 1.06 : 1.12), q.c, q.r); push(sleeveY + 0.012, q.k * 1.07, q.c, q.r); }
+      if (ar.length && ar[ar.length - 1].y < sleeveY && y > sleeveY) { push(sleeveY - 0.001, 1, skin, R_SKIN); const q = armCol(sleeveY + 0.001); push(sleeveY, q.k * (longArm ? 1.06 : 1.12), q.c, q.r); push(sleeveY + 0.012, q.k * 1.07, q.c, q.r); }
       const q = armCol(y); push(y, q.k, q.c, q.r);
     }
     addLoft(sg, ar, LSEG, { capB: 0.004 });
@@ -2515,14 +2550,23 @@ function buildBody(look, hi) {
       sg.add(capsule(0.0105 * hk, 0.036 * hk, 3, 6), mat4(hx - s * 0.012, 0.842, hz + 0.044 * hk, 0, 1, 1, 1, -0.55, -s * 0.35), handCol, W(hd, 1), R_SKIN);
     } else sg.add(rb(0.03 * hk, 0.15 * hk, 0.074 * hk, 0.014), mat4(hx - s * 0.004, 0.81, hz + 0.004, 0), skin, W(hd, 1), R_SKIN);
   }
-  /* feet */
+  /* feet: sneakers, espadrilles, loafers, sandals or slides */
+  const shoe = L.shoe || (L.sandals ? 'sandal' : 'sneaker');
   for (const [s, side] of [[1, 'L'], [-1, 'R']]) {
     const fx = RP['foot' + side][0] - s * 0.002, fw = W('foot' + side, 1), k = f ? 0.92 : 1;
-    if (L.sandals) {
+    if (shoe === 'sandal' || shoe === 'slide') {
       sg.add(rb(0.084 * k, 0.045, 0.232 * k, 0.02), mat4(fx, 0.034, 0.05, 0), skin, fw, R_SKIN);
-      sg.add(rb(0.096 * k, 0.014, 0.256 * k, 0.006), mat4(fx, 0.007, 0.052, 0), C(L.sole || 0x3a2a1e), fw, 0.7);
-      sg.add(rb(0.092 * k, 0.012, 0.034, 0.005), mat4(fx, 0.058, 0.08, 0), shoeC, fw, 0.6);
+      sg.add(rb(0.096 * k, 0.014, 0.256 * k, 0.006), mat4(fx, 0.007, 0.052, 0), C(L.sole || (shoe === 'slide' ? 0x2a2a2e : 0x3a2a1e)), fw, 0.7);
+      if (shoe === 'slide') sg.add(rb(0.1 * k, 0.03, 0.085, 0.012), mat4(fx, 0.05, 0.075, 0), shoeC, fw, 0.6);
+      else { sg.add(rb(0.092 * k, 0.012, 0.034, 0.005), mat4(fx, 0.058, 0.08, 0), shoeC, fw, 0.6); if (hi) sg.add(rb(0.09 * k, 0.01, 0.022, 0.004), mat4(fx, 0.05, -0.025, 0), shoeC, fw, 0.6); }
       if (hi) for (let t = 0; t < 4; t++) sg.add(new T.SphereGeometry(0.009, 6, 4), mat4(fx + (t - 1.5) * 0.017 * s, 0.022, 0.165 * k - Math.abs(t - 1) * 0.006, 0), skin, fw, R_SKIN);
+    } else if (shoe === 'espadrille' || shoe === 'loafer') {
+      const esp = shoe === 'espadrille', sole = C(esp ? 0xc9a46a : 0x2e2018);
+      sg.add(rb(0.094 * k, esp ? 0.03 : 0.018, 0.262 * k, 0.01), mat4(fx, esp ? 0.015 : 0.009, 0.05, 0), sole, fw, esp ? 0.95 : 0.6);
+      sg.add(rb(0.088 * k, 0.05, 0.2 * k, 0.025), mat4(fx, esp ? 0.052 : 0.044, 0.03, 0), shoeC, fw, esp ? 0.9 : 0.42);
+      sg.add(new T.SphereGeometry(1, hi ? 12 : 6, hi ? 8 : 4), mat4(fx, esp ? 0.042 : 0.036, 0.128 * k, 0, 0.045 * k, 0.03, 0.06 * k), shoeC, fw, esp ? 0.9 : 0.42);
+      if (hi && !esp) sg.add(rb(0.07 * k, 0.008, 0.03, 0.003), mat4(fx, 0.073, 0.085, 0, 1, 1, 1, -0.25), shoeC.clone().multiplyScalar(0.6), fw, 0.5);
+      if (hi && esp) for (let q = 0; q < 3; q++) sg.add(rb(0.096 * k, 0.003, 0.264 * k, 0.001), mat4(fx, 0.006 + q * 0.009, 0.05, 0), sole.clone().multiplyScalar(0.8), fw, 0.95);
     } else {
       sg.add(rb(0.098 * k, 0.026, 0.268 * k, 0.012), mat4(fx, 0.013, 0.05, 0), soleC, fw, 0.75);
       sg.add(rb(0.09 * k, 0.07, 0.2 * k, 0.03), mat4(fx, 0.058, 0.025, 0), shoeC, fw, 0.6);
@@ -2598,11 +2642,55 @@ function buildBody(look, hi) {
     sg.add(new T.CylinderGeometry(0.1, 0.1, 0.022, hi ? 24 : 10), mat4(0, 1.748, -0.004, 0), C(0x111111), hw, 0.5);
     sg.add(rb(0.18, 0.01, 0.075, 0.005), mat4(0, 1.735, 0.098, 0, 1, 1, 1, 0.22), C(0x0d0d0d), hw, 0.3);
   }
-  if (hair === 'hat') {
-    const hc = C(L.hatCol || 0xe8d8b0);
-    sg.add(new T.CylinderGeometry(0.096, 0.112, 0.1, hi ? 22 : 10), mat4(0, 1.772, -0.004, 0), hc, hw, 0.9);
-    sg.add(new T.CylinderGeometry(0.24, 0.24, 0.012, hi ? 26 : 12), mat4(0, 1.727, -0.004, 0), hc, hw, 0.9);
-    sg.add(new T.CylinderGeometry(0.113, 0.113, 0.024, hi ? 22 : 10), mat4(0, 1.745, -0.004, 0), C(0x3a2a1a), hw, 0.8);
+  if (hair === 'bun' || hair === 'locs') shell(1.034, (X, Y, Z) => hairLine(X, Y, Z, 0.4), jit, 0.85);
+  if (hair === 'bun') {
+    sg.add(new T.SphereGeometry(0.055, hi ? 14 : 7, hi ? 10 : 5), mat4(0, 1.792, -0.05, 0, 1, 0.85, 1), jit, hw, 0.85);
+    if (hi) sg.add(new T.TorusGeometry(0.032, 0.008, 5, 14), mat4(0, 1.76, -0.045, 0, 1, 1, 1, Math.PI / 2 - 0.5), hairC.clone().multiplyScalar(0.7), hw, 0.8);
+  }
+  if (hair === 'locs') {
+    // locs fall from the crown to the shoulders, longest at the back, clear of the face
+    const n = hi ? 26 : 10;
+    for (let i = 0; i < n; i++) {
+      const th = lerp(0.95, TAU - 0.95, i / (n - 1)), len = 0.14 + 0.1 * (0.5 - 0.5 * Math.cos(th)), y0 = 1.705, sx = Math.sin(th), sz = Math.cos(th);
+      sg.add(capsule(hi ? 0.0115 : 0.02, len, hi ? 3 : 2, hi ? 6 : 4), mat4(sx * 0.1 * hk, y0 + 0.02 - len / 2, 0.004 + sz * 0.112, th, 1, 1, 1, -0.16), hairC.clone().multiplyScalar(0.85 + 0.25 * hash2(i, 7)), hw, 0.85);
+    }
+  }
+  /* hats sit on whatever hair is under them */
+  const hat = L.hat || (hair === 'hat' ? 'panama' : '');
+  if (hat) {
+    const big = hair === 'afro' ? 1.2 : hair === 'scarf' ? 1.1 : (hair === 'locs' || hair === 'bun' || hair === 'braids') ? 1.04 : 1, up = hair === 'afro' ? 0.05 : hair === 'scarf' ? 0.014 : hair === 'bun' ? 0.01 : 0;
+    const hc = C(L.hatCol || (hat === 'panama' || hat === 'sunhat' ? 0xe8d8b0 : 0x141838)), cy = 1.772 + up, hseg = hi ? 24 : 10;
+    if (hat === 'panama' || hat === 'sunhat') {
+      const brim = hat === 'sunhat' ? 0.235 : 0.18, straw = (v) => hc.clone().multiplyScalar(0.92 + 0.08 * Math.sin(Math.atan2(v.z, v.x) * 40 + Math.hypot(v.x, v.z) * 300));
+      sg.add(new T.CylinderGeometry(0.088 * big, 0.11 * big, 0.1, hseg), mat4(0, cy, -0.004, 0), hi ? straw : hc, hw, 0.92);
+      sg.add(new T.CylinderGeometry(brim * big, brim * big, 0.01, hi ? 32 : 12), mat4(0, cy - 0.045, -0.004, 0), hi ? straw : hc, hw, 0.92);
+      sg.add(new T.CylinderGeometry(0.111 * big, 0.111 * big, 0.024, hseg), mat4(0, cy - 0.027, -0.004, 0), C(hat === 'sunhat' ? 0xf6f3ec : 0x2a1d14), hw, 0.8);
+    } else if (hat === 'bucket') {
+      sg.add(new T.CylinderGeometry(0.094 * big, 0.108 * big, 0.085, hseg), mat4(0, cy - 0.005, -0.004, 0), hc, hw, 0.92);
+      sg.add(new T.CylinderGeometry(0.11 * big, 0.168 * big, 0.05, hseg), mat4(0, cy - 0.065, -0.004, 0), hc.clone().multiplyScalar(0.94), hw, 0.92);
+    } else if (hat === 'cap') {
+      const cc = C(L.cap || L.hatCol || 0x141838);
+      shell(1.065 * big, (X, Y, Z) => Y > 0.22 - Math.max(0, -Z) * 0.18, cc, 0.8, up);
+      sg.add(rb(0.17, 0.012, 0.095, 0.006), mat4(0, 1.708 + up, 0.108 * big, 0, 1, 1, 1, 0.16), cc.clone().multiplyScalar(0.85), hw, 0.8);
+      if (hi) { sg.add(new T.SphereGeometry(0.008, 6, 4), mat4(0, 1.785 + up * 1.4, -0.002, 0), cc, hw, 0.8); sg.add(rb(0.04, 0.025, 0.004, 0.002), mat4(0, 1.75 + up, 0.1 * big, 0, 1, 1, 1, -0.4), C(L.capLogo || 0xf6f1e7), hw, 0.7); }
+    } else if (hat === 'kofia') {
+      const kc = C(0xf6f1e7), ac = C(L.kofiaCol || L.hatCol || 0x1e9b57);
+      sg.add(new T.CylinderGeometry(0.093 * hk * big, 0.097 * hk * big, 0.075, hi ? 32 : 12, hi ? 4 : 1, false), mat4(0, 1.757 + up, -0.004, 0), (v) => { const a = Math.atan2(v.z + 0.004, v.x), band = v.y < 1.775 + up && v.y > 1.735 + up; return band && (Math.floor((a + Math.PI) / TAU * 16) % 2 === 0) ? ac : kc; }, hw, 0.9);
+    }
+  }
+  /* sunglasses */
+  if (L.eye) {
+    const ex = EYE.x * hk, ey = 1.668, ez = 0.107, lens = C(L.eye === 'round' ? 0x3a2414 : 0x0c1014), frame = C(L.eye === 'shades' ? 0x15161c : 0xc8a050);
+    if (hi) {
+      for (const s of [1, -1]) {
+        if (L.eye === 'shades') sg.add(rb(0.036, 0.022, 0.006, 0.006), mat4(ex * s, ey, ez, s * 0.14), lens, hw, 0.06);
+        else if (L.eye === 'round') { sg.add(new T.SphereGeometry(1, 12, 6), mat4(ex * s, ey, ez, s * 0.14, 0.0165, 0.0165, 0.004), lens, hw, 0.06); sg.add(new T.TorusGeometry(0.0168, 0.0022, 4, 16), mat4(ex * s, ey, ez, s * 0.14), frame, hw, 0.3); }
+        else { sg.add(new T.SphereGeometry(1, 12, 6), mat4(ex * s, ey - 0.003, ez, s * 0.14, 0.019, 0.016, 0.004), lens, hw, 0.06); sg.add(new T.TorusGeometry(0.018, 0.0018, 4, 16), mat4(ex * s, ey - 0.003, ez, s * 0.14, 1.05, 0.9, 1), frame, hw, 0.3); }
+        sg.add(box(0.004, 0.005, 0.1), mat4(0.087 * s * hk, ey + 0.004, 0.055, 0), frame, hw, 0.4);
+      }
+      sg.add(box(0.026, 0.004, 0.004), mat4(0, ey + 0.009, ez + 0.002, 0), frame, hw, 0.3);
+      if (L.eye === 'shades') sg.add(box(0.105, 0.006, 0.006), mat4(0, ey + 0.012, ez - 0.001, 0), frame, hw, 0.3);
+    } else sg.add(box(0.085, 0.02, 0.01), mat4(0, ey, ez - 0.003, 0), lens, hw, 0.1);
   }
   if (hair === 'scarf') {
     const sc = C(L.scarf || 0xf3b41b), fold = (v) => sc.clone().multiplyScalar(0.9 + 0.1 * Math.sin(Math.atan2(v.z, v.x) * 7 + v.y * 40));
@@ -2625,8 +2713,11 @@ function buildBody(look, hi) {
 /* per-vertex roughness: one shared material, glossy eyes and lips, matte cloth */
 const charMat = new T.MeshStandardMaterial({ vertexColors: true, skinning: true, roughness: 0.7, metalness: 0 });
 charMat.onBeforeCompile = (sh) => {
-  sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float aRough;\nvarying float vRough;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvRough = aRough;');
-  sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vRough;').replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = vRough;');
+  sh.uniforms.uPat = { value: PAT_TEX };
+  sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float aRough;\nvarying float vRough;\nattribute float aPat;\nattribute vec4 aPuv;\nvarying float vPat;\nvarying vec4 vPuv;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvRough = aRough; vPat = aPat; vPuv = aPuv;');
+  // printed cloth: the print's own colours over the garment colour, shaded like the cloth under it
+  sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vRough;\nvarying float vPat;\nvarying vec4 vPuv;\nuniform sampler2D uPat;').replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = vRough;')
+    .replace('#include <color_fragment>', '#include <color_fragment>\nif (vPat > 0.5) { float pid = floor(vPat + 0.5) - 1.0; vec2 tl = vec2(mod(pid, 4.0), floor(pid / 4.0)); vec4 pc = texture2D(uPat, (tl + 0.006 + fract(vPuv.xy) * 0.988) * 0.25); diffuseColor.rgb = mix(diffuseColor.rgb, pow(pc.rgb, vec3(2.2)) * vPuv.z, pc.a * vPuv.w); }');
 };
 const numberTexCache = new Map();
 function numberTex(n, col) {
@@ -2638,7 +2729,7 @@ function makeHuman(look) {
   look = Object.assign({}, look || {});
   if (look.f === undefined) look.f = look.hair === 'scarf' || look.hair === 'braids' || !!look.dress;
   /* modest dress for women: dresses reach the ankle; with no dress or robe, full-length trousers (also under a football kit) */
-  if (look.f) { if (look.dress) look.long = true; else if (!look.robe) look.pants = true; }
+  if (look.f) { if (look.dress) { if (!look.midi) look.long = true; } else if (!look.robe) { look.pants = true; if (look.plen !== undefined) look.plen = Math.min(look.plen, 0.3); } }
   const RP = rigPoints(look.f), bones = [];
   for (const name of BONES) {
     const bn = new T.Bone(); bn.name = name; const p = RP[name], par = BONE_PARENT[name];
@@ -2751,7 +2842,7 @@ function animHuman(h, dt, t, speed, mode) {
   if (mode === 'sit' || mode === 'ride' || mode === 'pass') { poseSeat(u, b, mode, t, dt); headLook(h, u, b, dt, t, false); applyEmote(h, dt); return; }
 
   /* ---- locomotion: smoothed speed, yaw rate, acceleration ---- */
-  const yaw = h.rotation.y;
+  const yaw = h.rotation.y, fem = !!(u.look && u.look.f);
   if (u.prevYaw === null) u.prevYaw = yaw;
   const yr = dt > 0 ? angWrap(yaw - u.prevYaw) / dt : 0; u.prevYaw = yaw;
   u.yawRate = damp(u.yawRate, clamp(yr, -12, 12), 8, dt);
@@ -2759,9 +2850,12 @@ function animHuman(h, dt, t, speed, mode) {
   u.acc = damp(u.acc, dt > 0 ? (v - u.pv) / dt : 0, 6, dt); u.pv = v;
   const turnStep = v < 0.4 && Math.abs(u.yawRate) > 1.4 ? 0.9 : 0;
   const ve = Math.max(v, turnStep);
-  const runW = smooth(clamp((ve - 2.3) / 1.5, 0, 1));
-  const freq = lerp(0.52 + 0.24 * Math.min(ve, 2.6), 1.22 + 0.048 * ve, runW);
-  const S = (turnStep && v < 0.4 ? 0.28 : ve / freq), beta = lerp(0.6, 0.36, runW);
+  /* gait: walking below about 2.4 m/s, running above 3.8, blended between.
+     Cadence and stride follow human data: a 1.4 m/s walk is ~110 steps a minute, a 4 m/s run ~180, a sprint ~200. */
+  const runW = smooth(clamp((ve - 2.4) / 1.4, 0, 1)), sprintW = clamp((ve - 4.2) / 3.2, 0, 1);
+  const freq = lerp(0.5 + 0.3 * Math.min(ve, 2.6), 1.24 + 0.062 * ve, runW);
+  const S = (turnStep && v < 0.4 ? 0.3 : ve / freq);
+  const betaW = 0.62, betaR = lerp(0.36, 0.28, sprintW), beta = lerp(betaW, betaR, runW);
   if (ve > 0.05) u.phase = (u.phase + TAU * freq * dt) % TAU;
   u.gw = damp(u.gw, ve > 0.12 ? 1 : 0, ve > 0.12 ? 9 : 5, dt);
   const gw = u.gw, mv = Math.min(1, ve / 0.9);
@@ -2773,47 +2867,71 @@ function animHuman(h, dt, t, speed, mode) {
   u.shiftT -= dt; if (u.shiftT < 0) { u.shiftT = rr(3, 7); u.shiftS = -u.shiftS; }
   u.shift = damp(u.shift, u.shiftS * (1 - gw), 1.6, dt);
 
-  /* ---- pelvis ---- */
-  const ph = u.phase, msPh = beta * Math.PI;
-  const bob = lerp(0.016, -0.03, runW) * Math.cos(2 * (ph - msPh)) * gw * mv;
-  const hipsY = HIPS_Y - 0.022 - 0.035 * runW * gw + bob - 0.09 * Math.sin(u.land * Math.PI) - 0.008 * Math.abs(u.shift) + Math.sin(t * 1.7 + u.phase) * 0.003 * (1 - gw);
-  const swayX = lerp(0.02, 0.007, runW) * Math.sin(ph) * gw * mv + 0.028 * u.shift;
-  b.hips.position.set(swayX, hipsY, -0.02 * runW * gw);
-  const hyaw = -lerp(0.1, 0.17, runW) * Math.cos(ph) * gw * mv;
+  /* ---- pelvis: rises over the standing leg when walking (and dips into it when running), shifts toward it, drops on the free side ---- */
+  const ph = u.phase, msPh = beta * Math.PI, side1 = Math.cos(ph - msPh), k2 = Math.cos(2 * (ph - msPh));
+  const bob = lerp(0.017, -0.032 - 0.012 * sprintW, runW) * k2 * gw * mv;
+  const hipsY = HIPS_Y - lerp(0.016, 0.05 + 0.02 * sprintW, runW) * gw + bob - 0.09 * Math.sin(u.land * Math.PI) - 0.008 * Math.abs(u.shift) + Math.sin(t * 1.7 + u.phase) * 0.003 * (1 - gw);
+  const swayX = lerp(fem ? 0.026 : 0.021, 0.006, runW) * side1 * gw * mv + 0.028 * u.shift;
+  const lean = lerp(0.03, 0.13 + 0.09 * sprintW, runW) * gw + clamp(u.acc * 0.03, -0.12, 0.2);
+  b.hips.position.set(swayX, hipsY, -0.025 * runW * gw);
+  const hyaw = -lerp(fem ? 0.1 : 0.085, 0.17, runW) * Math.cos(ph) * gw * mv;
   const bank = clamp(u.yawRate * v * 0.03, -0.32, 0.32);
-  b.hips.rotation.set(0.02 + 0.06 * runW * gw, hyaw, lerp(0.045, 0.02, runW) * Math.sin(ph) * gw * mv + 0.04 * u.shift - bank);
-  b.spine.rotation.set(lerp(0.02, 0.12, runW) * gw + clamp(u.acc * 0.028, -0.12, 0.2), -hyaw * 0.45, bank * 0.3);
-  b.chest.rotation.set(0.02 * runW + Math.sin(t * 1.7 + u.phase) * 0.016 * (1 - gw), -hyaw * 0.9, -b.hips.rotation.z * 0.5);
-  b.neck.rotation.set(-(b.spine.rotation.x + b.chest.rotation.x + b.hips.rotation.x) * 0.45, hyaw * 0.4, -b.hips.rotation.z * 0.3);
-  b.head.rotation.set(-(b.spine.rotation.x + b.chest.rotation.x) * 0.35, hyaw * 0.3, -b.hips.rotation.z * 0.3);
+  const drop = lerp(fem ? 0.06 : 0.04, 0.025, runW) * side1 * gw * mv;
+  b.hips.rotation.set(0.02 + lean * 0.35, hyaw, drop + 0.04 * u.shift - bank);
+  b.spine.rotation.set(lean * 0.65, -hyaw * 0.5, bank * 0.3 - drop * 0.6);
+  b.chest.rotation.set(0.01 * runW + Math.sin(t * 1.7 + u.phase) * 0.016 * (1 - gw), -hyaw * 0.85, -drop * 0.35);
+  // the head stays level and looks where the person is going, whatever the hips and shoulders do
+  const pitchSum = b.hips.rotation.x + b.spine.rotation.x + b.chest.rotation.x, yawSum = hyaw * (1 - 0.5 - 0.85), rollSum = b.hips.rotation.z + b.spine.rotation.z + b.chest.rotation.z;
+  b.neck.rotation.set(-pitchSum * 0.4 + 0.06, -yawSum * 0.55, -rollSum * 0.5);
+  b.head.rotation.set(-pitchSum * 0.45 + 0.14 + 0.04 * runW, -yawSum * 0.45, -rollSum * 0.4);
 
-  /* ---- feet: stance slides back under the body, swing arcs forward; blended with an idle stance ---- */
-  const H = lerp(0.1, 0.26, runW) * mv;
+  /* ---- feet: planted feet slide back under the body at exactly the walking speed (no skating);
+     a walking foot rolls heel to toe, a running foot kicks up behind and is driven forward by the knee ---- */
+  const legX = fem ? 0.058 : 0.07;
   for (let i = 0; i < 2; i++) {
     const side = i === 0 ? 1 : -1, F = _ft[i];
     const q = (ph / TAU + (i === 0 ? 0 : 0.5)) % 1;
-    let z, lift, pitch;
-    if (q < beta) { const k = q / beta; z = lerp(0.38, -0.62, k) * beta * S; lift = 0; pitch = -0.22 * (1 - smooth(clamp(k * 4, 0, 1))) * (1 - runW) + smooth(clamp((k - 0.62) / 0.38, 0, 1)) * lerp(0.6, 0.95, runW); }
-    else { const k = (q - beta) / (1 - beta), e = smooth(k); z = lerp(-0.62, 0.38, e) * beta * S; lift = Math.sin(Math.PI * k) * H; pitch = lerp(lerp(0.6, 0.95, runW), -0.22 * (1 - runW), smooth(clamp(k * 1.3, 0, 1))); }
-    const heel = Math.max(0, Math.sin(pitch)) * 0.12;
-    const gx = side * lerp(0.1, 0.085, runW) + (q >= beta ? side * 0.012 * Math.sin(Math.PI * (q - beta) / (1 - beta)) : 0);
+    // walking
+    let zw, yw, pw;
+    { const z0 = 0.42 * betaW * S, z1 = -0.58 * betaW * S;
+      if (q < betaW) { const k = q / betaW; zw = lerp(z0, z1, k); pw = -0.26 * (1 - smooth(clamp(k * 5, 0, 1))) + smooth(clamp((k - 0.55) / 0.45, 0, 1)) * 0.62; yw = Math.max(0, Math.sin(pw)) * 0.115 + Math.max(0, -pw) * 0.03; }
+      else { const k = (q - betaW) / (1 - betaW); zw = lerp(z1, z0, smooth(k)); yw = Math.sin(Math.PI * Math.pow(k, 0.75)) * (0.075 + 0.02 * ve) + (1 - smooth(clamp(k * 3, 0, 1))) * 0.07; pw = lerp(0.62, -0.26, smooth(clamp(k * 1.25, 0, 1))); }
+    }
+    // running
+    let zr, yr2, pr;
+    { const z0 = 0.26 * betaR * S, z1 = -0.74 * betaR * S, Hk = lerp(0.3, 0.5, sprintW);
+      if (q < betaR) { const k = q / betaR; zr = lerp(z0, z1, k); pr = lerp(-0.05, 0.05, k) + smooth(clamp((k - 0.5) / 0.5, 0, 1)) * 0.85; yr2 = Math.max(0, Math.sin(pr)) * 0.1; }
+      else {
+        const k = (q - betaR) / (1 - betaR);
+        // stays back while the heel rises, then sweeps forward and reaches a little past the landing spot before pawing back
+        const e = smooth(clamp((k - 0.14) / 0.66, 0, 1)), reach = Math.sin(Math.PI * clamp((k - 0.6) / 0.4, 0, 1)) * 0.07 * S * betaR;
+        zr = lerp(z1, z0, e) + reach - Math.sin(Math.PI * clamp(k / 0.3, 0, 1)) * 0.05;
+        // heel up behind, held while the knee drives through, then a late drop onto the ground
+        yr2 = Hk * smooth(clamp(k / 0.3, 0, 1)) * (1 - smooth(clamp((k - 0.72) / 0.28, 0, 1))) * (1 - 0.35 * smooth(clamp((k - 0.3) / 0.4, 0, 1))) + 0.05 * (1 - smooth(clamp(k * 4, 0, 1)));
+        pr = k < 0.3 ? lerp(0.85, 1.25, smooth(k / 0.3)) : lerp(1.25, -0.08, smooth(clamp((k - 0.3) / 0.55, 0, 1)));
+      }
+    }
+    const z = lerp(zw, zr, runW), lift = lerp(yw, yr2, runW), pitch = lerp(pw, pr, runW);
+    const swingQ = q >= lerp(betaW, betaR, runW);
+    const gx = side * lerp(legX, 0.052, runW) + (swingQ ? side * 0.012 * Math.sin(Math.PI * (q - beta) / Math.max(0.05, 1 - beta)) : 0);
     const idleFree = (u.shift * side < 0 ? 1 : 0) * Math.abs(u.shift);
     const ix = side * 0.112 + side * 0.02 * idleFree, iz = side * 0.018 + 0.06 * idleFree;
-    F.x = lerp(ix, gx, gw); F.z = lerp(iz, z * mv + (gw > 0 ? 0 : 0), gw); F.y = ANKLE_Y + (lift + heel) * gw; F.p = pitch * gw * mv;
+    F.x = lerp(ix, gx, gw); F.z = lerp(iz, z * mv, gw); F.y = ANKLE_Y + lift * gw * Math.max(mv, 0.6); F.p = pitch * gw * mv;
     // airborne: tuck
     if (u.airW > 0.01) { const aw = u.airW; F.y = lerp(F.y, ANKLE_Y + (i === 0 ? 0.3 : 0.18), aw); F.z = lerp(F.z, i === 0 ? 0.12 : -0.12, aw); F.p = lerp(F.p, 0.35, aw); }
   }
   for (let i = 0; i < 2; i++) { const F = _ft[i]; legIK(b, i === 0 ? 1 : -1, F.x, F.y, F.z, F.p); }
 
-  /* ---- arms: counter-swing to the legs, elbows bend with speed ---- */
-  const aw = lerp(0.38, 0.7, runW) * gw * mv;
+  /* ---- arms: hang relaxed and swing from the shoulder against the legs; running arms bend to ~90 degrees and pump ---- */
+  const aw = lerp(0.2 + 0.05 * Math.min(ve, 1.8), 0.62 + 0.25 * sprintW, runW) * gw * mv;
   for (const s of [1, -1]) {
-    const L = s > 0 ? 'L' : 'R', sw = aw * Math.cos(ph) * s;
+    const L = s > 0 ? 'L' : 'R', c = Math.cos(ph) * s, fwd = Math.max(0, -c);
+    const sw = aw * c - lerp(0.04, 0.12, runW) * gw;
     const breath = Math.sin(t * 1.7 + u.phase) * 0.012 * (1 - gw);
-    b['clav' + L].rotation.set(0, sw * 0.12, (0.02 + Math.abs(sw) * 0.04 + breath) * s);
-    b['uArm' + L].rotation.set(sw + 0.04 * runW, 0, (0.1 + 0.06 * runW + u.airW * 0.6) * s - b.hips.rotation.z * 0.3);
-    b['fArm' + L].rotation.set(-(lerp(0.16, 1.45, runW) * Math.max(gw, 0.25) + Math.max(0, -sw) * 0.35 + 0.08), 0, 0);
-    b['hand' + L].rotation.set(lerp(0, -0.25, runW), 0, -0.12 * s);
+    b['clav' + L].rotation.set(0, aw * c * 0.1, (0.02 + 0.03 * runW * gw + breath) * s);
+    b['uArm' + L].rotation.set(sw, -lerp(0.04, 0.3, runW * gw) * s, (lerp(fem ? 0.1 : 0.085, 0.16 - 0.1 * fwd, runW * gw) + u.airW * 0.6) * s - b.hips.rotation.z * 0.3);
+    b['fArm' + L].rotation.set(-(lerp(0.2 + 0.1 * fwd * gw, 1.35 + 0.3 * fwd - 0.2 * (1 - fwd) * sprintW, runW * gw) + (fem ? 0.05 : 0)), 0, 0);
+    b['hand' + L].rotation.set(lerp(0.05, -0.2, runW), 0, -lerp(0.15, 0.05, runW) * s);
   }
   if (u.carry) { b.uArmR.rotation.set(-0.4, 0, -2.55); b.fArmR.rotation.set(-0.15, 0, -1.2); b.handR.rotation.set(0, 0, -0.6); b.chest.rotation.x -= 0.03; b.neck.rotation.x = 0; b.head.rotation.x = 0; }
   headLook(h, u, b, dt, t, gw < 0.3 && !u.carry);
@@ -2866,16 +2984,241 @@ function updateFall(h, dt) {
   return true;
 }
 const isDown = h => !!(h && h.userData.fall);
-/* the player's own look: body, skin tone and hair, shared with other players as a 3-character code */
-const PLAYER_SKINS = [0x9a6a44, 0x7a4a2a, 0x6b4226, 0x5d3a22, 0x4a2c1a, 0x3a2216];
-const HAIRS = ['short', 'afro', 'braids', 'scarf', 'cap', 'kofia', 'bald'];
-const HAIR_NAMES = { short: 'Short', afro: 'Afro', braids: 'Braids', scarf: 'Scarf', cap: 'Cap', kofia: 'Kofia', bald: 'Bald' };
-function kitLook(kitIdx, lk, number) {
-  const k = KITS[kitIdx] || KITS[0]; lk = lk || { f: false, s: 3, h: 'short' };
-  return { kit: true, shirt: k.shirt, lower: k.shorts, trim: k.trim, socks: k.trim, shoes: 0x15161c, shoeTrim: k.trim, skin: PLAYER_SKINS[clamp(lk.s | 0, 0, 5)], f: !!lk.f, hair: lk.h || 'short', scarf: k.trim, cap: k.trim, capLogo: k.shirt, number, numCol: k.shirt === 0xf3efe6 || k.shirt === 0xf3b41b ? '#141838' : '#f7ead0' };
+/* ===================== 19b style: fabric prints, the island wardrobe, curated looks and the 15-character look code ===================== */
+/* Prints live in one 4 x 4 atlas (512 px). Clothes carry a print id and cloth coordinates in metres, and the character
+   shader lays the print over the garment colour. Far-away people use each print's average colour instead. */
+const PATS = ['', 'breton', 'pinstripe', 'palms', 'hibiscus', 'kitenge', 'kanga', 'gingham', 'polka', 'waves', 'tiedye', 'madras', 'denim', 'shells', 'cabana', 'mosaic', 'linen'];
+const PAT_NAMES = { '': 'Plain', breton: 'Breton stripe', pinstripe: 'Pinstripe', palms: 'Palm leaves', hibiscus: 'Hibiscus', kitenge: 'Kitenge', kanga: 'Kanga spots', gingham: 'Gingham', polka: 'Polka dots', waves: 'Waves', tiedye: 'Tie-dye', madras: 'Madras check', denim: 'Denim', shells: 'Shells', cabana: 'Cabana stripe', mosaic: 'Stone Town tile', linen: 'Linen weave' };
+const PAT_M = 0.24; // one print tile covers 24 cm of cloth
+const PAT_TILE = 128;
+let PAT_TEX = null;
+const PAT_AVG = [];
+(function buildPatterns() {
+  const S = PAT_TILE, cv = mkCanvas(S * 4, S * 4), x = cv.getContext('2d');
+  const R = mulberry32(2027);
+  const at = (id) => { const i = id - 1; return [(i % 4) * S, (3 - Math.floor(i / 4)) * S]; };
+  // draw fn(g) inside the tile, repeated across the edges so the print wraps seamlessly
+  const tile = (id, fn) => { const [ox, oy] = at(id); x.save(); x.beginPath(); x.rect(ox, oy, S, S); x.clip(); for (const dx of [-S, 0, S]) for (const dy of [-S, 0, S]) { x.save(); x.translate(ox + dx, oy + dy); fn(x); x.restore(); } x.restore(); };
+  const leaf = (g, cx, cy, len, w, rot, col, vein) => {
+    g.save(); g.translate(cx, cy); g.rotate(rot); g.fillStyle = col;
+    g.beginPath(); g.moveTo(0, 0); g.bezierCurveTo(w, -len * 0.3, w * 0.8, -len * 0.8, 0, -len); g.bezierCurveTo(-w * 0.8, -len * 0.8, -w, -len * 0.3, 0, 0); g.fill();
+    g.strokeStyle = vein; g.lineWidth = 1.4; g.beginPath(); g.moveTo(0, 0); g.lineTo(0, -len * 0.95); g.stroke();
+    g.lineWidth = 1; for (let k = 1; k < 6; k++) { const yy = -len * k / 6.5; g.beginPath(); g.moveTo(0, yy); g.lineTo(w * 0.7, yy - len * 0.08); g.moveTo(0, yy); g.lineTo(-w * 0.7, yy - len * 0.08); g.stroke(); }
+    g.restore();
+  };
+  // 1 breton: navy bands
+  tile(1, (g) => { g.fillStyle = '#1f2d55'; for (let y = 0; y < S; y += 32) g.fillRect(0, y + 10, S, 12); });
+  // 2 pinstripe
+  tile(2, (g) => { g.fillStyle = 'rgba(31,45,85,.55)'; for (let i = 0; i < S; i += 16) g.fillRect(i, 0, 1.6, S); });
+  // 3 palm leaves
+  const palms = []; for (let i = 0; i < 9; i++) palms.push([R() * S, R() * S, 26 + R() * 22, 9 + R() * 6, R() * TAU, ['#1d5a3a', '#2f7d4f', '#4fa36a', '#7cc08a'][i % 4]]);
+  tile(3, (g) => { for (const p of palms) leaf(g, p[0], p[1], p[2], p[3], p[4], p[5], 'rgba(255,255,255,.35)'); });
+  // 4 hibiscus
+  const flowers = []; for (let i = 0; i < 6; i++) flowers.push([R() * S, R() * S, 9 + R() * 6, ['#d8342c', '#f07aa0', '#f3c13a', '#e86a1f'][i % 4], R() * TAU]);
+  const leaves4 = []; for (let i = 0; i < 7; i++) leaves4.push([R() * S, R() * S, 16 + R() * 8, 6, R() * TAU]);
+  tile(4, (g) => {
+    for (const l of leaves4) leaf(g, l[0], l[1], l[2], l[3], l[4], '#2f7d4f', 'rgba(255,255,255,.3)');
+    for (const [cx, cy, r, col, rot] of flowers) { g.fillStyle = col; for (let k = 0; k < 5; k++) { const a = rot + k * TAU / 5; g.beginPath(); g.ellipse(cx + Math.cos(a) * r * 0.62, cy + Math.sin(a) * r * 0.62, r * 0.62, r * 0.46, a, 0, TAU); g.fill(); } g.fillStyle = '#7a1420'; g.beginPath(); g.arc(cx, cy, r * 0.25, 0, TAU); g.fill(); g.fillStyle = '#f3e07a'; g.beginPath(); g.arc(cx + Math.cos(rot) * r * 0.5, cy + Math.sin(rot) * r * 0.5, 1.6, 0, TAU); g.fill(); }
+  });
+  // 5 kitenge: bold wax-print rings and diamonds
+  tile(5, (g) => {
+    for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) {
+      const cx = 32 + i * 64, cy = 32 + j * 64, cols = (i + j) % 2 ? ['#1f4fa0', '#f3b41b', '#e86a1f', '#141414'] : ['#e86a1f', '#141414', '#f3b41b', '#1f4fa0'];
+      cols.forEach((c, k) => { g.fillStyle = c; g.beginPath(); g.arc(cx, cy, 26 - k * 6.5, 0, TAU); g.fill(); });
+    }
+    g.fillStyle = '#141414'; for (const [cx, cy] of [[0, 0], [64, 0], [0, 64], [64, 64], [128, 0], [0, 128], [128, 64], [64, 128], [128, 128]]) { g.beginPath(); g.moveTo(cx, cy - 7); g.lineTo(cx + 7, cy); g.lineTo(cx, cy + 7); g.lineTo(cx - 7, cy); g.fill(); }
+  });
+  // 6 kanga spots: big black-ringed red spots on a scattered dot ground
+  tile(6, (g) => { for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) { const cx = 16 + i * 32 + (j % 2) * 16, cy = 16 + j * 32; g.fillStyle = '#141414'; g.beginPath(); g.arc(cx, cy, 9, 0, TAU); g.fill(); g.fillStyle = '#d8342c'; g.beginPath(); g.arc(cx, cy, 6, 0, TAU); g.fill(); g.fillStyle = '#f3b41b'; g.beginPath(); g.arc(cx, cy, 2, 0, TAU); g.fill(); } });
+  // 7 gingham
+  tile(7, (g) => { g.fillStyle = 'rgba(255,255,255,.42)'; for (let i = 0; i < S; i += 32) { g.fillRect(i, 0, 16, S); g.fillRect(0, i, S, 16); } });
+  // 8 polka dots
+  tile(8, (g) => { g.fillStyle = '#f6f3ec'; for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) { g.beginPath(); g.arc(16 + i * 32 + (j % 2) * 16, 16 + j * 32, 5.5, 0, TAU); g.fill(); } });
+  // 9 waves
+  tile(9, (g) => { g.strokeStyle = 'rgba(255,255,255,.9)'; g.lineWidth = 4; g.lineCap = 'round'; for (let r = 0; r < 4; r++) { g.beginPath(); for (let i = 0; i <= S; i += 4) { const y = 16 + r * 32 + Math.sin(i / S * TAU * 2) * 6; if (i) g.lineTo(i, y); else g.moveTo(i, y); } g.stroke(); } });
+  // 10 tie-dye: soft spiral of colour
+  tile(10, (g) => { const gr = g.createRadialGradient(64, 64, 4, 64, 64, 90); gr.addColorStop(0, 'rgba(242,184,181,.85)'); gr.addColorStop(0.35, 'rgba(184,163,214,.7)'); gr.addColorStop(0.7, 'rgba(42,127,196,.6)'); gr.addColorStop(1, 'rgba(43,181,176,.45)'); g.fillStyle = gr; g.fillRect(0, 0, S, S); g.strokeStyle = 'rgba(255,255,255,.35)'; g.lineWidth = 3; for (let k = 0; k < 6; k++) { g.beginPath(); for (let a = 0; a < TAU * 1.6; a += 0.1) { const r = 6 + a * 9; const px = 64 + Math.cos(a + k * TAU / 6) * r, py = 64 + Math.sin(a + k * TAU / 6) * r; if (a) g.lineTo(px, py); else g.moveTo(px, py); } g.stroke(); } });
+  // 11 madras check
+  tile(11, (g) => { for (const [p, w, c] of [[0, 20, 'rgba(216,52,44,.55)'], [26, 8, 'rgba(243,180,27,.6)'], [40, 26, 'rgba(31,79,160,.45)'], [72, 10, 'rgba(30,155,87,.55)'], [90, 22, 'rgba(216,52,44,.4)'], [116, 6, 'rgba(255,255,255,.5)']]) { g.fillStyle = c; g.fillRect(p, 0, w, S); g.fillRect(0, p, S, w); } });
+  // 12 denim twill
+  tile(12, (g) => { for (let i = -S; i < S * 2; i += 3) { g.strokeStyle = R() < 0.5 ? 'rgba(255,255,255,.1)' : 'rgba(0,0,0,.12)'; g.lineWidth = 1.2; g.beginPath(); g.moveTo(i, 0); g.lineTo(i + S, S); g.stroke(); } });
+  // 13 shells and little fish
+  const sh = []; for (let i = 0; i < 9; i++) sh.push([R() * S, R() * S, R() * TAU, i % 3]);
+  tile(13, (g) => { for (const [cx, cy, rot, k] of sh) { g.save(); g.translate(cx, cy); g.rotate(rot); if (k === 0) { g.fillStyle = '#f07a5f'; g.beginPath(); g.moveTo(0, 6); for (let a = 0; a <= 6; a++) { const t2 = Math.PI + a / 6 * Math.PI; g.lineTo(Math.cos(t2) * 9, Math.sin(t2) * 9 + 2); } g.closePath(); g.fill(); g.strokeStyle = 'rgba(255,255,255,.7)'; g.lineWidth = 1; for (let a = 1; a < 6; a++) { const t2 = Math.PI + a / 6 * Math.PI; g.beginPath(); g.moveTo(0, 6); g.lineTo(Math.cos(t2) * 9, Math.sin(t2) * 9 + 2); g.stroke(); } } else if (k === 1) { g.fillStyle = '#2a7fc4'; g.beginPath(); g.ellipse(0, 0, 9, 4.5, 0, 0, TAU); g.fill(); g.beginPath(); g.moveTo(7, 0); g.lineTo(13, -5); g.lineTo(13, 5); g.fill(); g.fillStyle = '#fff'; g.beginPath(); g.arc(-5, -1, 1.2, 0, TAU); g.fill(); } else { g.fillStyle = '#e0a92e'; g.beginPath(); for (let a = 0; a < 10; a++) { const r = a % 2 ? 3.5 : 8.5, t2 = a / 10 * TAU; g.lineTo(Math.cos(t2) * r, Math.sin(t2) * r); } g.fill(); } g.restore(); } });
+  // 14 cabana stripe
+  tile(14, (g) => { g.fillStyle = '#f6f3ec'; for (let i = 0; i < S; i += 64) g.fillRect(i, 0, 32, S); });
+  // 15 Stone Town tile: eight-point stars
+  tile(15, (g) => {
+    const star = (cx, cy, r) => { g.beginPath(); for (let a = 0; a < 16; a++) { const rr2 = a % 2 ? r * 0.6 : r, t2 = a / 16 * TAU; g.lineTo(cx + Math.cos(t2) * rr2, cy + Math.sin(t2) * rr2); } g.closePath(); };
+    for (const [cx, cy] of [[0, 0], [128, 0], [0, 128], [128, 128], [64, 64]]) { g.fillStyle = '#1f6f8b'; star(cx, cy, 30); g.fill(); g.fillStyle = '#f6f3ec'; star(cx, cy, 18); g.fill(); g.fillStyle = '#c4673f'; g.beginPath(); g.arc(cx, cy, 6, 0, TAU); g.fill(); }
+    for (const [cx, cy] of [[64, 0], [0, 64], [128, 64], [64, 128]]) { g.fillStyle = '#e0a92e'; g.beginPath(); g.moveTo(cx, cy - 10); g.lineTo(cx + 10, cy); g.lineTo(cx, cy + 10); g.lineTo(cx - 10, cy); g.fill(); }
+  });
+  // 16 linen slub
+  tile(16, (g) => { for (let i = 0; i < 70; i++) { g.fillStyle = R() < 0.5 ? 'rgba(255,255,255,.16)' : 'rgba(0,0,0,.1)'; g.fillRect(R() * S, R() * S, 8 + R() * 30, 1 + R() * 1.4); } for (let i = 0; i < S; i += 4) { g.fillStyle = 'rgba(0,0,0,.035)'; g.fillRect(i, 0, 1, S); } });
+  // average colour and coverage of each print, in linear light, for far-away people
+  const data = x.getImageData(0, 0, S * 4, S * 4).data, lin = (v) => Math.pow(v / 255, 2.2);
+  PAT_AVG[0] = { c: new T.Color(0, 0, 0), a: 0 };
+  for (let id = 1; id < PATS.length; id++) {
+    const [ox, oy] = at(id); let r = 0, gg = 0, b = 0, a = 0, n = 0;
+    for (let yy = oy; yy < oy + S; yy += 2) for (let xx = ox; xx < ox + S; xx += 2) { const o = (yy * S * 4 + xx) * 4, al = data[o + 3] / 255; r += lin(data[o]) * al; gg += lin(data[o + 1]) * al; b += lin(data[o + 2]) * al; a += al; n++; }
+    PAT_AVG[id] = { c: a > 0 ? new T.Color(r / a, gg / a, b / a) : new T.Color(0, 0, 0), a: a / n };
+  }
+  PAT_TEX = new T.CanvasTexture(cv); PAT_TEX.minFilter = T.LinearFilter; PAT_TEX.magFilter = T.LinearFilter; PAT_TEX.generateMipmaps = false; PAT_TEX.wrapS = PAT_TEX.wrapT = T.ClampToEdgeWrapping;
+  PAT_TEX.userData = { canvas: cv };
+})();
+/* the swatch art for the wardrobe: a print over a colour, as a CSS background */
+const patSwatchCache = new Map();
+function patSwatch(p, hex) {
+  const key = p + '|' + hex; if (patSwatchCache.has(key)) return patSwatchCache.get(key);
+  const id = PATS.indexOf(p); const c = mkCanvas(48, 48), g = c.getContext('2d'); g.fillStyle = '#' + hex.toString(16).padStart(6, '0'); g.fillRect(0, 0, 48, 48);
+  if (id > 0) { const i = id - 1, src = PAT_TEX.userData.canvas; g.drawImage(src, (i % 4) * PAT_TILE, (3 - Math.floor(i / 4)) * PAT_TILE, PAT_TILE, PAT_TILE, 0, 0, 48, 48); }
+  const u = c.toDataURL(); patSwatchCache.set(key, u); return u;
 }
-const lookCode = (lk) => `${lk && lk.f ? 1 : 0}${clamp((lk && lk.s) | 0, 0, 5)}${Math.max(0, HAIRS.indexOf(lk && lk.h))}`;
-const lookFrom = (code) => { const s = String(code || ''); if (!/^[01][0-5][0-6]$/.test(s)) return null; return { f: s[0] === '1', s: +s[1], h: HAIRS[+s[2]] }; };
+
+/* ---------- the wardrobe ---------- */
+const PALETTE = [0xf6f3ec, 0xe2d3b5, 0xc4673f, 0xf07a5f, 0xf2b8b5, 0xe0a92e, 0x9fb59a, 0x5f6b3a, 0x2bb5b0, 0x2a7fc4, 0x1f2d55, 0xb8a3d6, 0x1d1d22, 0x3d5a80, 0x9a968c, 0xc8342c, 0x5a3a22, 0xb07a4a, 0xe0557a, 0xc8a050];
+const PALETTE_NAMES = ['White', 'Sand', 'Terracotta', 'Coral', 'Blush', 'Mustard', 'Sage', 'Olive', 'Turquoise', 'Ocean', 'Navy', 'Lilac', 'Black', 'Denim', 'Stone', 'Red', 'Brown', 'Tan', 'Pink', 'Gold'];
+// sl: sleeve; neck: crew | collar | boat | v | tank; tuck: tucked in; dress: maxi | midi; only: f | m
+const TOPS = [
+  { id: 'jersey', n: 'Football jersey', kit: true, sl: 'short', neck: 'crew', tuck: true, pats: [''] },
+  { id: 'resort', n: 'Resort shirt', sl: 'short', neck: 'collar', btn: true, pats: ['palms', 'hibiscus', 'shells', 'mosaic', 'waves', 'madras', ''], dc: 0, dp: 'palms' },
+  { id: 'linen', n: 'Linen shirt', sl: 'elbow', neck: 'collar', btn: true, pats: ['linen', 'pinstripe', 'gingham', ''], dc: 0, dp: 'linen' },
+  { id: 'breton', n: 'Breton top', sl: 'elbow', neck: 'boat', tuck: true, pats: ['breton', ''], dc: 0, dp: 'breton' },
+  { id: 'tee', n: 'T-shirt', sl: 'short', neck: 'crew', tuck: true, pats: ['', 'tiedye', 'cabana', 'polka'], dc: 8, dp: '' },
+  { id: 'polo', n: 'Polo', sl: 'short', neck: 'collar', tuck: true, polo: true, pats: ['', 'pinstripe'], dc: 10, dp: '' },
+  { id: 'kitenge', n: 'Kitenge shirt', sl: 'short', neck: 'collar', btn: true, pats: ['kitenge', 'kanga', 'mosaic'], dc: 5, dp: 'kitenge' },
+  { id: 'tank', n: 'Tank top', sl: 'none', neck: 'tank', only: 'm', pats: ['', 'cabana', 'tiedye'], dc: 0, dp: '' },
+  { id: 'blouse', n: 'Peasant blouse', sl: 'elbow', neck: 'boat', only: 'f', pats: ['', 'linen', 'gingham', 'polka'], dc: 0, dp: 'linen' },
+  { id: 'kaftan', n: 'Kaftan', nm: 'Kanzu', robe: true, sl: 'long', pats: ['', 'mosaic', 'kitenge', 'tiedye'], dc: 0, dp: '' },
+  { id: 'maxi', n: 'Maxi dress', dress: 'maxi', sl: 'short', neck: 'v', only: 'f', pats: ['hibiscus', 'palms', '', 'polka', 'tiedye', 'cabana'], dc: 3, dp: 'hibiscus' },
+  { id: 'midi', n: 'Midi dress', dress: 'midi', sl: 'short', neck: 'crew', only: 'f', pats: ['gingham', '', 'mosaic', 'linen', 'polka'], dc: 9, dp: 'gingham' },
+  { id: 'gown', n: 'Kitenge gown', dress: 'maxi', sl: 'elbow', neck: 'boat', only: 'f', pats: ['kitenge', 'kanga', 'mosaic'], dc: 9, dp: 'kitenge' },
+];
+// len: shorts | knee | crop | full; women's choices all cover the thigh
+const BOTTOMS = [
+  { id: 'kit', n: 'Kit shorts', nf: 'Kit track pants', kit: true, len: 'kit', lenF: 'full', pats: [''] },
+  { id: 'chinoS', n: 'Chino shorts', len: 'shorts', only: 'm', pats: ['', 'madras', 'gingham'], dc: 1, dp: '' },
+  { id: 'swim', n: 'Swim shorts', len: 'shorts', only: 'm', pats: ['waves', 'palms', 'hibiscus', 'shells', 'cabana'], dc: 9, dp: 'waves' },
+  { id: 'bermuda', n: 'Bermudas', len: 'knee', only: 'm', pats: ['', 'madras', 'linen'], dc: 7, dp: '' },
+  { id: 'linenT', n: 'Linen trousers', len: 'full', wide: 1, pats: ['linen', 'pinstripe', ''], dc: 1, dp: 'linen' },
+  { id: 'chinos', n: 'Chinos', len: 'full', pats: ['', 'pinstripe'], dc: 10, dp: '' },
+  { id: 'jeans', n: 'Jeans', len: 'full', pats: ['denim'], dc: 13, dp: 'denim' },
+  { id: 'cropped', n: 'Cropped trousers', len: 'crop', pats: ['', 'linen', 'gingham'], dc: 0, dp: '' },
+  { id: 'palazzo', n: 'Palazzo pants', len: 'full', wide: 2, only: 'f', pats: ['', 'linen', 'kitenge', 'cabana'], dc: 0, dp: 'linen' },
+  { id: 'maxiS', n: 'Maxi skirt', skirt: 'maxi', only: 'f', pats: ['kitenge', '', 'hibiscus', 'palms', 'mosaic', 'tiedye', 'polka'], dc: 2, dp: 'kitenge' },
+  { id: 'midiS', n: 'Midi skirt', skirt: 'midi', only: 'f', pats: ['', 'gingham', 'polka', 'linen', 'kanga'], dc: 6, dp: '' },
+];
+const SHOES = [{ id: 'sneaker', n: 'Sneakers', dc: 0 }, { id: 'espadrille', n: 'Espadrilles', dc: 10 }, { id: 'sandal', n: 'Sandals', dc: 16 }, { id: 'slide', n: 'Slides', dc: 12 }, { id: 'loafer', n: 'Loafers', dc: 16 }];
+const HATS = [{ id: '', n: 'No hat' }, { id: 'cap', n: 'Cap', dc: 10 }, { id: 'panama', n: 'Panama', dc: 1 }, { id: 'sunhat', n: 'Sun hat', dc: 1 }, { id: 'bucket', n: 'Bucket hat', dc: 0 }, { id: 'kofia', n: 'Kofia', dc: 8 }];
+const EYES = [{ id: '', n: 'None' }, { id: 'shades', n: 'Shades' }, { id: 'round', n: 'Round shades' }, { id: 'aviator', n: 'Aviators' }];
+const HAIRS = ['short', 'afro', 'braids', 'scarf', 'cap', 'kofia', 'bald', 'bun', 'locs'];
+const HAIR_NAMES = { short: 'Short', afro: 'Afro', braids: 'Braids', scarf: 'Headscarf', cap: 'Cap', kofia: 'Kofia', bald: 'Bald', bun: 'Top bun', locs: 'Locs' };
+const HAIR_PICK = ['short', 'afro', 'braids', 'locs', 'bun', 'scarf', 'bald'];
+const PLAYER_SKINS = [0x9a6a44, 0x7a4a2a, 0x6b4226, 0x5d3a22, 0x4a2c1a, 0x3a2216];
+const fitsBody = (it, f) => !it.only || it.only === (f ? 'f' : 'm');
+const itemIx = (list, id) => Math.max(0, list.findIndex(it => it.id === id));
+
+/* curated island looks: one tap, then tweak anything */
+const PRESETS = [
+  { n: 'Nungwi Sunset', f: false, t: 'resort', tc: 0, tp: 'palms', b: 'chinoS', bc: 10, sh: 'espadrille', shc: 1, ht: '', ey: 'round', h: 'short' },
+  { n: 'Stone Town Linen', f: false, t: 'linen', tc: 0, tp: 'linen', b: 'linenT', bc: 1, sh: 'loafer', shc: 16, ht: 'panama', hc: 1, ey: '', h: 'short' },
+  { n: 'Riviera', f: false, t: 'breton', tc: 0, tp: 'breton', b: 'cropped', bc: 10, sh: 'sneaker', shc: 0, ht: '', ey: 'aviator', h: 'short' },
+  { n: 'Beach Day', f: false, t: 'tank', tc: 8, tp: '', b: 'swim', bc: 3, bp: 'hibiscus', sh: 'slide', shc: 12, ht: 'bucket', hc: 0, ey: 'shades', h: 'locs' },
+  { n: 'Dhow Captain', f: false, t: 'polo', tc: 0, tp: '', b: 'chinos', bc: 10, sh: 'loafer', shc: 16, ht: 'cap', hc: 10, ey: 'aviator', h: 'short' },
+  { n: 'Kitenge Cool', f: false, t: 'kitenge', tc: 5, tp: 'kitenge', b: 'chinos', bc: 12, sh: 'sandal', shc: 17, ht: '', ey: 'shades', h: 'afro' },
+  { n: 'Ijumaa', f: false, t: 'kaftan', tc: 0, tp: '', b: 'chinos', bc: 0, sh: 'sandal', shc: 17, ht: 'kofia', hc: 8, ey: '', h: 'short' },
+  { n: 'Matchday', f: false, t: 'jersey', b: 'kit', sh: 'sneaker', shc: 12, ht: '', ey: '', h: 'short' },
+  { n: 'Sundowner', f: true, t: 'maxi', tc: 3, tp: 'hibiscus', b: 'linenT', sh: 'sandal', shc: 17, ht: 'sunhat', hc: 1, ey: 'round', h: 'braids' },
+  { n: 'Riviera', f: true, t: 'breton', tc: 0, tp: 'breton', b: 'palazzo', bc: 0, bp: '', sh: 'espadrille', shc: 10, ht: 'sunhat', hc: 0, ey: 'shades', h: 'bun' },
+  { n: 'Kitenge Queen', f: true, t: 'gown', tc: 9, tp: 'kitenge', b: 'linenT', sh: 'sandal', shc: 5, ht: '', ey: 'aviator', h: 'braids' },
+  { n: 'Linen Chic', f: true, t: 'linen', tc: 1, tp: 'linen', b: 'palazzo', bc: 0, bp: 'linen', sh: 'loafer', shc: 16, ht: 'panama', hc: 1, ey: '', h: 'bun' },
+  { n: 'Stone Town Midi', f: true, t: 'midi', tc: 9, tp: 'mosaic', b: 'linenT', sh: 'slide', shc: 0, ht: '', ey: 'round', h: 'scarf' },
+  { n: 'Market Day', f: true, t: 'tee', tc: 5, tp: '', b: 'maxiS', bc: 2, bp: 'kitenge', sh: 'sneaker', shc: 0, ht: '', ey: '', h: 'afro' },
+  { n: 'Beach Day', f: true, t: 'blouse', tc: 0, tp: 'gingham', b: 'cropped', bc: 9, bp: '', sh: 'slide', shc: 3, ht: 'bucket', hc: 4, ey: 'shades', h: 'locs' },
+  { n: 'Matchday', f: true, t: 'jersey', b: 'kit', sh: 'sneaker', shc: 0, ht: '', ey: '', h: 'braids' },
+];
+/* apply a curated look (or a body change) to a look object, keeping skin tone */
+function applyPreset(lk, p) {
+  lk.f = !!p.f; lk.h = p.h || lk.h;
+  const T1 = TOPS[itemIx(TOPS, p.t)], B1 = BOTTOMS[itemIx(BOTTOMS, p.b)];
+  lk.t = itemIx(TOPS, p.t); lk.tc = p.tc === undefined ? (T1.dc || 0) : p.tc; lk.tp = PATS.indexOf(p.tp === undefined ? (T1.dp || '') : p.tp);
+  lk.b = itemIx(BOTTOMS, p.b); lk.bc = p.bc === undefined ? (B1.dc || 0) : p.bc; lk.bp = PATS.indexOf(p.bp === undefined ? (B1.dp || '') : p.bp);
+  lk.sh = itemIx(SHOES, p.sh); lk.shc = p.shc === undefined ? SHOES[lk.sh].dc : p.shc;
+  lk.ht = itemIx(HATS, p.ht || ''); lk.hc = p.hc === undefined ? (HATS[lk.ht].dc || 0) : p.hc; lk.ey = itemIx(EYES, p.ey || '');
+  if (lk.tp < 0) lk.tp = 0; if (lk.bp < 0) lk.bp = 0;
+  return lk;
+}
+/* make every slot valid for this body: no thigh-baring bottoms or men's-only tops on a woman, and the other way round */
+function fixLook(lk) {
+  const f = !!lk.f;
+  if (lk.t === undefined) { lk.t = 0; lk.b = 0; lk.sh = 0; lk.shc = 12; lk.ht = 0; lk.hc = 0; lk.ey = 0; lk.tc = 0; lk.bc = 0; lk.tp = 0; lk.bp = 0; }
+  const n = (v, max) => clamp(v | 0, 0, max);
+  lk.t = n(lk.t, TOPS.length - 1); lk.b = n(lk.b, BOTTOMS.length - 1); lk.sh = n(lk.sh, SHOES.length - 1); lk.ht = n(lk.ht, HATS.length - 1); lk.ey = n(lk.ey, EYES.length - 1);
+  for (const k of ['tc', 'bc', 'shc', 'hc']) lk[k] = n(lk[k], PALETTE.length - 1);
+  lk.tp = n(lk.tp, PATS.length - 1); lk.bp = n(lk.bp, PATS.length - 1);
+  if (!fitsBody(TOPS[lk.t], f)) { lk.t = itemIx(TOPS, f ? 'blouse' : 'resort'); lk.tp = PATS.indexOf(TOPS[lk.t].dp); lk.tc = TOPS[lk.t].dc; }
+  if (!fitsBody(BOTTOMS[lk.b], f)) { lk.b = itemIx(BOTTOMS, f ? 'palazzo' : 'chinoS'); lk.bp = 0; lk.bc = BOTTOMS[lk.b].dc; }
+  if (!TOPS[lk.t].pats.includes(PATS[lk.tp])) lk.tp = PATS.indexOf(TOPS[lk.t].pats[0]);
+  if (!BOTTOMS[lk.b].pats.includes(PATS[lk.bp])) lk.bp = PATS.indexOf(BOTTOMS[lk.b].pats[0]);
+  if (!HAIRS.includes(lk.h)) lk.h = 'short';
+  lk.s = n(lk.s, PLAYER_SKINS.length - 1);
+  return lk;
+}
+function newPlayerLook(f) { return fixLook(applyPreset({ f, s: 3, h: 'short' }, PRESETS.find(p => p.f === !!f))); }
+
+/* the player's look as makeHuman options: body, skin and hair from lk, the outfit from the wardrobe slots, jerseys from the kit */
+function kitLook(kitIdx, lk, number) {
+  lk = fixLook(Object.assign({ f: false, s: 3, h: 'short' }, lk || {}));
+  const k = KITS[kitIdx] || KITS[0], f = !!lk.f, top = TOPS[lk.t], bot = BOTTOMS[lk.b], col = (i) => PALETTE[i];
+  const L = { skin: PLAYER_SKINS[lk.s], f, hair: lk.h, hairCol: 0x141010, scarf: top.kit ? k.trim : PALETTE[lk.hc] };
+  // top
+  if (top.kit) Object.assign(L, { kit: true, shirt: k.shirt, trim: k.trim, number, numCol: k.shirt === 0xf3efe6 || k.shirt === 0xf3b41b ? '#141838' : '#f7ead0' });
+  else { L.shirt = col(lk.tc); L.tp = PATS[lk.tp]; L.trim = top.robe ? PALETTE[(lk.tc + 5) % PALETTE.length] : L.shirt; }
+  L.sleeve = top.sl; L.neck = top.neck; L.untuck = !top.tuck && !top.robe && !top.dress; if (top.btn) L.style = 'button'; if (top.polo) L.style = 'polo';
+  if (top.robe) { L.robe = true; L.lower = L.shirt; L.trim2 = L.trim; }
+  if (top.dress) { L.dress = L.shirt; L.dp = L.tp; L.trim2 = L.shirt; L.long = top.dress === 'maxi'; L.midi = top.dress === 'midi'; }
+  // bottom (a dress or kaftan covers it)
+  if (!top.dress && !top.robe) {
+    if (bot.kit) { L.lower = k.shorts; L.kitLow = true; L.trim = L.trim || k.trim; L.kitTrim = k.trim; if (!f) { L.socks = k.trim; L.plen = 0.655; } else L.plen = 0.1; }
+    else if (bot.skirt) { L.lower = col(lk.bc); L.dress = col(lk.bc); L.dp = PATS[lk.bp]; L.trim2 = col(lk.bc); L.long = bot.skirt === 'maxi'; L.midi = bot.skirt === 'midi'; L.skirtOnly = true; }
+    else { L.lower = col(lk.bc); L.bp = PATS[lk.bp]; L.plen = { shorts: 0.6, knee: 0.46, crop: 0.25, full: 0.1 }[bot.len]; L.wide = bot.wide || 0; if (L.plen <= 0.1) L.pants = true; }
+  }
+  // shoes, hat, glasses
+  const shoe = SHOES[lk.sh].id; L.shoe = shoe; L.shoes = col(lk.shc); L.sandals = shoe === 'sandal' || shoe === 'slide';
+  if (shoe === 'sneaker') { L.sole = 0xf2f0ea; L.shoeTrim = top.kit ? k.trim : (lk.shc === 0 ? 0x1f2d55 : 0xf6f3ec); }
+  if (top.kit && bot.kit && shoe === 'sneaker') L.shoes = 0x15161c;
+  const hat = HATS[lk.ht].id; if (hat) { L.hat = hat; L.hatCol = col(lk.hc); L.kofiaCol = col(lk.hc); L.cap = col(lk.hc); L.capLogo = top.kit ? k.shirt : 0xf6f3ec; }
+  if (lk.h === 'cap') { L.cap = top.kit ? k.trim : col(lk.hc); L.capLogo = top.kit ? k.shirt : 0xf6f3ec; }
+  L.eye = EYES[lk.ey].id;
+  return L;
+}
+/* shared with other players: "<body><skin><hair>" then, from the new wardrobe on, "." and 11 wardrobe slots in base 36 */
+const B36 = (v) => (v | 0).toString(36);
+const lookCode = (lk) => { const l = fixLook(Object.assign({ f: false, s: 3, h: 'short' }, lk || {})); return `${l.f ? 1 : 0}${l.s}${B36(HAIRS.indexOf(l.h))}.` + [l.t, l.tc, l.tp, l.b, l.bc, l.bp, l.sh, l.shc, l.ht, l.hc, l.ey].map(B36).join(''); };
+const lookFrom = (code) => {
+  const s = String(code || ''), m = /^([01])([0-5])([0-9a-z])(?:\.([0-9a-z]{11}))?$/.exec(s); if (!m) return null;
+  const h = HAIRS[parseInt(m[3], 36)]; if (!h) return null;
+  const lk = { f: m[1] === '1', s: +m[2], h };
+  if (m[4]) { const v = [...m[4]].map(c => parseInt(c, 36)); [lk.t, lk.tc, lk.tp, lk.b, lk.bc, lk.bp, lk.sh, lk.shc, lk.ht, lk.hc, lk.ey] = v; }
+  return fixLook(lk);
+};
+/* a random island outfit for people in town (and European-looking beach tourists) */
+function styledLook(seed, o) {
+  o = o || {};
+  const r = mulberry32(seed * 9301 + 49297), pick = (a) => a[Math.floor(r() * a.length)];
+  const f = o.f === undefined ? r() < 0.5 : o.f, tourist = !!o.tourist;
+  const t = pick(TOPS.filter(it => !it.kit && fitsBody(it, f) && !(tourist && it.robe))), b = pick(BOTTOMS.filter(it => !it.kit && fitsBody(it, f)));
+  const hats = HATS.map((h2, i) => i).filter(i => i > 0 && !(tourist && HATS[i].id === 'kofia'));
+  const lk = {
+    f, s: 0, h: pick(f ? (tourist ? ['bun', 'short', 'bun', 'locs'] : ['braids', 'bun', 'afro', 'locs', 'scarf', 'scarf']) : (tourist ? ['short', 'short', 'bald'] : ['short', 'short', 'afro', 'locs', 'bald'])),
+    t: itemIx(TOPS, t.id), tc: Math.floor(r() * 16), tp: PATS.indexOf(pick(t.pats)),
+    b: itemIx(BOTTOMS, b.id), bc: pick([0, 1, 10, 12, 13, 14, 7, 16, 17, 9]), bp: PATS.indexOf(r() < 0.6 ? b.pats[0] : pick(b.pats)),
+    sh: Math.floor(r() * SHOES.length), shc: pick([0, 1, 10, 12, 16, 17, 2]), ht: r() < (tourist ? 0.55 : 0.25) ? pick(hats) : 0, hc: pick([0, 1, 10, 5, 8, 4]), ey: r() < (tourist ? 0.6 : 0.25) ? 1 + Math.floor(r() * (EYES.length - 1)) : 0,
+  };
+  const L = kitLook(0, fixLook(lk));
+  L.skin = o.skin || pick(SKINS); L.hairCol = o.hairCol || 0x141010; L.h = f ? 0.93 + r() * 0.07 : 0.97 + r() * 0.08;
+  return L;
+}
 /* ===================== 20 people: NPCs, pedestrians, thieves ===================== */
 /* ---------- NPCs ---------- */
 const NPCS = [
@@ -2918,6 +3261,8 @@ function randomLook(i) {
   const shirts = [0xf3b41b, 0xe0553a, 0x19b5b1, 0x1e9b57, 0xf6f1e7, 0x1f8fd0, 0x232a63, 0x8e3b8f, 0xff8a3d, 0x2b2b30, 0xd8cfc0, 0x7a2a4a];
   const lowers = [0x232a63, 0x2a2d33, 0xd8cfc0, 0x3b5a7a, 0x4a4a52, 0x6a5a3a];
   const skin = SKINS[Math.floor(r() * SKINS.length)];
+  // about a third of town dresses in the island wardrobe the player can wear too
+  if (r() < 0.34) return styledLook(i, { skin });
   if (r() < 0.45) {
     const hair = pick(['scarf', 'scarf', 'scarf', 'braids', 'braids', 'afro']), dressy = hair === 'scarf' ? r() < 0.8 : r() < 0.45;
     return { f: true, skin, hair, scarf: pick(shirts), shirt: pick(shirts), lower: pick(lowers), dress: dressy ? pick(shirts) : null, long: dressy && r() < 0.6, pants: !dressy, style: dressy && r() < 0.6 ? 'kanga' : 'tee', trim: pick(shirts), trim2: pick(shirts), longSleeve: hair === 'scarf' && r() < 0.5, sandals: r() < 0.65, shoes: pick([0x7a4a2a, 0xd8452c, 0x1d1d22, 0xf4f4f0, 0xf3b41b]), h: 0.93 + r() * 0.07 };
@@ -4913,6 +5258,128 @@ function updateLife(dt, t) {
   updateFishing(dt);
   updatePolice(dt, t);
 }
+/* ===================== 48 onboarding: quick get-to-know-you questions that fill a new player's starting purse ===================== */
+/* Each answer adds TSh 15,000 to the starting cash, and answering all of them adds a TSh 30,000 bonus.
+   Answers stay on the device (so a new game keeps the bonus) and go, anonymously, into the player's stats for the owner. */
+const ABOUT_KEY = 'afc-about', ABOUT_PER = 15000, ABOUT_ALL = 30000;
+const ABOUT_Q = [
+  { id: 'where', short: 'Playing from', q: 'Where are you playing from?', a: ['Zanzibar', 'Mainland Tanzania', 'Kenya', 'Uganda', 'Nigeria', 'Ghana', 'South Africa', 'Elsewhere in Africa', 'Europe', 'The Americas', 'Asia or Middle East', 'Somewhere else'] },
+  { id: 'team', short: 'AFCON team', q: 'Who are you backing at AFCON 2027?', a: ['Tanzania · Taifa Stars', 'Kenya · Harambee Stars', 'Uganda · The Cranes', 'Nigeria · Super Eagles', 'Morocco · Atlas Lions', 'Senegal · Lions of Teranga', 'Egypt · The Pharaohs', 'Côte d\'Ivoire · The Elephants', 'Ghana · Black Stars', 'Cameroon · Indomitable Lions', 'South Africa · Bafana Bafana', 'Another team'] },
+  { id: 'zanzibar', short: 'Zanzibar', q: 'Have you been to Zanzibar?', a: ['I live here', 'I have visited', 'Planning a trip', 'Not yet, one day'] },
+  { id: 'age', short: 'Age group', q: 'Which age group are you in?', a: ['Under 18', '18 to 24', '25 to 34', '35 to 44', '45 or over'] },
+  { id: 'watch', short: 'Watches football', q: 'How much football do you watch?', a: ['Every match I can', 'Most weekends', 'Big tournaments only', 'Hardly any'] },
+  { id: 'match', short: 'AFCON 2027 match', q: 'Will you go to an AFCON 2027 match?', a: ['I have tickets', 'Planning to go', 'Watching on TV', 'Not sure yet'] },
+  { id: 'found', short: 'Found us via', q: 'How did you find AfconCity?', a: ['A friend', 'WhatsApp', 'TikTok', 'Instagram', 'X', 'Facebook', 'Google', 'Somewhere else'] },
+  { id: 'love', short: 'Wants most', q: 'What do you want most from this game?', a: ['Exploring Zanzibar', 'Making money', 'Driving and racing', 'Playing with friends', 'Football', 'Fashion and homes'] },
+];
+const ABOUT_MAX = ABOUT_Q.length * ABOUT_PER + ABOUT_ALL;
+const ABOUT_RANKS = [[0, 'Mgeni', 'Visitor'], [3, 'Rafiki', 'Friend'], [6, 'Jirani', 'Neighbour'], [ABOUT_Q.length, 'Mwenyeji', 'Local legend']];
+function aboutRead() { try { const v = JSON.parse(localStorage.getItem(ABOUT_KEY) || 'null'); if (v && v.a && typeof v.a === 'object') return v; } catch (e) {} return null; }
+function aboutWrite(v) { try { localStorage.setItem(ABOUT_KEY, JSON.stringify(v)); } catch (e) {} }
+const aboutClean = (a) => { const o = {}; for (const q of ABOUT_Q) if (a && typeof a[q.id] === 'string' && q.a.includes(a[q.id])) o[q.id] = a[q.id]; return o; };
+const aboutCount = (a) => Object.keys(aboutClean(a)).length;
+const aboutBonus = (a) => { const n = aboutCount(a); return n * ABOUT_PER + (n === ABOUT_Q.length ? ABOUT_ALL : 0); };
+const aboutRank = (n) => { let r = ABOUT_RANKS[0]; for (const x of ABOUT_RANKS) if (n >= x[0]) r = x; return r; };
+/* the starting purse for a brand-new game, from whatever this player has answered */
+function applyStartBonus() {
+  if (state.intro || state.bonus !== undefined) return 0;
+  const v = aboutRead(), a = v ? aboutClean(v.a) : {}, b = aboutBonus(a);
+  state.bonus = b; state.cash = PRICES.start + b; state.about = a; shownCash = state.cash;
+  return b;
+}
+/* the Play panel's first fact: the purse this player will start with */
+function renderPurseFact() {
+  const b = $('#factCash'), l = $('#factCashL'), lede = $('#playLede'); if (!b) return;
+  const v = aboutRead(), have = v ? PRICES.start + aboutBonus(v.a) : 0;
+  if (state.intro) { b.textContent = `${Math.round(money() / 1000)}k`; l.textContent = 'TSh you have now'; }
+  else if (v) { b.textContent = `${Math.round(have / 1000)}k`; l.textContent = 'TSh in your starting purse'; }
+  else { b.textContent = `${Math.round(ABOUT_MAX / 1000 + PRICES.start / 1000)}k`; l.textContent = 'TSh to start: answer 8 quick questions'; }
+  if (lede) lede.textContent = `You step off the daladala on Fumba Road with ${v || state.intro ? tsh(state.intro ? money() : have) : `up to ${tsh(PRICES.start + ABOUT_MAX)}`}. A VIP seat for the AFCON 2027 match at AfconCity costs TSh 1,000,000, and only fans with a full Fan Passport of Zanzibar experiences can buy one. Work, explore and haggle at real Zanzibar prices.`;
+}
+/* the questions, one card at a time, with the purse growing as you answer */
+function openOnboard(done) {
+  audioInit();
+  const prev = aboutRead(), a = prev ? aboutClean(prev.a) : {};
+  let i = 0, shown = PRICES.start + aboutBonus(a), raf = 0;
+  const el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt !== undefined) e.textContent = txt; return e; };
+  const root = el('div', 'ob'); root.id = 'onboard'; root.setAttribute('role', 'dialog'); root.setAttribute('aria-modal', 'true'); root.setAttribute('aria-labelledby', 'obTitle');
+  const card = el('div', 'ob-card'); root.append(card);
+  const head = el('div', 'ob-top'), ht = el('div'); ht.append(el('span', 'eyebrow', 'Karibu Fumba'), el('h2', '', 'Fill your purse')); ht.querySelector('h2').id = 'obTitle';
+  const purse = el('div', 'ob-purse'), cashB = el('b', '', tsh(shown)), rank = el('span', 'ob-rank'); purse.append(el('small', '', 'Starting purse'), cashB, rank); head.append(ht, purse);
+  const bar = el('div', 'ob-bar'); bar.setAttribute('aria-hidden', 'true'); const segs = ABOUT_Q.map(() => { const s = el('i'); bar.append(s); return s; });
+  const intro = el('p', 'ob-lede', `Every answer adds ${tsh(ABOUT_PER)} to the cash you start with. Answer all ${ABOUT_Q.length} for a ${tsh(ABOUT_ALL)} bonus: up to ${tsh(PRICES.start + ABOUT_MAX)}.`);
+  const body = el('div', 'ob-q'); body.setAttribute('aria-live', 'polite');
+  const foot = el('div', 'ob-foot'), skip = el('button', 'btn btn-ghost', 'Skip'), go = el('button', 'btn', ''), note = el('p', 'ob-note', 'Answers are anonymous: no names, numbers or contact details. They help us plan events, matches and new features.');
+  skip.type = go.type = 'button'; foot.append(skip, go);
+  card.append(head, bar, intro, body, foot, note);
+  document.body.append(root);
+  const count = () => aboutCount(a);
+  const paint = () => {
+    const n = count(), r = aboutRank(n);
+    rank.textContent = `${r[1]} · ${r[2]}`;
+    segs.forEach((s, k) => { s.className = a[ABOUT_Q[k].id] ? 'on' : k === i ? 'cur' : ''; });
+    go.textContent = i >= ABOUT_Q.length ? 'Twende · Play' : `Start with ${tsh(PRICES.start + aboutBonus(a))}`;
+    skip.hidden = i >= ABOUT_Q.length;
+  };
+  const roll = (to) => {
+    cancelAnimationFrame(raf); const from = shown, t0 = performance.now(), dur = reduceMotion ? 1 : 650;
+    const step = (now) => { const k = Math.min(1, (now - t0) / dur), v = Math.round(from + (to - from) * (1 - Math.pow(1 - k, 3))); cashB.textContent = tsh(v); if (k < 1) raf = requestAnimationFrame(step); else shown = to; };
+    raf = requestAnimationFrame(step);
+  };
+  const pop = (txt, cls) => { const p = el('span', 'ob-pop' + (cls ? ' ' + cls : ''), txt); purse.append(p); setTimeout(() => p.remove(), 1400); };
+  const confetti = () => { if (reduceMotion) return; const c = el('div', 'ob-confetti'); for (let k = 0; k < 40; k++) { const s = el('i'); s.style.left = `${Math.random() * 100}%`; s.style.background = ['#f3b41b', '#1e9b57', '#e0553a', '#19b5b1', '#f6f1e7'][k % 5]; s.style.animationDelay = `${Math.random() * 0.4}s`; s.style.setProperty('--dx', `${(Math.random() - 0.5) * 120}px`); c.append(s); } card.append(c); setTimeout(() => c.remove(), 2600); };
+  const finish = () => {
+    aboutWrite({ v: 1, a: aboutClean(a), at: Date.now() });
+    cancelAnimationFrame(raf); document.removeEventListener('keydown', keys, true); root.remove();
+    done();
+  };
+  const next = () => { i++; if (prev) while (i < ABOUT_Q.length && a[ABOUT_Q[i].id]) i++; show(); };
+  const show = () => {
+    body.innerHTML = '';
+    if (i >= ABOUT_Q.length) {
+      const n = count(), all = n === ABOUT_Q.length;
+      body.append(el('span', 'eyebrow', all ? 'Hongera! All answered' : `${n} of ${ABOUT_Q.length} answered`), el('h3', '', `You start with ${tsh(PRICES.start + aboutBonus(a))}`));
+      body.append(el('p', 'ob-lede', all ? `That includes the ${tsh(ABOUT_ALL)} bonus for answering everything. Asante sana, ${aboutRank(n)[1].toLowerCase()}!` : `Answer the rest next time you start a new game to grow your purse to ${tsh(PRICES.start + ABOUT_MAX)}.`));
+      paint(); go.focus(); return;
+    }
+    const q = ABOUT_Q[i];
+    body.append(el('span', 'eyebrow', `Question ${i + 1} of ${ABOUT_Q.length} · +${tsh(ABOUT_PER)}`), el('h3', '', q.q));
+    const grid = el('div', 'ob-opts' + (q.a.length > 6 ? ' many' : ''));
+    q.a.forEach((txt, k) => {
+      const b = el('button', 'ob-opt', txt); b.type = 'button'; b.setAttribute('aria-pressed', String(a[q.id] === txt));
+      if (k < 9) b.prepend(el('kbd', '', String(k + 1)));
+      b.addEventListener('click', () => {
+        const was = count(), wasAll = was === ABOUT_Q.length, fresh = !a[q.id]; a[q.id] = txt;
+        const n = count();
+        if (fresh) { sfx.coin(1); pop(`+${tsh(ABOUT_PER)}`); }
+        if (n === ABOUT_Q.length && !wasAll) setTimeout(() => { sfx.win(); pop(`Bonus +${tsh(ABOUT_ALL)}`, 'big'); confetti(); }, 380);
+        if (aboutRank(n)[0] > aboutRank(was)[0] && n < ABOUT_Q.length) setTimeout(() => { sfx.ding(); pop(`Rank up · ${aboutRank(n)[1]}`, 'rank'); }, 300);
+        roll(PRICES.start + aboutBonus(a)); grid.querySelectorAll('.ob-opt').forEach(o => o.setAttribute('aria-pressed', String(o === b)));
+        paint(); setTimeout(next, reduceMotion ? 120 : 520);
+      });
+      grid.append(b);
+    });
+    body.append(grid); paint();
+    const first = grid.querySelector('.ob-opt'); if (first) first.focus({ preventScroll: true });
+  };
+  const keys = (e) => {
+    if (!document.body.contains(root)) return;
+    e.stopPropagation();
+    if (e.key === 'Escape') { e.preventDefault(); finish(); return; }
+    const d = /^(?:Digit|Numpad)([1-9])$/.exec(e.code || ''); if (d && i < ABOUT_Q.length) { const b = body.querySelectorAll('.ob-opt')[+d[1] - 1]; if (b) { e.preventDefault(); b.click(); } }
+  };
+  document.addEventListener('keydown', keys, true);
+  skip.addEventListener('click', () => { sfx.deny(); next(); });
+  go.addEventListener('click', finish);
+  // a returning player who skipped some questions starts at the first one still open
+  if (prev) { while (i < ABOUT_Q.length && a[ABOUT_Q[i].id]) i++; }
+  show();
+}
+/* Play: a brand-new game asks the questions first (only those not answered yet) */
+function startPlay() {
+  if (!state.intro && state.bonus === undefined) { const v = aboutRead(); if (!v || aboutCount(v.a) < ABOUT_Q.length) { openOnboard(enterPlay); return; } }
+  enterPlay();
+}
 /* ===================== 49 web backend: on afconcity.com, Supabase stands in for Claude's runtime ===================== */
 /* The game asks for 'db', 'user' and 'room' the same way in both places; here they are small shims over Supabase.
    Players sign in anonymously (no form); the owner signs in by email code; chat goes through the database so the
@@ -5206,7 +5673,7 @@ function onPeers(change) {
     const pr = p.presence || {};
     let r = remotes.get(p.peer);
     if (typeof pr.x !== 'number') { if (!r) continue; }
-    const kit = clamp(Math.floor(numOr(pr.kit, 0)), 0, KITS.length - 1), lk = strOr(pr.lk, 3);
+    const kit = clamp(Math.floor(numOr(pr.kit, 0)), 0, KITS.length - 1), lk = strOr(pr.lk, 16);
     if (!r) {
       const h = remoteHuman(kit, p.peer, lk), x = clamp(numOr(pr.x, START.x), -2000, 2000), z = clamp(numOr(pr.z, START.z), -2000, 2000);
       h.position.set(x, 0.04, z); scene.add(h);
@@ -5823,6 +6290,18 @@ function ownerInsights() {
       for (const s of [RADIO_SLOT]) { const li = el('li'); li.append(el('b', '', s.name), el('span', '', `${Math.round((ph.views.radio || 0) / 60)} min heard · ${fmt(ph.opens.radio || 0)} page opens · ${fmt(ph.clicks.radio || 0)} link taps`)); ul.append(li); }
       for (const s of PHONE_SLOTS) { const li = el('li'); li.append(el('b', '', s.name), el('span', '', `${Math.round(((ph.views[s.id] || 0) + (s.big ? ph.views.tv || 0 : 0)) / 60)} min on screen · ${fmt(ph.opens[s.id] || 0)} page opens · ${fmt(ph.clicks[s.id] || 0)} link taps`)); ul.append(li); }
       box.append(ul);
+      // who is playing: answers to the welcome questions, and the most worn looks
+      const ab = {}, looks = {}; let nAb = 0;
+      for (const d of stats.docs) {
+        const s = d.data() || {}, a = aboutClean(s.about); if (Object.keys(a).length) nAb++;
+        for (const [k, v] of Object.entries(a)) { ab[k] = ab[k] || {}; ab[k][v] = (ab[k][v] || 0) + 1; }
+        const lk = typeof s.look === 'string' ? lookFrom(s.look) : null; if (lk) { const n = lookName(lk); looks[n] = (looks[n] || 0) + 1; }
+      }
+      box.append(el('h3', '', `Who is playing (${nAb} answered the welcome questions)`));
+      const wl = el('ul', 'jobs'), top = (m) => { const tot = Object.values(m).reduce((x, y) => x + y, 0); return tot ? Object.entries(m).sort((x, y) => y[1] - x[1]).slice(0, 4).map(([k, v]) => `${k} ${Math.round(v * 100 / tot)}%`).join(' · ') : 'No answers yet'; };
+      for (const q of ABOUT_Q) { const li = el('li'); li.append(el('b', '', q.short), el('span', '', top(ab[q.id] || {}))); wl.append(li); }
+      { const li = el('li'); li.append(el('b', '', 'Most worn looks'), el('span', '', top(looks))); wl.append(li); }
+      box.append(wl);
       const fb = await AD.db.collection('feedback').limit(100).get(), items = [];
       for (const d of fb.docs) { const its = await AD.db.collection('feedback/' + d.id + '/items').orderBy('at', 'desc').limit(10).get(); for (const it of its.docs) items.push(it.data()); }
       items.sort((a, b) => (b.at || 0) - (a.at || 0));
@@ -5869,7 +6348,7 @@ function offerCopy(root, item) {
 }
 
 /* ---------- play stats and billboard view time ---------- */
-const GAME_VER = '2026.10.13';
+const GAME_VER = '2026.10.14';
 function avgFps() { if (!AD.fps.length) return 0; return AD.fps.reduce((a, b) => a + b, 0) / AD.fps.length; }
 const _adV = new T.Vector3();
 function updateAdStats(dt) {
@@ -5891,7 +6370,8 @@ async function writeStats() {
   const prev = AD.statsBase || {};
   const ads = Object.assign({}, prev.ads || {}); for (const [k, v] of Object.entries(AD.seen)) ads[k] = Math.round((ads[k] || 0) + v);
   const ph = { views: {}, opens: {}, clicks: {} }; for (const kind of ['views', 'opens', 'clicks']) { Object.assign(ph[kind], (prev.ph && prev.ph[kind]) || {}); for (const [k, v] of Object.entries(AD.ph[kind])) ph[kind][k] = Math.round((ph[kind][k] || 0) + v); }
-  const body = { ver: GAME_VER, sessions: (prev.sessions || 0) + (AD.sessionCounted ? 0 : 1), minutes: Math.round(((prev.minutes || 0) + (state.playMs - (AD.playMs0 || 0)) / 60000) * 10) / 10, device: isCoarse ? 'touch' : 'desktop', gfx, fpsAvg: Math.round(avgFps()), fpsLow: Math.round(sorted[Math.floor(sorted.length * 0.05)] || 0), stamps: stampCount(), money: money(), jobs: state.stats.jobs, area: areaAt(P.x, P.z), ads, ph, home: state.home ? state.home.id : '', day: clockDay(), updatedAt: Date.now() };
+  const ab = aboutRead();
+  const body = { ver: GAME_VER, look: lookCode(state.look), about: ab ? aboutClean(ab.a) : {}, purse: state.bonus === undefined ? null : PRICES.start + state.bonus, sessions: (prev.sessions || 0) + (AD.sessionCounted ? 0 : 1), minutes: Math.round(((prev.minutes || 0) + (state.playMs - (AD.playMs0 || 0)) / 60000) * 10) / 10, device: isCoarse ? 'touch' : 'desktop', gfx, fpsAvg: Math.round(avgFps()), fpsLow: Math.round(sorted[Math.floor(sorted.length * 0.05)] || 0), stamps: stampCount(), money: money(), jobs: state.stats.jobs, area: areaAt(P.x, P.z), ads, ph, home: state.home ? state.home.id : '', day: clockDay(), updatedAt: Date.now() };
   const key = JSON.stringify(Object.assign({}, body, { updatedAt: 0 }));
   if (key === AD.lastStats) return;
   try { await AD.db.doc('stats/' + AD.uid).set(body); AD.lastStats = key; AD.statsBase = body; AD.seen = {}; AD.ph = { views: {}, opens: {}, clicks: {} }; AD.playMs0 = state.playMs; AD.sessionCounted = true; } catch (e) { if (e && e.code === 'invalid_argument') AD.write = false; }
@@ -5902,6 +6382,155 @@ async function loadStatsBase() {
   AD.playMs0 = state.playMs;
 }
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden' && mode !== 'intro') writeStats(); });
+/* ===================== 56 wardrobe: the island wardrobe screen, a beach photo shoot behind it, and the look summary on Play ===================== */
+const STYLE = { on: false, tab: 'top', spot: null, saved: null, a: 0, exp: 0 };
+const cssHex = (h) => '#' + (h >>> 0).toString(16).padStart(6, '0');
+/* which curated look this is (if any), and a one-line description */
+function lookName(lk) {
+  lk = fixLook(Object.assign({ f: false, s: 3, h: 'short' }, lk || {}));
+  for (const p of PRESETS) { if (p.f !== !!lk.f) continue; const q = applyPreset({ s: lk.s, h: lk.h }, p); if (['t', 'tc', 'tp', 'b', 'bc', 'bp', 'sh', 'ht', 'ey'].every(k => q[k] === lk[k])) return p.n; }
+  return 'Your own look';
+}
+function lookDesc(lk) {
+  lk = fixLook(Object.assign({ f: false, s: 3, h: 'short' }, lk || {}));
+  const top = TOPS[lk.t], bot = BOTTOMS[lk.b], parts = [];
+  const tname = top.robe && !lk.f ? top.nm : top.n;
+  parts.push(top.kit ? `${(KITS[state.kit] || KITS[0]).name} jersey` : `${PALETTE_NAMES[lk.tc]} ${PATS[lk.tp] && PATS[lk.tp] !== 'linen' ? PAT_NAMES[PATS[lk.tp]].toLowerCase() + ' ' : ''}${tname.toLowerCase()}`);
+  if (!top.dress && !top.robe) parts.push(bot.kit ? (lk.f ? bot.nf : bot.n).toLowerCase() : `${PALETTE_NAMES[lk.bc].toLowerCase()} ${bot.n.toLowerCase()}`);
+  parts.push(SHOES[lk.sh].n.toLowerCase());
+  if (lk.ht) parts.push(HATS[lk.ht].n.toLowerCase());
+  if (lk.ey) parts.push(EYES[lk.ey].n.toLowerCase());
+  const s = parts.join(', '); return s.charAt(0).toUpperCase() + s.slice(1);
+}
+function styleApply(lk, o) {
+  state.look = fixLook(Object.assign({}, lk)); if (player) buildPlayer(); mpDirty = true; writeSave();
+  if (o && o.after) o.after();
+  renderLookSum();
+}
+/* a fresh random outfit for this body */
+function shuffleLook(lk) {
+  const r = Math.random, pick = (a) => a[Math.floor(r() * a.length)], f = !!lk.f;
+  const t = pick(TOPS.filter(it => fitsBody(it, f) && (!it.kit || r() < 0.4))), b = pick(BOTTOMS.filter(it => !it.kit && fitsBody(it, f)));
+  Object.assign(lk, { t: itemIx(TOPS, t.id), tc: Math.floor(r() * 16), tp: PATS.indexOf(pick(t.pats)), b: itemIx(BOTTOMS, b.id), bc: pick([0, 1, 10, 12, 13, 14, 7, 9, 2, 6]), bp: PATS.indexOf(r() < 0.55 ? b.pats[0] : pick(b.pats)), sh: Math.floor(r() * SHOES.length), shc: pick([0, 1, 10, 12, 16, 17, 2, 3]), ht: r() < 0.45 ? 1 + Math.floor(r() * (HATS.length - 1)) : 0, hc: pick([0, 1, 10, 5, 8, 4, 3]), ey: r() < 0.5 ? 1 + Math.floor(r() * (EYES.length - 1)) : 0 });
+  if (t.kit) lk.b = 0;
+  return lk;
+}
+/* the wardrobe editor; o.name keeps radio groups apart, o.after redraws other avatars, o.compact for the home panel */
+function renderStyle(root, o) {
+  o = o || {};
+  if (!root) return;
+  const nm = o.name || 's', lk = fixLook(Object.assign({ f: false, s: 3, h: 'short' }, state.look || {}));
+  const el = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt !== undefined) e.textContent = txt; return e; };
+  const redo = () => renderStyle(root, o);
+  const set = (fn, emote) => { fn(lk); fixLook(lk); styleApply(lk, o); if (emote && player) playEmote(player, emote); if (emote && HOME.av) playEmote(HOME.av, emote); redo(); };
+  const chip = (row, group, label, checked, on, sw, img) => {
+    const l = el('label', 'kit'); l.innerHTML = `<input type="radio" name="${nm}-${group}"><span>${sw || img ? '<i></i>' : ''}</span>`;
+    const i = l.querySelector('i'); if (i) { if (img) { i.style.backgroundImage = `url(${img})`; i.style.backgroundSize = 'cover'; } else i.style.setProperty('--sw', sw); }
+    if (label) l.querySelector('span').append(label);
+    const inp = l.querySelector('input'); inp.checked = checked; inp.setAttribute('aria-label', label || group); inp.addEventListener('change', on); row.append(l); return l;
+  };
+  const sec = (title) => { const s = el('div', 'st-sec'); if (title) s.append(el('h3', 'st-h', title)); root.append(s); return s; };
+  const row = (parent, cls) => { const r = el('div', 'kit-row' + (cls ? ' ' + cls : '')); parent.append(r); return r; };
+  root.innerHTML = '';
+  // body and skin
+  const s0 = sec(''); const rb = row(s0), rs = row(s0, 'swatches');
+  [[false, 'Man'], [true, 'Woman']].forEach(([f, n]) => chip(rb, 'body', n, !!lk.f === f, () => set((l) => { if (!!l.f !== f) applyPreset(l, PRESETS.find(p => p.f === f)); l.f = f; }, 'wave')));
+  PLAYER_SKINS.forEach((c, i) => chip(rs, 'skin', '', lk.s === i, () => set((l) => { l.s = i; }), cssHex(c)).querySelector('input').setAttribute('aria-label', `Skin tone ${i + 1}`));
+  // curated looks
+  const s1 = sec('Island looks'); const grid = el('div', 'st-presets'); s1.append(grid);
+  const cur = lookName(lk);
+  for (const p of PRESETS.filter(q => q.f === !!lk.f)) {
+    const q = applyPreset({ s: lk.s, h: lk.h }, p), top = TOPS[q.t];
+    const b = el('button', 'st-preset'); b.type = 'button'; b.setAttribute('aria-pressed', String(p.n === cur));
+    const art = el('span', 'st-art');
+    const tc = top.kit ? (KITS[state.kit] || KITS[0]).css : cssHex(PALETTE[q.tc]);
+    const t1 = el('i', 't'); t1.style.backgroundColor = tc; if (q.tp > 0) { t1.style.backgroundImage = `url(${patSwatch(PATS[q.tp], PALETTE[q.tc])})`; t1.style.backgroundSize = 'cover'; }
+    const b1 = el('i', 'b'); const bc = top.dress || top.robe ? tc : BOTTOMS[q.b].kit ? cssHex((KITS[state.kit] || KITS[0]).shorts) : cssHex(PALETTE[q.bc]); b1.style.backgroundColor = bc;
+    if (top.dress || top.robe) { b1.style.backgroundImage = t1.style.backgroundImage; b1.style.backgroundSize = 'cover'; } else if (q.bp > 0) { b1.style.backgroundImage = `url(${patSwatch(PATS[q.bp], PALETTE[q.bc])})`; b1.style.backgroundSize = 'cover'; }
+    const s2 = el('i', 's'); s2.style.backgroundColor = cssHex(PALETTE[q.shc]);
+    art.append(t1, b1, s2); b.append(art, el('span', 'st-pn', p.n));
+    b.addEventListener('click', () => set((l) => applyPreset(l, p), 'cheer'));
+    grid.append(b);
+  }
+  // one slot at a time
+  const tabs = [['top', 'Top'], ['bottom', 'Bottom'], ['shoes', 'Shoes'], ['hat', 'Hat'], ['eyes', 'Shades'], ['hair', 'Hair']];
+  const s2 = sec(''); const tb = el('div', 'st-tabs'); tb.setAttribute('role', 'tablist'); s2.append(tb);
+  for (const [k, n] of tabs) { const b = el('button', '', n); b.type = 'button'; b.setAttribute('role', 'tab'); b.setAttribute('aria-selected', String(STYLE.tab === k)); b.addEventListener('click', () => { STYLE.tab = k; redo(); root.querySelector('.st-tabs [aria-selected="true"]')?.focus(); }); tb.append(b); }
+  const pane = el('div', 'st-pane'); s2.append(pane);
+  const colours = (key, label) => { const r = row(pane, 'swatches'); r.setAttribute('aria-label', label); PALETTE.forEach((c, i) => chip(r, key, '', lk[key] === i, () => set((l) => { l[key] = i; }), cssHex(c)).querySelector('input').setAttribute('aria-label', PALETTE_NAMES[i])); };
+  const prints = (key, pats, colKey) => { if (pats.length < 2) return; const r = row(pane, 'swatches prints'); pats.forEach((p) => chip(r, key, PAT_NAMES[p], PATS[lk[key]] === p, () => set((l) => { l[key] = PATS.indexOf(p); }), null, patSwatch(p, PALETTE[lk[colKey]]))); };
+  const top = TOPS[lk.t], bot = BOTTOMS[lk.b];
+  if (STYLE.tab === 'top') {
+    const r = row(pane); TOPS.forEach((it, i) => { if (fitsBody(it, lk.f)) chip(r, 'top', it.robe && !lk.f ? it.nm : it.n, lk.t === i, () => set((l) => { l.t = i; if (!it.pats.includes(PATS[l.tp])) l.tp = PATS.indexOf(it.dp === undefined ? it.pats[0] : it.dp); if (it.kit) l.b = 0; else if (BOTTOMS[l.b].kit) { l.b = itemIx(BOTTOMS, lk.f ? 'palazzo' : 'chinoS'); l.bc = BOTTOMS[l.b].dc; } })); });
+    if (top.kit) {
+      const kr = row(pane); state.owned.forEach((i) => { const k = KITS[i]; chip(kr, 'kit', k.name, state.kit === i, () => { setKit(i); styleApply(lk, o); redo(); }, k.css); });
+      if (state.owned.length < KITS.length) pane.append(el('p', 'fine', 'More jerseys at Rehema\'s fan shop in the Fan Zone.'));
+    } else { colours('tc', 'Colour'); prints('tp', top.pats, 'tc'); }
+  } else if (STYLE.tab === 'bottom') {
+    if (top.dress || top.robe) pane.append(el('p', 'fine', `Your ${(top.robe && !lk.f ? top.nm : top.n).toLowerCase()} covers this. Pick a top to wear trousers, shorts or a skirt.`));
+    else {
+      const r = row(pane); BOTTOMS.forEach((it, i) => { if (fitsBody(it, lk.f) && (!it.kit || top.kit)) chip(r, 'bot', it.kit && lk.f ? it.nf : it.n, lk.b === i, () => set((l) => { l.b = i; if (!it.pats.includes(PATS[l.bp])) l.bp = PATS.indexOf(it.dp === undefined ? it.pats[0] : it.dp); })); });
+      if (bot.kit) pane.append(el('p', 'fine', 'Matches your jersey.')); else { colours('bc', 'Colour'); prints('bp', bot.pats, 'bc'); }
+    }
+  } else if (STYLE.tab === 'shoes') {
+    const r = row(pane); SHOES.forEach((it, i) => chip(r, 'shoe', it.n, lk.sh === i, () => set((l) => { l.sh = i; }))); colours('shc', 'Colour');
+  } else if (STYLE.tab === 'hat') {
+    const r = row(pane); HATS.forEach((it, i) => chip(r, 'hat', it.n, lk.ht === i, () => set((l) => { const was = l.ht; l.ht = i; if (i && it.dc !== undefined && was !== i) l.hc = it.dc; })));
+    if (lk.ht) colours('hc', 'Colour');
+    else if (lk.h === 'scarf') { pane.append(el('p', 'fine', 'Headscarf colour:')); colours('hc', 'Colour'); }
+  } else if (STYLE.tab === 'eyes') {
+    const r = row(pane); EYES.forEach((it, i) => chip(r, 'eye', it.n, lk.ey === i, () => set((l) => { l.ey = i; })));
+  } else {
+    const r = row(pane); HAIR_PICK.forEach((h) => chip(r, 'hair', HAIR_NAMES[h], lk.h === h, () => set((l) => { l.h = h; })));
+  }
+  const acts = el('div', 'st-acts');
+  const sh = el('button', 'btn btn-ghost', 'Shuffle'); sh.type = 'button'; sh.addEventListener('click', () => set((l) => shuffleLook(l), 'dance'));
+  acts.append(sh, el('span', 'fine', o.compact ? lookName(lk) : 'Everyone online sees your look.')); root.append(acts);
+}
+/* the look card on the Play panel */
+function renderLookSum() {
+  const n = $('#lookName'), d = $('#lookDesc'); if (!n) return;
+  n.textContent = lookName(state.look); d.textContent = lookDesc(state.look);
+  const sw = $('#lookSw'); if (sw) { const lk = fixLook(Object.assign({}, state.look || {})), top = TOPS[lk.t]; sw.style.background = top.kit ? (KITS[state.kit] || KITS[0]).css : cssHex(PALETTE[lk.tc]); sw.style.backgroundImage = !top.kit && lk.tp ? `url(${patSwatch(PATS[lk.tp], PALETTE[lk.tc])})` : ''; sw.style.backgroundSize = 'cover'; }
+}
+
+/* ---------- the photo shoot: while the wardrobe is open on the start screen, the camera frames you on the beach ---------- */
+function styleSpot() {
+  if (STYLE.spot) return STYLE.spot;
+  for (const x of [42, 8, -95, -70]) { const z = coastZ(x) - 5.5; if (walkable(x, z) && !pointBlocked(x, z, 0.6) && walkable(x, z - 5)) return (STYLE.spot = { x, z, y: groundY(x, z) }); }
+  return (STYLE.spot = { x: P.x, z: P.z, y: 0.04 });
+}
+function setStyling(on) {
+  if (on === STYLE.on || !player) return;
+  STYLE.on = on; document.body.classList.toggle('styling', on);
+  if (on) {
+    const s = styleSpot(); STYLE.saved = { x: player.position.x, y: player.position.y, z: player.position.z, ry: player.rotation.y, par: player.parent };
+    if (player.parent !== scene) { player.parent.remove(player); scene.add(player); }
+    player.position.set(s.x, s.y, s.z); player.rotation.y = Math.PI; player.visible = true; STYLE.a = 0; playEmote(player, 'wave');
+  } else {
+    const v = STYLE.saved; camera.clearViewOffset(); applyNight(smooth(night));
+    if (v) { if (v.par && v.par !== scene) { scene.remove(player); v.par.add(player); } player.position.set(v.x, v.y, v.z); player.rotation.y = v.ry; }
+    STYLE.saved = null;
+  }
+}
+/* where on screen the model should stand: the free space beside the panel (wide screens) or above it (phones) */
+function styleFrame() {
+  const W = innerWidth, H = innerHeight, panel = $('#startPanel'), r = panel ? panel.getBoundingClientRect() : null;
+  if (r && W > 820) return { x: r.left / 2, y: H * 0.52, h: H * 0.86 };
+  const top = r ? Math.max(120, r.top) : H * 0.45; return { x: W / 2, y: top * 0.54, h: top * 0.92 };
+}
+function styleCamera(dt, t) {
+  const s = styleSpot(), fr = styleFrame(), W = innerWidth, H = innerHeight;
+  STYLE.a += dt * (reduceMotion ? 0 : 0.12);
+  const a = Math.sin(STYLE.a) * 0.55, vis = 2.5 * H / Math.max(120, fr.h), d = vis / (2 * Math.tan(camera.fov * Math.PI / 360));
+  camera.position.set(s.x + Math.sin(a) * d, s.y + 1.05, s.z - Math.cos(a) * d); camera.lookAt(s.x, s.y + 0.95, s.z);
+  camera.setViewOffset(W, H, W / 2 - fr.x, H / 2 - fr.y, W, H);
+  sun.target.position.set(s.x, 0, s.z);
+  // the model keeps a relaxed idle and turns a little toward the lens
+  if (player) { player.rotation.y = Math.PI + a * 0.6; animHuman(player, dt, t, 0, 'loco'); }
+  // a little extra light for night shoots
+  renderer.toneMappingExposure = lerp(LDAY.exp, LNIGHT.exp, smooth(night)) * (1 + 0.55 * smooth(night));
+}
 /* ===================== 57 home: game clock, energy, homes to rent, rent day, the home hub ===================== */
 /* Living in Fumba, Lagos Life style: the clock runs (a day is about 19 minutes), energy drains and comes back when you
    sleep at home, and rent is due every Jumamosi (Saturday) at 10:00, paid from Pesa if there is enough on the phone. */
@@ -6357,7 +6986,7 @@ function renderHomePanel() {
   add('2', 'Pumzika · nap', 'Two hours, a little energy', () => sleepAction(true), (state.energy || 0) > 92);
   add('3', 'Oga · shower', isFresh() ? `Fresh until ${clockText(state.fresh)}` : 'Fresh for 4 hours: better first prices', showerAction);
   add('4', h.tier === 0 ? 'Pika · cook ugali' : 'Kula · eat', `${tsh(h.tier === 0 ? 1500 : 3000)} · fills you up`, cookAction);
-  add('5', 'Kabati · wardrobe', 'Jersey, body, skin and hair', () => { HOME.sub = HOME.sub === 'ward' ? '' : 'ward'; renderHomePanel(); });
+  add('5', 'Kabati · wardrobe', 'Island looks, jerseys, hats and shades', () => { HOME.sub = HOME.sub === 'ward' ? '' : 'ward'; renderHomePanel(); });
   add('6', 'Simu · phone', 'Rides, food, jobs, Pesa', () => openPhone());
   const rentB = (b) => { b.classList.add('wide'); return b; };
   if (H.owed) rentB(add('7', `Lipa kodi · ${tsh(H.owed)}`, 'Pay the rent you owe', () => { if (!payRent(false)) { sfx.deny(); HOME.flash = `You need ${tsh(H.owed)}.`; } renderHomePanel(); }));
@@ -6369,12 +6998,8 @@ function renderHomePanel() {
   const perks = document.createElement('ul'); perks.className = 'hp-perks'; for (const t of h.perks) { const li = document.createElement('li'); li.textContent = t; perks.append(li); } sub.append(perks);
 }
 function renderWardrobe(root) {
-  const box2 = document.createElement('div'); box2.className = 'hp-ward';
-  const kr = document.createElement('div'); kr.className = 'kit-row';
-  state.owned.forEach((i) => { const k = KITS[i], l = document.createElement('label'); l.className = 'kit'; l.innerHTML = `<input type="radio" name="wkit"><span><i style="--sw:${k.css}"></i></span>`; l.querySelector('span').append(k.name); const inp = l.querySelector('input'); inp.checked = i === state.kit; inp.addEventListener('change', () => { setKit(i); homeAvatar(); standAvatar(); writeSave(); }); kr.append(l); });
-  const rb = document.createElement('div'), rs = document.createElement('div'), rh = document.createElement('div'); rb.className = rh.className = 'kit-row'; rs.className = 'kit-row swatches';
-  box2.append(kr, rb, rs, rh); root.append(box2);
-  renderLook({ rb, rs, rh, name: 'w', after: () => { homeAvatar(); standAvatar(); } });
+  const box2 = document.createElement('div'); box2.className = 'hp-ward'; root.append(box2);
+  renderStyle(box2, { name: 'w', compact: true, after: () => { homeAvatar(); standAvatar(); } });
 }
 function homeKey(e) {
   const k = e.key;
@@ -7171,7 +7796,7 @@ function findClear(x, z, r, avoidRoad) {
 function prepSimNPCs() {
   for (const id of ['rashid', 'hassan', 'mwajuma']) { const n = NPC_BY_ID[id], p = findClear(n.x, n.z, 1.2, true); n.x = p.x; n.z = p.z; }
 }
-const SIM = { washCars: [], truck: null, crates: [], tourists: [], shops: [], radioT: 40 };
+const SIM = { washCars: [], truck: null, crates: [], tourists: [], shops: [], radioT: 40, tourN: 0 };
 function buildSimProps() {
   // three dusty cars beside Fundi Rashid
   const r = NPC_BY_ID.rashid;
@@ -7230,7 +7855,7 @@ const TOUR_STOPS = [
 ];
 function startTour() {
   if (job) failJobSilently();
-  const looks = [{ skin: 0x9a6a46, shirt: 0xf3b41b, lower: 0x3b5a7a, pants: true, hair: 'cap', cap: 0xf6f1e7, shoes: 0xf4f4f0 }, { skin: 0x6b4226, shirt: 0x8e3b8f, lower: 0x232a63, f: true, hair: 'braids', shoes: 0xf4f4f0, pants: true }, { skin: 0xd8b090, shirt: 0xf6f1e7, lower: 0xd8cfc0, pants: true, hair: 'short', shoes: 0x7a4a2a }];
+  const looks = [styledLook(811 + SIM.tourN, { skin: 0x9a6a46, f: false }), styledLook(812 + SIM.tourN, { skin: 0x6b4226, f: true }), styledLook(813 + SIM.tourN, { skin: 0xd8b090, hairCol: 0x8a6a3a, tourist: true, f: false })]; SIM.tourN += 3;
   for (const t of SIM.tourists) scene.remove(t.h);
   SIM.tourists = looks.map((lk, i) => { const h = makeHuman(lk); h.position.set(P.x - 2 - i, 0.04, P.z - 2); scene.add(h); return { h, x: P.x - 2 - i, z: P.z - 2, sp: 0 }; });
   job = { type: 'tour', title: 'Walking tour', desc: 'Lead the visitors to each stop on foot.', i: 0, t0: now(), limit: 540, x: TOUR_STOPS[0].x, z: TOUR_STOPS[0].z };
@@ -8049,7 +8674,8 @@ function camRay(ax, ay, az, dx, dy, dz, L) {
   return best;
 }
 function updateCamera(dt, t) {
-  if (mode === 'intro' && AD.view) { const v = AD.view; camera.position.set(v.cx, v.cy, v.cz); camera.lookAt(v.lx, v.ly, v.lz); sun.target.position.set(v.lx, 0, v.lz); }
+  if (mode === 'intro' && STYLE.on) styleCamera(dt, t);
+  else if (mode === 'intro' && AD.view) { const v = AD.view; camera.position.set(v.cx, v.cy, v.cz); camera.lookAt(v.lx, v.ly, v.lz); sun.target.position.set(v.lx, 0, v.lz); }
   else if (mode === 'intro') {
     const shot = Math.floor(t / 14) % 3, k = (t % 14) * (reduceMotion ? 0.2 : 1), a = k * 0.02 + (shot === 1 ? 2.4 : 0.6);
     if (shot === 0) { camera.position.set(SC.x + Math.sin(a) * 330, 120, SC.z + Math.cos(a) * 290); camera.lookAt(SC.x, 10, SC.z); sun.target.position.set(SC.x, 0, SC.z); }
@@ -8212,7 +8838,8 @@ function loop(nowMs) {
 /* ---------- UI wiring ---------- */
 function segSet(sel, v) { document.querySelectorAll(sel + ' button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === v))); }
 function enterPlay() {
-  audioInit(); AD.view = null;
+  audioInit(); AD.view = null; setStyling(false);
+  const bonus = applyStartBonus(); if (bonus) setTimeout(writeStats, 5000);
   const nick = strOr($('#nick').value, 16).trim();
   state.nick = nick || state.nick || $('#nick').placeholder || 'Fan 27';
   ui.start.hidden = true; ui.hud.hidden = false; ui.tags.hidden = false;
@@ -8221,7 +8848,7 @@ function enterPlay() {
   if (!playerTag) playerTag = makeTag(state.nick, true); else playerTag.nm.textContent = state.nick;
   cam.yaw = playerVeh ? playerVeh.yaw + Math.PI : player.rotation.y + Math.PI; cam.pitch = 0.26;
   camTarget.set(P.x, 1.6, P.z);
-  if (!state.intro) help(isCoarse ? 'You just got off the daladala on Fumba Road. Walk to <b class="hl">Amina</b> with the joystick and tap <b class="hl">E</b> to talk.' : 'You just got off the daladala on Fumba Road. Walk to <b class="hl">Amina</b> with <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>, click the game to look around, press <kbd>E</kbd> to talk.', 8000);
+  if (!state.intro) help((bonus ? `Your purse: <b class="hg">${tsh(state.cash)}</b>. ` : '') + (isCoarse ? 'You just got off the daladala on Fumba Road. Walk to <b class="hl">Amina</b> with the joystick and tap <b class="hl">E</b> to talk.' : 'You just got off the daladala on Fumba Road. Walk to <b class="hl">Amina</b> with <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>, click the game to look around, press <kbd>E</kbd> to talk.'), 8000);
   else help(`Welcome back, ${escapeHtml(state.nick)}. You have <b class="hg">${tsh(state.cash)}</b> in cash and <b class="hg">${tsh(state.bank || 0)}</b> on Pesa.`, 3500);
   buildLegend(); renderPlayers(); MP.joined = true; MP.last = {}; sendPresence(true); armWatch(); applyHudVis(); updatePhoneBadge();
   if (!state.msgsInit) { state.msgsInit = 1; const hm = myHome(); if (hm) phoneMsg('amina', `Karibu Fumba! Your cousin Saidi paid this week on a ${hm.name.toLowerCase()} for you: ${hm.where.toLowerCase()}. Rent is ${tsh(hm.rent)} every Jumamosi, from Pesa.`); phoneMsg('afcon', 'Your phone: press P (or tap Phone) for boda rides, food delivery, jobs with GPS, your Pesa wallet and your home.'); }
@@ -8312,41 +8939,13 @@ function renderStats() {
 function openChat() { if (mode !== 'play') return; ui.chat.classList.add('open'); ui.chatbox.hidden = false; ui.chatHint.hidden = true; ui.chatInput.value = ''; if (document.pointerLockElement) document.exitPointerLock(); ui.chatInput.focus(); MP.typ = 1; sendPresence(true); }
 function closeChat() { ui.chat.classList.remove('open'); ui.chatbox.hidden = true; ui.chatHint.hidden = false; MP.typ = 0; sendPresence(true); canvas.focus(); }
 function openPause(tab) { if (mode !== 'play' && mode !== 'paused' && mode !== 'ride') return; if (mode !== 'paused') pausedFrom = mode; mode = 'paused'; ui.pause.hidden = false; if (document.pointerLockElement) document.exitPointerLock(); pmShow(typeof tab === 'string' ? tab : pmTab); $('#btnResume').focus(); }
-function renderKits() {
-  const row = $('#kitRow'); row.innerHTML = '';
-  state.owned.forEach((i) => {
-    const k = KITS[i], l = document.createElement('label'); l.className = 'kit';
-    l.innerHTML = `<input type="radio" name="kit" id="kit${i}" value="${i}"><span><i style="--sw:${k.css}"></i></span>`;
-    l.querySelector('span').append(k.name);
-    const inp = l.querySelector('input'); inp.checked = i === state.kit; inp.addEventListener('change', () => setKit(i));
-    row.append(l);
-  });
-  const hint = document.createElement('span'); hint.className = 'fine'; hint.style.alignSelf = 'center'; hint.textContent = state.owned.length < KITS.length ? 'More jerseys at the Fan Zone shop' : ''; row.append(hint);
-  renderLook();
-}
-/* character creator: body, skin tone, hair */
-function renderLook(o) {
-  o = o || {};
-  const lk = state.look || (state.look = { f: false, s: 3, h: 'short' }), nm = o.name || '';
-  const chip = (row, name, val, checked, label, sw, on) => {
-    const l = document.createElement('label'); l.className = 'kit';
-    l.innerHTML = `<input type="radio" name="${nm}${name}"><span>${sw ? `<i style="--sw:${sw}"></i>` : ''}</span>`;
-    if (label) l.querySelector('span').append(label);
-    const inp = l.querySelector('input'); inp.checked = checked; inp.setAttribute('aria-label', label || name + ' ' + val); inp.addEventListener('change', on);
-    row.append(l);
-  };
-  const apply = () => { state.look = Object.assign({}, lk); if (player) buildPlayer(); mpDirty = true; writeSave(); if (o.after) o.after(); };
-  const rb = o.rb || $('#lookBody'), rs = o.rs || $('#lookSkin'), rh = o.rh || $('#lookHair'); rb.innerHTML = rs.innerHTML = rh.innerHTML = '';
-  [[false, 'Man'], [true, 'Woman']].forEach(([f, n]) => chip(rb, 'lookBody', n, !!lk.f === f, n, null, () => { lk.f = f; apply(); }));
-  PLAYER_SKINS.forEach((c, i) => chip(rs, 'lookSkin', i, lk.s === i, '', '#' + c.toString(16).padStart(6, '0'), () => { lk.s = i; apply(); }));
-  HAIRS.forEach((h) => chip(rh, 'lookHair', h, lk.h === h, HAIR_NAMES[h], null, () => { lk.h = h; apply(); }));
-  rs.querySelectorAll('input').forEach((inp, i) => inp.setAttribute('aria-label', `Skin tone ${i + 1}`));
-}
+/* the look card on Play and the wardrobe panel */
+function renderKits() { renderLookSum(); renderPurseFact(); if (STYLE.on || !$('.sp[data-p="style"]').hidden) renderStyle($('#styleMain')); }
 function wireUI() {
   renderKits();
   if (state.nick) $('#nick').value = state.nick;
-  $('#btnPlay').addEventListener('click', enterPlay);
-  $('#btnNew').addEventListener('click', () => { newGame(); renderKits(); enterPlay(); });
+  $('#btnPlay').addEventListener('click', startPlay);
+  $('#btnNew').addEventListener('click', () => { newGame(); renderKits(); startPlay(); });
   ui.prompt.addEventListener('click', () => { if (curInter) curInter.act(); canvas.focus(); });
   ui.prompt2.addEventListener('click', () => { if (curSec) curSec.act(); canvas.focus(); });
   ui.mClose.addEventListener('click', closeMenu);
@@ -8356,7 +8955,10 @@ function wireUI() {
   $('#btnUnstick').addEventListener('click', () => { closeOverlays(); stuckMenu(); });
   wireBigMap();
   // main menu: each item shows its panel
-  const showSP = (k) => { document.querySelectorAll('.mm-item').forEach(b => b.setAttribute('aria-current', String(b.dataset.p === k))); document.querySelectorAll('.sp').forEach(p2 => { p2.hidden = p2.dataset.p !== k; }); if (k === 'ads') renderAds($('#adsMain'), false); else AD.view = null; };
+  const showSP = (k) => { document.querySelectorAll('.mm-item').forEach(b => b.setAttribute('aria-current', String(b.dataset.p === k))); document.querySelectorAll('.sp').forEach(p2 => { p2.hidden = p2.dataset.p !== k; }); if (k === 'ads') renderAds($('#adsMain'), false); else AD.view = null; if (mode === 'intro') setStyling(k === 'style'); if (k === 'style') renderStyle($('#styleMain')); };
+  $('#btnStyle').addEventListener('click', () => showSP('style'));
+  $('#btnStyleDone').addEventListener('click', () => { showSP('play'); $('#btnPlay').focus(); });
+  window.addEventListener('keydown', (e) => { if (STYLE.on && mode === 'intro' && e.key === 'Escape') { e.preventDefault(); showSP('play'); $('#btnPlay').focus(); } });
   document.querySelectorAll('.mm-item').forEach(b => { b.addEventListener('click', () => { showSP(b.dataset.p); if (b.dataset.p === 'play' && !$('#btnPlay').disabled) $('#btnPlay').focus(); }); b.addEventListener('focus', () => showSP(b.dataset.p)); });
   const sens = $('#sens'); sens.value = SETTINGS.sens; sens.addEventListener('input', () => { SETTINGS.sens = parseFloat(sens.value) || 1; try { localStorage.setItem('afconcity-sens', String(SETTINGS.sens)); } catch (e) {} });
   $('#btnResume').addEventListener('click', closeOverlays);
@@ -8460,6 +9062,8 @@ async function start(data) {
   if (!saved && data && data.save && data.save.nick) saved = { v: SAVE_V, nick: data.save.nick };
   if (saved) { state = Object.assign(defaultState(), saved); state.stats = Object.assign(defaultState().stats, saved.stats || {}); }
   state.tips = state.tips || {};
+  // new players start in an island look (returning players keep what they wore)
+  if (!saved || !saved.intro) { if (!state.look || state.look.t === undefined) state.look = newPlayerLook(!!(state.look && state.look.f)); }
   initMultiplayer();
   try { await Promise.race([Promise.all([document.fonts.load(`900 64px "Big Shoulders Display"`), document.fonts.load(`600 32px Figtree`)]), new Promise(r => setTimeout(r, 2500))]); } catch (e) {}
   await step('Painting textures…'); await loadTextures(); buildTextures();

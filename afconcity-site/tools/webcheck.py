@@ -1,6 +1,7 @@
 """Smoke-test the public website build (dist/) the way a player sees it: no Claude runtime, served from a plain web server."""
 import sys, time, threading, functools, http.server, socketserver
 from playwright.sync_api import sync_playwright
+import os; sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); from harness import ABOUT_DONE
 ROOT = '/home/claude/afconcity'
 THREE = sys.argv[1] if len(sys.argv) > 1 else '/tmp/claude-0/-home-claude/e1d17048-b07c-5512-9164-14e2ccd3c77e/scratchpad/h/node_modules/three/build/three.min.js'
 class Q(http.server.SimpleHTTPRequestHandler):
@@ -14,7 +15,7 @@ def check(n, ok, info=''):
 with sync_playwright() as p:
     b = p.chromium.launch(args=['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'])
     for label, opts in [('desktop', dict(viewport={'width': 1280, 'height': 800})), ('phone', dict(viewport={'width': 390, 'height': 844}, has_touch=True, is_mobile=True))]:
-        ctx = b.new_context(**opts); pg = ctx.new_page(); errs = []
+        ctx = b.new_context(**opts); ctx.add_init_script(ABOUT_DONE); pg = ctx.new_page(); errs = []
         pg.on('pageerror', lambda e: errs.append(str(e)))
         pg.route('**/three.min.js', lambda r: r.fulfill(path=THREE, content_type='application/javascript'))
         pg.route('https://fonts.googleapis.com/**', lambda r: r.fulfill(body='', content_type='text/css'))

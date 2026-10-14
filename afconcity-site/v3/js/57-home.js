@@ -453,7 +453,7 @@ function renderHomePanel() {
   add('2', 'Pumzika · nap', 'Two hours, a little energy', () => sleepAction(true), (state.energy || 0) > 92);
   add('3', 'Oga · shower', isFresh() ? `Fresh until ${clockText(state.fresh)}` : 'Fresh for 4 hours: better first prices', showerAction);
   add('4', h.tier === 0 ? 'Pika · cook ugali' : 'Kula · eat', `${tsh(h.tier === 0 ? 1500 : 3000)} · fills you up`, cookAction);
-  add('5', 'Kabati · wardrobe', 'Jersey, body, skin and hair', () => { HOME.sub = HOME.sub === 'ward' ? '' : 'ward'; renderHomePanel(); });
+  add('5', 'Kabati · wardrobe', 'Island looks, jerseys, hats and shades', () => { HOME.sub = HOME.sub === 'ward' ? '' : 'ward'; renderHomePanel(); });
   add('6', 'Simu · phone', 'Rides, food, jobs, Pesa', () => openPhone());
   const rentB = (b) => { b.classList.add('wide'); return b; };
   if (H.owed) rentB(add('7', `Lipa kodi · ${tsh(H.owed)}`, 'Pay the rent you owe', () => { if (!payRent(false)) { sfx.deny(); HOME.flash = `You need ${tsh(H.owed)}.`; } renderHomePanel(); }));
@@ -465,12 +465,8 @@ function renderHomePanel() {
   const perks = document.createElement('ul'); perks.className = 'hp-perks'; for (const t of h.perks) { const li = document.createElement('li'); li.textContent = t; perks.append(li); } sub.append(perks);
 }
 function renderWardrobe(root) {
-  const box2 = document.createElement('div'); box2.className = 'hp-ward';
-  const kr = document.createElement('div'); kr.className = 'kit-row';
-  state.owned.forEach((i) => { const k = KITS[i], l = document.createElement('label'); l.className = 'kit'; l.innerHTML = `<input type="radio" name="wkit"><span><i style="--sw:${k.css}"></i></span>`; l.querySelector('span').append(k.name); const inp = l.querySelector('input'); inp.checked = i === state.kit; inp.addEventListener('change', () => { setKit(i); homeAvatar(); standAvatar(); writeSave(); }); kr.append(l); });
-  const rb = document.createElement('div'), rs = document.createElement('div'), rh = document.createElement('div'); rb.className = rh.className = 'kit-row'; rs.className = 'kit-row swatches';
-  box2.append(kr, rb, rs, rh); root.append(box2);
-  renderLook({ rb, rs, rh, name: 'w', after: () => { homeAvatar(); standAvatar(); } });
+  const box2 = document.createElement('div'); box2.className = 'hp-ward'; root.append(box2);
+  renderStyle(box2, { name: 'w', compact: true, after: () => { homeAvatar(); standAvatar(); } });
 }
 function homeKey(e) {
   const k = e.key;
