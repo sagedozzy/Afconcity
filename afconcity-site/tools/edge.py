@@ -41,7 +41,7 @@ else:
     check('pizza job started', False)
 # 4 police do not move while paused
 G("startChase(1), 1"); s.wait(0.5)
-p0 = G("[POLICE.v.x, POLICE.v.z]"); G("openPause('map'), 1"); s.wait(2); p1 = G("[POLICE.v.x, POLICE.v.z]"); G("closeOverlays(), endChase(false), 1")
+G("openPause('map'), 1"); s.wait(0.4); p0 = G("[POLICE.v.x, POLICE.v.z]"); s.wait(2); p1 = G("[POLICE.v.x, POLICE.v.z]"); G("closeOverlays(), endChase(false), 1")
 check('police car is frozen while paused', p0 == p1, [p0, p1])
 # 5 eviction while the phone is open at home
 G("(() => { const d = myDoor(); P.x = d.ox; P.z = d.oz; enterHome(); return 1; })()"); s.wait(0.6)

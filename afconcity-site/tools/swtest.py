@@ -1,5 +1,7 @@
 """Website caching: second visit loads from the saved copy, and the game opens with no connection."""
-import sys, time, threading, functools, http.server, socketserver
+import os, sys, time, threading, functools, http.server, socketserver
+# service-worker requests only reach Playwright's routes with this switch
+os.environ.setdefault('PW_EXPERIMENTAL_SERVICE_WORKER_NETWORK_EVENTS', '1')
 from playwright.sync_api import sync_playwright
 import os; sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); from harness import ABOUT_DONE
 ROOT = '/home/claude/afconcity'
@@ -31,14 +33,14 @@ with sync_playwright() as p:
     check('first visit downloads the game files', len(first) >= 10, len(first))
     # second visit: the game files come from the saved copy
     hits.clear(); n3 = len(three_hits)
-    pg.reload(); pg.wait_for_function(ready, timeout=300000, polling=500)
+    pg.reload(wait_until='commit', timeout=120000); pg.wait_for_function(ready, timeout=300000, polling=500)
     again = [h for h in hits if h.startswith('/assets/')]
     check('second visit fetches only the page, not the game files', len(again) == 0 and '/' in hits, hits[:6])
     cached = pg.evaluate("async () => { const c = await caches.open('afc-files'); return (await c.keys()).length; }")
     check('game files are in the saved copy', cached >= 10, cached)
     # offline: the game still opens
     ctx.set_offline(True)
-    pg.reload(); pg.wait_for_function(ready, timeout=300000, polling=500)
+    pg.reload(wait_until='commit', timeout=120000); pg.wait_for_function(ready, timeout=300000, polling=500)
     check('the game opens with no connection', True)
     pg.evaluate("() => document.querySelector('#btnPlay').click()"); time.sleep(6)
     check('offline: play starts', pg.evaluate("() => !document.querySelector('.hud').hidden"))

@@ -4245,7 +4245,7 @@ function talk(id) {
     const lede = !full ? `VIP tickets are ${tsh(PRICES.vip)}, and only for fans with a full Fan Passport. You have ${stampCount()} of ${REQUIRED.length} stamps.` : short ? `Your passport is full, hongera! Come back with ${tsh(short)} more.` : 'Full passport and the money. Karibu VIP!';
     openMenu(Object.assign(base, { lede, items: [{ label: 'VIP matchday ticket', desc: full ? 'AFCON 2027 at AfconCity Stadium · VIP stand, Gate A' : `Needs all ${REQUIRED.length} passport stamps`, price: PRICES.vip, disabled: !full, act: buyTicket }] }));
   } else if (id === 'rehema') {
-    openMenu(Object.assign(base, { lede: 'Replica jerseys at market prices. Everyone online sees what you wear.', items: KITS.map((k, i) => ({ label: k.name, desc: i === state.kit ? 'You are wearing this' : state.owned.includes(i) ? 'Yours. Wear it for free.' : 'Buy and wear', price: state.owned.includes(i) ? 'Wear' : k.price, disabled: i === state.kit, swatch: k.css, act: () => { if (!state.owned.includes(i)) state.owned.push(i); setKit(i); playEmote(player, 'cheer'); } })) }));
+    openMenu(Object.assign(base, { lede: 'Replica jerseys at market prices. Everyone online sees what you wear.', items: KITS.map((k, i) => { const on = i === state.kit && wearingJersey(); return { label: k.name, desc: on ? 'You are wearing this' : state.owned.includes(i) ? 'Yours. Wear it for free.' : 'Buy and wear', price: state.owned.includes(i) ? 'Wear' : k.price, disabled: on, swatch: k.css, act: () => { if (!state.owned.includes(i)) state.owned.push(i); wearJersey(i); playEmote(player, 'cheer'); } }; }) }));
   } else if (id === 'kassim') {
     playEmote(npcObjs.kassim, 'dance'); playEmote(player, 'dance');
     openMenu(Object.assign(base, { lede: pick(['On matchdays this screen shows every game live. Bring your voice!', 'Coin rush every three minutes. Watch the top of your screen.', 'Press 2 to dance. The crowd loves it.', 'Bibi Mwanaidi over there teaches Swahili for free. Sema "Shikamoo" to her!']), items: [] }));
@@ -5284,7 +5284,7 @@ const aboutRank = (n) => { let r = ABOUT_RANKS[0]; for (const x of ABOUT_RANKS) 
 function applyStartBonus() {
   if (state.intro || state.bonus !== undefined) return 0;
   const v = aboutRead(), a = v ? aboutClean(v.a) : {}, b = aboutBonus(a);
-  state.bonus = b; state.cash = PRICES.start + b; state.about = a; shownCash = state.cash;
+  state.bonus = b; state.cash += b; state.about = a; shownCash = state.cash;
   return b;
 }
 /* the Play panel's first fact: the purse this player will start with */
@@ -6348,7 +6348,7 @@ function offerCopy(root, item) {
 }
 
 /* ---------- play stats and billboard view time ---------- */
-const GAME_VER = '2026.10.14';
+const GAME_VER = '2026.10.15';
 function avgFps() { if (!AD.fps.length) return 0; return AD.fps.reduce((a, b) => a + b, 0) / AD.fps.length; }
 const _adV = new T.Vector3();
 function updateAdStats(dt) {
@@ -8533,6 +8533,9 @@ function buildPlayer() {
   else { scene.add(player); player.position.set(P.x, 0.04, P.z); player.rotation.y = ry; }
 }
 function setKit(i) { state.kit = i; buildPlayer(); mpDirty = true; }
+/* a jersey from the fan shop goes straight on, with its matching shorts (track pants for women) */
+const wearingJersey = () => TOPS[fixLook(Object.assign({}, state.look || {})).t].kit;
+function wearJersey(i) { const lk = fixLook(Object.assign({}, state.look || {})); lk.t = itemIx(TOPS, 'jersey'); lk.tp = 0; lk.b = itemIx(BOTTOMS, 'kit'); lk.bp = 0; state.look = fixLook(lk); setKit(i); renderLookSum(); writeSave(); }
 const SPD = { walk: 1.7, jog: 4.1, sprint: 7.0, boost: 7.8 };
 const foot = { stuckT: 0, lastX: 0, lastZ: 0 };
 function updateOnFoot(dt, t, inp) {

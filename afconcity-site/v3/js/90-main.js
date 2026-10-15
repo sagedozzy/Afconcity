@@ -42,6 +42,9 @@ function buildPlayer() {
   else { scene.add(player); player.position.set(P.x, 0.04, P.z); player.rotation.y = ry; }
 }
 function setKit(i) { state.kit = i; buildPlayer(); mpDirty = true; }
+/* a jersey from the fan shop goes straight on, with its matching shorts (track pants for women) */
+const wearingJersey = () => TOPS[fixLook(Object.assign({}, state.look || {})).t].kit;
+function wearJersey(i) { const lk = fixLook(Object.assign({}, state.look || {})); lk.t = itemIx(TOPS, 'jersey'); lk.tp = 0; lk.b = itemIx(BOTTOMS, 'kit'); lk.bp = 0; state.look = fixLook(lk); setKit(i); renderLookSum(); writeSave(); }
 const SPD = { walk: 1.7, jog: 4.1, sprint: 7.0, boost: 7.8 };
 const foot = { stuckT: 0, lastX: 0, lastZ: 0 };
 function updateOnFoot(dt, t, inp) {

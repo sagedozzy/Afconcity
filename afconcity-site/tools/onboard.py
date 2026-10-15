@@ -51,6 +51,10 @@ check('all eight answered: TSh 250,000', G("state.cash") == 250000, G("state.cas
 G("(newGame(), renderKits(), startPlay(), 1)"); s.wait(0.8)
 check('after that, new games start at TSh 250,000 without asking', not s.g("!!document.querySelector('#onboard')") and G("state.cash") == 250000)
 check('the owner sees answers and looks in play stats', G("(() => { const ab = aboutRead(); return Object.keys(aboutClean(ab.a)).length === 8 && typeof lookCode(state.look) === 'string'; })()"))
+# the fan shop's jersey goes straight on, even over an island outfit
+G("(state.look = applyPreset({ s: 3, h: 'short' }, PRESETS[0]), buildPlayer(), 1)")
+G("(state.owned.includes(2) || state.owned.push(2), wearJersey(2), 1)")
+check('a jersey from the fan shop is worn at once', G("wearingJersey() && state.kit === 2 && player.userData.look.kit === true"))
 check('no page errors', not s.errors, s.errors[:3])
 s.close()
 print('\n%d/%d passed' % (sum(res), len(res)))

@@ -24,7 +24,7 @@ const aboutRank = (n) => { let r = ABOUT_RANKS[0]; for (const x of ABOUT_RANKS) 
 function applyStartBonus() {
   if (state.intro || state.bonus !== undefined) return 0;
   const v = aboutRead(), a = v ? aboutClean(v.a) : {}, b = aboutBonus(a);
-  state.bonus = b; state.cash = PRICES.start + b; state.about = a; shownCash = state.cash;
+  state.bonus = b; state.cash += b; state.about = a; shownCash = state.cash;
   return b;
 }
 /* the Play panel's first fact: the purse this player will start with */

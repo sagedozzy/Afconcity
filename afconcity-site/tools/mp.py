@@ -37,7 +37,7 @@ print(ra)
 ok = ra['remotes'] and ra['remotes'][0][0] == 'Baraka' and abs(ra['remotes'][0][1] - 560) < 2
 print('PASS' if ok else 'FAIL', 'presence position reaches the other player')
 print('PASS' if any('Mambo' in c for c in ra['chat']) else 'FAIL', 'chat reaches the other player')
-print('PASS' if ra['remotes'] and ra['remotes'][0][4] == '112' and ra['remotes'][0][5] and ra['remotes'][0][6] == 'braids' else 'FAIL', 'the other player sees your chosen look')
+print('PASS' if ra['remotes'] and str(ra['remotes'][0][4]).startswith('112') and ra['remotes'][0][5] and ra['remotes'][0][6] == 'braids' else 'FAIL', 'the other player sees your chosen look')
 B.evaluate("() => window.__G.run('(() => { const d = myDoor(); P.x = d.ox; P.z = d.oz; enterHome(); return mode; })()')")
 t0 = time.time(); inside = False
 while time.time() - t0 < 15:

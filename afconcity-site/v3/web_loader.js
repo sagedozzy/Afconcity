@@ -51,5 +51,5 @@
     if (window.caches && location.protocol !== 'file:') caches.open('afc-files').then((c) => Promise.all(items.map((it) => c.match(it.u).then((hit) => hit || c.put(new Request(new URL(it.u, location.href).href), new Response(it.blob, { headers: { 'Content-Type': it.blob.type } })))))).catch(() => {});
   }).catch(fail);
   // repeat visits load from the phone itself, and the game can be installed
-  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === '127.0.0.1')) addEventListener('load', () => { navigator.serviceWorker.register('/sw.js').catch(() => {}); });
+  if ('serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === '127.0.0.1')) addEventListener('load', () => { navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' }).catch(() => {}); });
 })();
