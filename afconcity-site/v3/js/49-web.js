@@ -32,7 +32,7 @@ function webBackend() {
 }
 async function webSetSession(s) {
   const u = s && s.user;
-  WEB.uid = u ? u.id : null; WEB.email = (u && u.email) || ''; WEB.anon = !u || !!u.is_anonymous; WEB.admin = false;
+  WEB.uid = u ? u.id : null; WEB.token = (s && s.access_token) || ''; WEB.email = (u && u.email) || ''; WEB.anon = !u || !!u.is_anonymous; WEB.admin = false;
   if (u && !WEB.anon) { try { const r = await WEB.sb.rpc('is_admin'); WEB.admin = !!r.data; } catch (e) {} }
 }
 function onWebAuth(f) { WEB.listeners.push(f); }

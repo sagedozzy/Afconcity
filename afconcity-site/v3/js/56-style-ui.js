@@ -27,9 +27,19 @@ function styleApply(lk, o) {
 function shuffleLook(lk) {
   const r = Math.random, pick = (a) => a[Math.floor(r() * a.length)], f = !!lk.f;
   const t = pick(TOPS.filter(it => fitsBody(it, f) && (!it.kit || r() < 0.4))), b = pick(BOTTOMS.filter(it => !it.kit && fitsBody(it, f)));
-  Object.assign(lk, { t: itemIx(TOPS, t.id), tc: Math.floor(r() * 16), tp: PATS.indexOf(pick(t.pats)), b: itemIx(BOTTOMS, b.id), bc: pick([0, 1, 10, 12, 13, 14, 7, 9, 2, 6]), bp: PATS.indexOf(r() < 0.55 ? b.pats[0] : pick(b.pats)), sh: Math.floor(r() * SHOES.length), shc: pick([0, 1, 10, 12, 16, 17, 2, 3]), ht: r() < 0.45 ? 1 + Math.floor(r() * (HATS.length - 1)) : 0, hc: pick([0, 1, 10, 5, 8, 4, 3]), ey: r() < 0.5 ? 1 + Math.floor(r() * (EYES.length - 1)) : 0 });
+  Object.assign(lk, { t: itemIx(TOPS, t.id), tc: Math.floor(r() * 16), tp: PATS.indexOf(pick(t.pats.filter(ownsPrint))), b: itemIx(BOTTOMS, b.id), bc: pick([0, 1, 10, 12, 13, 14, 7, 9, 2, 6]), bp: PATS.indexOf(r() < 0.55 || !b.pats.some(ownsPrint) ? b.pats[0] : pick(b.pats.filter(ownsPrint))), sh: Math.floor(r() * SHOES.length), shc: pick([0, 1, 10, 12, 16, 17, 2, 3]), ht: r() < 0.45 ? 1 + Math.floor(r() * (HATS.length - 1)) : 0, hc: pick([0, 1, 10, 5, 8, 4, 3]), ey: r() < 0.5 ? 1 + Math.floor(r() * (EYES.length - 1)) : 0 });
   if (t.kit) lk.b = 0;
   return lk;
+}
+/* limited prints cost game shillings, so they can only be bought once a game is under way */
+function buyPrints(list, where) {
+  const price = list.reduce((a, x) => a + (PAT_PRICE[x] || 0), 0);
+  const say = (t) => { let p = where && where.querySelector('.st-buy'); if (!p && where) { p = document.createElement('p'); p.className = 'fine st-buy'; where.prepend(p); } if (p) p.textContent = t; };
+  if (!state.intro) { say(`Limited prints are bought with game shillings (${tsh(price)}). Start playing, then open the wardrobe at home or from here.`); sfx.deny(); return false; }
+  if (!canPay(price)) { say(`You need ${tsh(price)} in cash or on Pesa for this.`); sfx.deny(); return false; }
+  spend(price, list.length > 1 ? 'Limited-edition prints' : `${PAT_NAMES[list[0]]} print`);
+  state.prints = Array.from(new Set((state.prints || []).concat(list))); track('print_bought', { p: list.join(',') }); writeSave();
+  return true;
 }
 /* the wardrobe editor; o.name keeps radio groups apart, o.after redraws other avatars, o.compact for the home panel */
 function renderStyle(root, o) {
@@ -65,7 +75,9 @@ function renderStyle(root, o) {
     if (top.dress || top.robe) { b1.style.backgroundImage = t1.style.backgroundImage; b1.style.backgroundSize = 'cover'; } else if (q.bp > 0) { b1.style.backgroundImage = `url(${patSwatch(PATS[q.bp], PALETTE[q.bc])})`; b1.style.backgroundSize = 'cover'; }
     const s2 = el('i', 's'); s2.style.backgroundColor = cssHex(PALETTE[q.shc]);
     art.append(t1, b1, s2); b.append(art, el('span', 'st-pn', p.n));
-    b.addEventListener('click', () => set((l) => applyPreset(l, p), 'cheer'));
+    const need = presetPrints(p).filter(x => !ownsPrint(x)), price = need.reduce((a, x) => a + PAT_PRICE[x], 0);
+    if (p.ltd) { b.classList.add('ltd'); b.append(el('span', 'st-tag', need.length ? `Limited · ${tsh(price)}` : 'Limited · yours')); }
+    b.addEventListener('click', () => { if (need.length && !buyPrints(need, grid.parentElement)) return; set((l) => applyPreset(l, p), 'cheer'); });
     grid.append(b);
   }
   // one slot at a time
@@ -74,7 +86,14 @@ function renderStyle(root, o) {
   for (const [k, n] of tabs) { const b = el('button', '', n); b.type = 'button'; b.setAttribute('role', 'tab'); b.setAttribute('aria-selected', String(STYLE.tab === k)); b.addEventListener('click', () => { STYLE.tab = k; redo(); root.querySelector('.st-tabs [aria-selected="true"]')?.focus(); }); tb.append(b); }
   const pane = el('div', 'st-pane'); s2.append(pane);
   const colours = (key, label) => { const r = row(pane, 'swatches'); r.setAttribute('aria-label', label); PALETTE.forEach((c, i) => chip(r, key, '', lk[key] === i, () => set((l) => { l[key] = i; }), cssHex(c)).querySelector('input').setAttribute('aria-label', PALETTE_NAMES[i])); };
-  const prints = (key, pats, colKey) => { if (pats.length < 2) return; const r = row(pane, 'swatches prints'); pats.forEach((p) => chip(r, key, PAT_NAMES[p], PATS[lk[key]] === p, () => set((l) => { l[key] = PATS.indexOf(p); }), null, patSwatch(p, PALETTE[lk[colKey]]))); };
+  const prints = (key, pats, colKey) => {
+    if (pats.length < 2) return;
+    const r = row(pane, 'swatches prints');
+    pats.forEach((p) => {
+      const own = ownsPrint(p), c = chip(r, key, own ? PAT_NAMES[p] : `${PAT_NAMES[p]} · ${tsh(PAT_PRICE[p])}`, PATS[lk[key]] === p, () => { if (!own && !buyPrints([p], pane)) { redo(); return; } set((l) => { l[key] = PATS.indexOf(p); }, own ? null : 'cheer'); }, null, patSwatch(p, PALETTE[lk[colKey]]));
+      if (!own) c.classList.add('locked');
+    });
+  };
   const top = TOPS[lk.t], bot = BOTTOMS[lk.b];
   if (STYLE.tab === 'top') {
     const r = row(pane); TOPS.forEach((it, i) => { if (fitsBody(it, lk.f)) chip(r, 'top', it.robe && !lk.f ? it.nm : it.n, lk.t === i, () => set((l) => { l.t = i; if (!it.pats.includes(PATS[l.tp])) l.tp = PATS.indexOf(it.dp === undefined ? it.pats[0] : it.dp); if (it.kit) l.b = 0; else if (BOTTOMS[l.b].kit) { l.b = itemIx(BOTTOMS, lk.f ? 'palazzo' : 'chinoS'); l.bc = BOTTOMS[l.b].dc; } })); });

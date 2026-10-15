@@ -143,7 +143,7 @@ G("openPhone('jobs'), 1")
 s.ev("() => { [...document.querySelectorAll('#phScreen .ph-row')].find(r => r.textContent.includes('Seaweed')).querySelector('button').click(); }")
 check('GPS from the jobs app sets a waypoint', G("RT.wp && RT.wp.label") == 'Seaweed harvest' and G("jobTarget().x") == G("NPC_BY_ID.mwanaisha.x"))
 s.wait(0.6)
-check('the objective panel follows the GPS', G("ui.goalTag.textContent") == 'GPS')
+check('the objective panel follows the GPS', until("ui.goalTag.textContent === 'GPS'", 4), G("ui.goalTag.textContent"))
 G("RT.wp = null, 1")
 # phone at home returns home
 G("(() => { const d = myDoor(); P.x = d.ox; P.z = d.oz; return 1; })()"); G("enterHome(), 1"); s.wait(0.2)

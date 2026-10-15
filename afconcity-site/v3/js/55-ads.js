@@ -173,7 +173,7 @@ function renderAds(root, inGame) {
   }
   root.append(grid);
   root.append(renderPhoneAds(inGame), renderRadioAd());
-  if (AD.canEdit && AD.db) root.append(ownerConfig(), ownerInsights());
+  if (AD.canEdit && AD.db) { root.append(ownerConfig(), ownerInsights(), ownerEvents()); if (AD.web && WEB.sb) root.append(ownerBookings(), ownerAnalytics()); publishSlots(); }
   else if (AD.ready && AD.canEdit === false && !AD.web) root.append(el('p', 'fine', 'Ad artwork is managed by the game’s owner.'));
   if (AD.web && AD.db) root.append(webOwnerBox());
 }
@@ -460,7 +460,7 @@ function offerCopy(root, item) {
 }
 
 /* ---------- play stats and billboard view time ---------- */
-const GAME_VER = '2026.10.15';
+const GAME_VER = '2026.10.15.2';
 function avgFps() { if (!AD.fps.length) return 0; return AD.fps.reduce((a, b) => a + b, 0) / AD.fps.length; }
 const _adV = new T.Vector3();
 function updateAdStats(dt) {

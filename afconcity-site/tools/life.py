@@ -96,7 +96,7 @@ check('catch sold to Nahodha', G("state.fish.length") == 0 and G("state.cash") -
 G("WEATHER.target = 1, WEATHER.until = now() + 60, WEATHER.rain = 0.95, 1"); s.wait(2.5)
 check('rain makes the roads slippery and the sky grey', G("WEATHER.mesh.visible") and G("wetGrip()") < 0.8 and G("scene.fog.far") < 800 and G("skyU.uRain.value") > 0.5, (G("wetGrip()"), G("scene.fog.far")))
 G("WEATHER.target = 0, WEATHER.rain = 0.001, 1"); s.wait(2.0)
-check('rain clears', G("scene.fog.far") > 1600 and not G("WEATHER.mesh.visible"))
+check("rain clears", G("scene.fog.far") > (1600 if G("HQ()") else 850) and not G("WEATHER.mesh.visible"), G("scene.fog.far"))
 # --- police
 G("(() => { const v = rentals.find(r => r.kind === 'boda'); P.x = v.x + 1.4; P.z = v.z; state.cash = 100000; rentOrRide(v); return 1; })()"); s.wait(0.3)
 G("reportCrime('hit'), 1"); s.wait(0.8)

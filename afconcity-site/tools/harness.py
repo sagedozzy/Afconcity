@@ -30,6 +30,8 @@ class Session:
         self.ctx.add_init_script(init)
         # tests skip the welcome questions (tools/onboard.py tests them)
         if os.environ.get('AFC_ONBOARD') != '1': self.ctx.add_init_script(ABOUT_DONE)
+        # the daily reward card is a modal; most suites skip it (tools/online.py tests it)
+        if os.environ.get('AFC_DAILY') != '1': self.ctx.add_init_script('window.__noDaily = true;')
         if claude: self.ctx.add_init_script(claude)
         self.page = self.ctx.new_page()
         self.page.on('pageerror', lambda e: self.errors.append(str(e)))

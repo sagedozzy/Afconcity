@@ -374,11 +374,12 @@ const FOG_RAIN = C(0x8d949c), FOG_RAIN_N = C(0x141820);
 function applyWeather(r) {
   applyNight(smooth(night));
   for (const w of WEATHER.wet) { w.m.roughness = lerp(w.r, 0.18, r); w.m.envMapIntensity = lerp(w.e, 1.6, r); w.m.color.copy(w.c).multiplyScalar(1 - 0.28 * r); }
-  if (r <= 0.001) { skyU.uRain.value = 0; cloudU.uRain.value = 0; scene.fog.near = 260; scene.fog.far = 1650; return; }
+  const fn = HQ() ? 260 : 190, ff = HQ() ? 1650 : 880;
+  if (r <= 0.001) { skyU.uRain.value = 0; cloudU.uRain.value = 0; scene.fog.near = fn; scene.fog.far = ff; return; }
   skyU.uRain.value = r; cloudU.uRain.value = r;
   sun.intensity *= 1 - 0.72 * r; hemi.intensity *= 1 + 0.6 * r;
   scene.fog.color.lerp(night > 0.5 ? FOG_RAIN_N : FOG_RAIN, r * 0.8); scene.background.copy(scene.fog.color);
-  scene.fog.near = lerp(260, 60, r); scene.fog.far = lerp(1650, 520, r);
+  scene.fog.near = lerp(fn, 60, r); scene.fog.far = lerp(ff, 520, r);
   renderer.toneMappingExposure *= 1 - 0.1 * r;
 }
 function updateRain(dt) {

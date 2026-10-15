@@ -49,7 +49,7 @@ function openOnboard(done) {
   const bar = el('div', 'ob-bar'); bar.setAttribute('aria-hidden', 'true'); const segs = ABOUT_Q.map(() => { const s = el('i'); bar.append(s); return s; });
   const intro = el('p', 'ob-lede', `Every answer adds ${tsh(ABOUT_PER)} to the cash you start with. Answer all ${ABOUT_Q.length} for a ${tsh(ABOUT_ALL)} bonus: up to ${tsh(PRICES.start + ABOUT_MAX)}.`);
   const body = el('div', 'ob-q'); body.setAttribute('aria-live', 'polite');
-  const foot = el('div', 'ob-foot'), skip = el('button', 'btn btn-ghost', 'Skip'), go = el('button', 'btn', ''), note = el('p', 'ob-note', 'Answers are anonymous: no names, numbers or contact details. They help us plan events, matches and new features.');
+  const foot = el('div', 'ob-foot'), skip = el('button', 'btn btn-ghost', 'Skip'), go = el('button', 'btn', ''), note = el('p', 'ob-note', 'Answers are anonymous: no names, numbers or contact details. They help us plan events, matches and new features. '); { const a = el('a', '', 'How we use them'); a.href = 'https://afconcity.com/privacy'; a.target = '_blank'; a.rel = 'noopener'; note.append(a); }
   skip.type = go.type = 'button'; foot.append(skip, go);
   card.append(head, bar, intro, body, foot, note);
   document.body.append(root);
@@ -70,6 +70,7 @@ function openOnboard(done) {
   const confetti = () => { if (reduceMotion) return; const c = el('div', 'ob-confetti'); for (let k = 0; k < 40; k++) { const s = el('i'); s.style.left = `${Math.random() * 100}%`; s.style.background = ['#f3b41b', '#1e9b57', '#e0553a', '#19b5b1', '#f6f1e7'][k % 5]; s.style.animationDelay = `${Math.random() * 0.4}s`; s.style.setProperty('--dx', `${(Math.random() - 0.5) * 120}px`); c.append(s); } card.append(c); setTimeout(() => c.remove(), 2600); };
   const finish = () => {
     aboutWrite({ v: 1, a: aboutClean(a), at: Date.now() });
+    track('onboard_done', { n: aboutCount(a) });
     cancelAnimationFrame(raf); document.removeEventListener('keydown', keys, true); root.remove();
     done();
   };

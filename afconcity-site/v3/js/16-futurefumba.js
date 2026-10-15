@@ -153,6 +153,17 @@ function towerCrane(x, z, h, jib, ry, y0) {
   return g;
 }
 /* merge the many small static meshes the new places are made of: one draw call per shared material */
+/* static things past the fog are skipped entirely (sooner on Fast graphics, where the fog is closer) */
+function farCull() {
+  const sp = new T.Sphere();
+  for (const o of scene.children) {
+    if (!o.isMesh || o.isInstancedMesh || o.isSkinnedMesh || o.userData.dynamic || o.userData.farCulled) continue;
+    if (!o.geometry.boundingSphere) o.geometry.computeBoundingSphere();
+    o.updateWorldMatrix(true, false); sp.copy(o.geometry.boundingSphere).applyMatrix4(o.matrixWorld);
+    if (sp.radius > 700) continue;
+    o.userData.farCulled = true; LODS.push({ m: o, c: sp.center.clone(), r: sp.radius, far: 1700 });
+  }
+}
 function mergeStatic(roots) {
   const groups = new Map(), drop = [];
   const v = new T.Vector3();
@@ -160,7 +171,9 @@ function mergeStatic(roots) {
     if (!o.isMesh || o.isInstancedMesh || o.isSkinnedMesh || Array.isArray(o.material) || o.userData.keep) return;
     for (let q = o; q; q = q.parent) if (q.userData && q.userData.dynamic) return;
     if (!o.geometry.attributes.normal) return;
-    const key = o.material.uuid + (o.castShadow ? 's' : '') + (o.receiveShadow ? 'r' : '');
+    // merge per material and per 320 m square, so distant parts of town can be skipped
+    o.updateWorldMatrix(true, false); if (!o.geometry.boundingSphere) o.geometry.computeBoundingSphere(); v.copy(o.geometry.boundingSphere.center).applyMatrix4(o.matrixWorld);
+    const big = o.geometry.boundingSphere.radius > 260, key = o.material.uuid + (o.castShadow ? 's' : '') + (o.receiveShadow ? 'r' : '') + (big ? '' : '@' + Math.floor(v.x / 320) + ',' + Math.floor(v.z / 320));
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(o);
   });
@@ -170,9 +183,10 @@ function mergeStatic(roots) {
     const b = new Builder();
     for (const o of list) { o.updateWorldMatrix(true, false); b.add(o.geometry, o.matrixWorld, null, { uv: o.geometry.attributes.uv ? 'keep' : 'box', tile: 4 }); drop.push(o); }
     const m = new T.Mesh(b.build(), list[0].material); m.castShadow = list[0].castShadow; m.receiveShadow = list[0].receiveShadow; m.userData.merged = list.length; scene.add(m);
-    saved += list.length - 1; void v;
+    saved += list.length - 1;
   }
   for (const o of drop) o.parent && o.parent.remove(o);
+  farCull();
   return saved;
 }
 function updateCranes(t) { for (const c of cranes) c.slew.rotation.y = c.base + Math.sin(t * c.sp + c.ph) * c.amp; }

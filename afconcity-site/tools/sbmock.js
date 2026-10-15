@@ -3,7 +3,8 @@
 (() => {
   const LS = localStorage, bc = new BroadcastChannel('sbmock');
   const uuid = () => 'u' + Math.random().toString(16).slice(2, 10) + '-' + Date.now().toString(16);
-  const db = () => JSON.parse(LS.getItem('sbmock.db') || '{"docs":[],"chat_messages":[],"chat_bans":[]}');
+  const EMPTY = { docs: [], chat_messages: [], chat_bans: [], scores: [], events: [], bookings: [], saves: [], refs: [], invites: [] };
+  const db = () => Object.assign(JSON.parse(JSON.stringify(EMPTY)), JSON.parse(LS.getItem('sbmock.db') || '{}'));
   const save = (d) => LS.setItem('sbmock.db', JSON.stringify(d));
   const listeners = new Set();
   // database changes arrive a moment later, as after a real commit: storage written in one tab takes a little while to show in another
@@ -17,22 +18,24 @@
     const isAdmin = () => !!session && session.user.email === 'support@afconcity.com';
     const auth = {
       async getSession() { return { data: { session } }; },
-      async signInAnonymously() { if (window.__sbmock.noAnon) return { data: {}, error: { message: 'Anonymous sign-ins are disabled' } }; const s = { user: { id: uuid(), is_anonymous: true } }; setSession(s, 'SIGNED_IN'); return { data: { session: s }, error: null }; },
+      async signInAnonymously() { if (window.__sbmock.noAnon) return { data: {}, error: { message: 'Anonymous sign-ins are disabled' } }; const s = { access_token: 'tok-' + uuid(), user: { id: uuid(), is_anonymous: true } }; setSession(s, 'SIGNED_IN'); return { data: { session: s }, error: null }; },
       async signInWithOtp({ email }) { window.__sbmock.log.push(['otp', email]); return { error: null }; },
-      async verifyOtp({ email, token }) { if (token !== '123456') return { error: { message: 'Token has expired or is invalid' } }; const s = { user: { id: 'owner-' + email, email, is_anonymous: false } }; setSession(s, 'SIGNED_IN'); return { data: { session: s }, error: null }; },
+      async verifyOtp({ email, token }) { if (token !== '123456') return { error: { message: 'Token has expired or is invalid' } }; const s = { access_token: 'tok-owner', user: { id: 'owner-' + email, email, is_anonymous: false } }; setSession(s, 'SIGNED_IN'); return { data: { session: s }, error: null }; },
       async signOut() { setSession(null, 'SIGNED_OUT'); return { error: null }; },
       onAuthStateChange(f) { authCbs.push(f); return { data: { subscription: { unsubscribe() {} } } }; },
     };
     const uid = () => session && session.user.id;
     function from(table) {
-      const q = { table, filters: [], op: 'select', sel: false, order: null, lim: 0, single: false, maybe: false, row: null };
+      const q = { table, filters: [], op: 'select', sel: false, orders: [], lim: 0, single: false, maybe: false, row: null };
       const run = async () => {
         const d = db(); const rows = d[table];
-        const match = (r) => q.filters.every(([k, v]) => String(r[k]) === String(v));
+        const match = (r) => q.filters.every(([k, v, op]) => op === 'in' ? v.map(String).includes(String(r[k])) : op === 'gt' ? r[k] > v : op === 'notnull' ? r[k] != null : String(r[k]) === String(v));
         if (q.op === 'select') {
           let out = rows.filter(match);
           if (table === 'docs') out = out.filter(r => r.coll === 'billboards' || r.coll === 'config' || isAdmin() || r.owner === uid());
-          if (q.order) out.sort((a, b) => (a[q.order[0]] < b[q.order[0]] ? -1 : 1) * (q.order[1] ? 1 : -1));
+          if (table === 'bookings' && !isAdmin()) out = [];
+          if (table === 'events' || table === 'saves' || table === 'invites' || table === 'refs') out = [];
+          if (q.orders.length) out.sort((a, b) => { for (const [k, asc] of q.orders) { if (a[k] === b[k]) continue; return (a[k] < b[k] ? -1 : 1) * (asc ? 1 : -1); } return 0; });
           if (q.lim) out = out.slice(0, q.lim);
           out = out.map(r => table === 'docs' ? { id: r.id, data: r.data } : r);
           if (q.maybe || q.single) return { data: out[0] || null, error: null };
@@ -61,12 +64,28 @@
           for (const r of gone) post({ t: 'pg', table, event: 'DELETE', row: table === 'docs' ? { coll: r.coll, id: r.id } : r });
           return { data: null, error: null };
         }
+        if (q.op === 'upsert' && table === 'scores') {
+          const r = Object.assign({}, q.row); if (r.uid !== uid()) return { data: null, error: { message: 'new row violates row-level security policy' } };
+          const i = rows.findIndex(x => x.uid === r.uid); r.updated_at = new Date().toISOString(); if (i >= 0) rows[i] = r; else rows.push(r); save(d); return { data: null, error: null };
+        }
+        if (q.op === 'insert' && table === 'events') {
+          for (const r of [].concat(q.row)) rows.push({ uid: uid(), sid: r.sid, name: String(r.name).slice(0, 40), props: r.props || {}, created_at: new Date().toISOString() });
+          save(d); return { data: null, error: null };
+        }
+        if (q.op === 'update') {
+          if (table !== 'bookings' || !isAdmin()) return { data: null, error: { message: 'permission denied' } };
+          for (const r of rows) if (match(r)) Object.assign(r, q.row); save(d); return { data: null, error: null };
+        }
         return { data: null, error: { message: 'unsupported' } };
       };
       const b = {
         select() { if (q.op === 'insert') q.sel = true; return b; },
         eq(k, v) { q.filters.push([k, v]); return b; },
-        order(k, o) { q.order = [k, !o || o.ascending !== false]; return b; },
+        in(k, v) { q.filters.push([k, v, 'in']); return b; },
+        gt(k, v) { q.filters.push([k, v, 'gt']); return b; },
+        not(k, op, v) { if (op === 'is' && v === null) q.filters.push([k, null, 'notnull']); return b; },
+        order(k, o) { q.orders.push([k, !o || o.ascending !== false]); return b; },
+        update(row) { q.op = 'update'; q.row = row; return b; },
         limit(n) { q.lim = n; return b; },
         maybeSingle() { q.maybe = true; return b; },
         single() { q.single = true; return b; },
@@ -102,7 +121,41 @@
       };
       return ch;
     }
-    return { auth, from, channel, removeChannel(ch) { ch._leave && ch._leave(); }, rpc: async (n) => ({ data: n === 'is_admin' ? isAdmin() : null, error: null }) };
+    return { auth, from, channel, removeChannel(ch) { ch._leave && ch._leave(); }, rpc: async (n, a) => rpc(n, a || {}) };
+    async function rpc(n, a) {
+      const d = db(), me = uid(), err = (m) => ({ data: null, error: { message: m } });
+      if (n === 'is_admin') return { data: isAdmin(), error: null };
+      if (!me) return err('not signed in');
+      const AL = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789', mk = (k) => Array.from({ length: k }, () => AL[Math.floor(Math.random() * AL.length)]).join('');
+      if (n === 'save_put') {
+        if (!a.p_code) { const code = mk(10); d.saves.push({ code, owner: me, data: a.p_data, updated_at: Date.now() }); save(d); return { data: code, error: null }; }
+        const r = d.saves.find(x => x.code === a.p_code); if (!r) return err('Unknown save code');
+        if (r.owner !== me) return err('This save moved to another device');
+        r.data = a.p_data; r.updated_at = Date.now(); save(d); return { data: r.code, error: null };
+      }
+      if (n === 'save_load') {
+        const c = String(a.p_code || '').toUpperCase().replace(/[^A-Z0-9]/g, ''), r = d.saves.find(x => x.code === c);
+        if (!r) return err('No save with that code. Check the letters and try again.');
+        r.owner = me; save(d); return { data: { code: r.code, data: r.data }, error: null };
+      }
+      if (n === 'my_ref') { let r = d.refs.find(x => x.uid === me); if (!r) { r = { uid: me, ref: mk(6).toLowerCase() }; d.refs.push(r); save(d); } return { data: r.ref, error: null }; }
+      if (n === 'invite_accept') {
+        const r = d.refs.find(x => x.ref === String(a.p_ref || '').toLowerCase()); if (!r || r.uid === me || d.invites.some(x => x.invitee === me)) return { data: false, error: null };
+        d.invites.push({ inviter: r.uid, invitee: me, at: Date.now(), qualified: false, collected: false }); save(d); return { data: true, error: null };
+      }
+      if (n === 'invite_qualify') { const r = d.invites.find(x => x.invitee === me && !x.qualified); if (!r) return { data: false, error: null }; r.qualified = true; save(d); return { data: true, error: null }; }
+      if (n === 'invite_collect') { const rs = d.invites.filter(x => x.inviter === me && x.qualified && !x.collected); rs.forEach(x => { x.collected = true; }); save(d); return { data: rs.length, error: null }; }
+      if (n === 'analytics_summary') {
+        if (!isAdmin()) return err('Only the owner can see analytics');
+        const ev = d.events, players = new Set(ev.map(e => e.uid)), by = (name) => new Set(ev.filter(e => e.name === name).map(e => e.uid)).size;
+        const day = new Date().toISOString().slice(0, 10);
+        return { data: { players: players.size, new_players: players.size, returned_next_day: 0, returned_within_7_days: 0, avg_session_min: 1.5, invites: d.invites.length, saves: d.saves.length,
+          daily: [{ day, players: players.size, sessions: new Set(ev.map(e => e.sid)).size, minutes: 3 }],
+          funnel: ['session_start', 'play', 'onboard_done', 'met_amina', 'first_job', 'stamps_3', 'stamps_all', 'vip_ticket'].map(step => ({ step, players: by(step) })),
+          sources: [{ source: 'direct', players: players.size }], devices: [{ device: 'desktop', players: players.size }] }, error: null };
+      }
+      return err('unknown function ' + n);
+    }
   }
   window.supabase = { createClient };
 })();

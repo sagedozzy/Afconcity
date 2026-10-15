@@ -117,6 +117,31 @@ const KITS = [
   { name: 'Clove red', shirt: 0xd8452c, shorts: 0x141838, trim: 0xf6f1e7, css: '#d8452c', price: 35000 },
   { name: 'Dhow white', shirt: 0xf3efe6, shorts: 0x2a3270, trim: 0x22c2b8, css: '#f3efe6', price: 45000 },
   { name: 'Midnight', shirt: 0x15161c, shorts: 0x15161c, trim: 0xf3b41b, css: '#15161c', price: 60000 },
+  /* national colours for AFCON fans (not official kits): sold at Rehema's fan shop */
+  { name: 'Tanzania', shirt: 0x1eb53a, shorts: 0x00a3dd, trim: 0xfcd116, css: '#1eb53a', price: 35000, nation: true },
+  { name: 'Kenya', shirt: 0xbb0000, shorts: 0x006600, trim: 0xf6f1e7, css: '#bb0000', price: 35000, nation: true },
+  { name: 'Uganda', shirt: 0xfcdc04, shorts: 0x141414, trim: 0xd90000, css: '#fcdc04', price: 35000, nation: true },
+  { name: 'Nigeria', shirt: 0x008751, shorts: 0x008751, trim: 0xf6f1e7, css: '#008751', price: 45000, nation: true },
+  { name: 'Senegal', shirt: 0xf3efe6, shorts: 0xf3efe6, trim: 0x00853f, css: '#f3efe6', price: 45000, nation: true },
+  { name: 'Morocco', shirt: 0xc1272d, shorts: 0x006233, trim: 0x006233, css: '#c1272d', price: 45000, nation: true },
+  { name: 'Egypt', shirt: 0xce1126, shorts: 0xf3efe6, trim: 0x141414, css: '#ce1126', price: 45000, nation: true },
+  { name: 'Côte d\'Ivoire', shirt: 0xf77f00, shorts: 0xf3efe6, trim: 0x009e60, css: '#f77f00', price: 45000, nation: true },
+  { name: 'Ghana', shirt: 0xf3efe6, shorts: 0xf3efe6, trim: 0x141414, css: '#f3efe6', price: 45000, nation: true },
+  { name: 'Cameroon', shirt: 0x007a5e, shorts: 0xce1126, trim: 0xfcd116, css: '#007a5e', price: 45000, nation: true },
+  { name: 'Algeria', shirt: 0xf3efe6, shorts: 0xf3efe6, trim: 0x006233, css: '#f3efe6', price: 45000, nation: true },
+  { name: 'Tunisia', shirt: 0xe70013, shorts: 0xf3efe6, trim: 0xf3efe6, css: '#e70013', price: 45000, nation: true },
+  { name: 'South Africa', shirt: 0xffb81c, shorts: 0x007749, trim: 0x007749, css: '#ffb81c', price: 45000, nation: true },
+  { name: 'Mali', shirt: 0xfcd116, shorts: 0x14b53a, trim: 0xce1126, css: '#fcd116', price: 40000, nation: true },
+  { name: 'Burkina Faso', shirt: 0x009e49, shorts: 0xef2b2d, trim: 0xfcd116, css: '#009e49', price: 40000, nation: true },
+  { name: 'DR Congo', shirt: 0x2a8fe0, shorts: 0x2a8fe0, trim: 0xce1021, css: '#2a8fe0', price: 40000, nation: true },
+  { name: 'Zambia', shirt: 0x198a00, shorts: 0x141414, trim: 0xef7d00, css: '#198a00', price: 40000, nation: true },
+  { name: 'Guinea', shirt: 0xce1126, shorts: 0xfcd116, trim: 0x009460, css: '#ce1126', price: 40000, nation: true },
+  { name: 'Angola', shirt: 0xcc092f, shorts: 0x141414, trim: 0xffcb00, css: '#cc092f', price: 40000, nation: true },
+  { name: 'Cape Verde', shirt: 0x003893, shorts: 0x003893, trim: 0xf6f1e7, css: '#003893', price: 40000, nation: true },
+  { name: 'Equatorial Guinea', shirt: 0xe32118, shorts: 0x0073ce, trim: 0xf6f1e7, css: '#e32118', price: 40000, nation: true },
+  { name: 'Gabon', shirt: 0xfcd116, shorts: 0x3a75c4, trim: 0x009e60, css: '#fcd116', price: 40000, nation: true },
+  { name: 'Benin', shirt: 0xfcd116, shorts: 0x008751, trim: 0xe8112d, css: '#fcd116', price: 40000, nation: true },
+  { name: 'Mozambique', shirt: 0xd21034, shorts: 0x141414, trim: 0xfce100, css: '#d21034', price: 40000, nation: true },
 ];
 /* real Zanzibar prices in Tanzanian shillings (2026): fares, food, tours, fines, rentals. US$1 is about TSh 2,600 */
 /* what work pays: raised a little so a VIP ticket is reachable in an evening of play */
@@ -488,12 +513,15 @@ function M(hex, extra) { const key = hex + (extra ? JSON.stringify(extra) : '');
 const VC = new T.MeshStandardMaterial({ vertexColors: true, roughness: 0.82, metalness: 0 });
 
 /* small scenery (grass tufts, bushes) stops drawing past a distance; checked a few times a second */
-const LODS = [];
+const LODS = [], VLODS = [];
 let lodT = 0;
+/* trees and palms swap to a simple version past a distance (much sooner on Fast graphics, for cheap phones);
+   small details (coconuts, bushes, grass) stop drawing past a distance, also sooner on Fast */
 function updateLOD(dt) {
   lodT -= dt; if (lodT > 0) return; lodT = 0.25;
-  const cp = camera.position;
-  for (const l of LODS) l.m.visible = cp.distanceTo(l.c) - l.r < l.far;
+  const cp = camera.position, k = HQ() ? 1 : 0.5, near = HQ() ? 300 : 110;
+  for (const l of LODS) l.m.visible = cp.distanceTo(l.c) - l.r < l.far * k;
+  for (const l of VLODS) { const d = cp.distanceTo(l.c) - l.r, hi = d < near; l.hi.visible = hi; if (l.lo) l.lo.visible = !hi && d < (l.loFar || 1e9) * (HQ() ? 1 : 0.7); }
 }
 /* instanced scenery split into map chunks so each culls on its own */
 function chunked(geo, mat, items, apply, opts) {
@@ -521,6 +549,13 @@ function chunked(geo, mat, items, apply, opts) {
     if (opts.depth) m.customDepthMaterial = opts.depth;
     if (opts.far) LODS.push({ m, c: center, r: r + gr * maxS, far: opts.far });
     scene.add(m); out.push(m);
+    // a simpler stand-in for far away: fewer triangles, optionally fewer instances, no shadow
+    if (opts.lo) {
+      const keep = list.filter((it, i) => !opts.loKeep || opts.loKeep(it, i)), lg = opts.lo.clone(), lm = new T.InstancedMesh(lg, mat, Math.max(1, keep.length));
+      keep.forEach((it, i) => { o3.position.set(0, 0, 0); o3.rotation.order = 'XYZ'; o3.rotation.set(0, 0, 0); o3.scale.set(1, 1, 1); const col = apply(it, o3, i); o3.updateMatrix(); lm.setMatrixAt(i, o3.matrix); if (col) lm.setColorAt(i, col); });
+      lm.count = keep.length; lg.boundingSphere = g.boundingSphere.clone(); lm.receiveShadow = !!opts.recv; lm.visible = false; scene.add(lm);
+      VLODS.push({ hi: m, lo: lm, c: center, r: r + gr * maxS, loFar: opts.loFar });
+    }
   }
   return out;
 }
@@ -584,6 +619,262 @@ function pointBlocked(x, z, pad) {
   return false;
 }
 const footprints = [];
+/* ===================== 05 language: English or Kiswahili for the menus, panels, questions, wardrobe, challenges and HUD ===================== */
+/* The page is written in English. In Kiswahili, every text node and label that matches the dictionary (or one of the patterns
+   for strings with numbers in them) is swapped in place, and new ones are swapped as the game adds them. The English is kept,
+   so switching back restores it. Characters' dialogue and most tips stay in English for now. */
+const LANG_KEY = 'afc-lang';
+let LANG = (() => { try { const v = localStorage.getItem(LANG_KEY); if (v === 'en' || v === 'sw') return v; } catch (e) {} return /^sw\b/i.test(navigator.language || '') ? 'sw' : 'en'; })();
+const SW = new Map(Object.entries({
+  // HUD and on-screen buttons
+  'Goal': 'Lengo', 'Talk to Amina': 'Ongea na Amina', 'She is waiting on the beach.': 'Anakusubiri ufukweni.',
+  'Fan Passport': 'Pasipoti ya Shabiki', 'VIP ticket fund': 'Akiba ya tiketi ya VIP', 'TIME': 'SAA', 'Connecting…': 'Inaunganisha…',
+  'Map': 'Ramani', 'Phone': 'Simu', 'Menu': 'Menyu', 'Fans in Fumba': 'Mashabiki Fumba',
+  'Share this game from Claude with friends who have Claude accounts to play together.': 'Shiriki mchezo huu kutoka Claude na marafiki wenye akaunti za Claude ili mcheze pamoja.',
+  'Coin rush': 'Mbio za sarafu', 'Lose them, or stop and pay': 'Wakwepe, au simama ulipe', 'Mvua · wet roads': 'Mvua · barabara zinateleza',
+  'Fresh': 'Mchangamfu', 'Show HUD': 'Onyesha HUD', 'Send': 'Tuma', 'Press': 'Bonyeza', 'to chat': 'kuandika ujumbe',
+  'Health': 'Afya', 'Stamina': 'Pumzi', 'Food': 'Chakula', 'Energy': 'Nishati',
+  'High-five': 'Gonga tano', 'Talk': 'Ongea', 'Chat': 'Soga', 'Jump': 'Ruka', 'Run': 'Kimbia',
+  'Penalty bet': 'Dau la penalti', 'Shoot when the ball is near a post': 'Piga mpira ukiwa karibu na nguzo', 'Shoot': 'Piga',
+  'Home': 'Nyumbani', 'Monday': 'Jumatatu',
+  // start screen
+  'Fumba Hustle · Live': 'Fumba Hustle · Mubashara', 'Play': 'Cheza', 'Start in Fumba': 'Anza Fumba',
+  'Wardrobe': 'Kabati la nguo', 'Island looks': 'Mitindo ya kisiwani', 'How to play': 'Jinsi ya kucheza', 'Earn, spend, lose': 'Pata, tumia, poteza',
+  'Play with friends': 'Cheza na marafiki', 'Checking…': 'Inakagua…', 'Settings': 'Mipangilio', 'Graphics · sound': 'Picha · sauti',
+  'Advertise': 'Tangaza', 'Billboards and phones': 'Mabango na simu', 'About the map': 'Kuhusu ramani', 'Real Fumba data': 'Data halisi ya Fumba',
+  'Install the app': 'Sakinisha programu', 'Play from your home screen': 'Cheza kutoka skrini yako ya mwanzo', 'Advertise with us': 'Tangaza nasi',
+  'Privacy': 'Faragha', 'Terms': 'Masharti', 'Road to AFCON 2027': 'Safari ya AFCON 2027', 'VIP or bust': 'VIP au hakuna',
+  'TSh in your pocket': 'TSh mfukoni mwako', 'TSh for a VIP ticket': 'TSh za tiketi ya VIP', 'passport stamps to earn': 'mihuri ya pasipoti ya kupata',
+  'Your fan name': 'Jina lako la shabiki', 'Your look': 'Mtindo wako', 'Have a save code? Carry on from another phone': 'Una msimbo wa kuhifadhi? Endelea kutoka simu nyingine',
+  'Load': 'Pakia', 'Loading Fumba…': 'Inapakia Fumba…', 'New game': 'Mchezo mpya',
+  'Island wardrobe': 'Kabati la kisiwani', 'Dress for Fumba': 'Vaa kwa ajili ya Fumba', 'Done · back to Play': 'Tayari · rudi Cheza',
+  'Hustle, then kickoff': 'Pambana, kisha mechi ianze', 'Stamp': 'Muhuri',
+  'Fill your Fan Passport with 11 things people do on Zanzibar: ride a daladala, eat Zanzibar pizza, learn Swahili, a spice farm tour, seaweed farming, a sunset dhow, kanga and henna, and more.': 'Jaza Pasipoti yako ya Shabiki kwa mambo 11 ambayo watu hufanya Zanzibar: panda daladala, kula pizza ya Zanzibar, jifunze Kiswahili, ziara ya shamba la viungo, kilimo cha mwani, safari ya jahazi wakati wa machweo, kanga na hina, na mengine.',
+  'Earn': 'Pata pesa',
+  'Guide a walking tour for Hassan, wash cars for Fundi Rashid, carry tomato crates for Bi Mwajuma, run errands for anyone on the street (say hello with E and ask "Una kazi?"), drive a daladala route for Mzee Omari, fish off the pier, harvest seaweed by the kilo, beat the kids at beach football, cement shifts, volunteer stipends, madafu trading, bajaji fares and races, pizza runs, penalty bets and the coin rush.': 'Ongoza ziara ya matembezi kwa Hassan, osha magari kwa Fundi Rashid, beba kreti za nyanya kwa Bi Mwajuma, tumwa na mtu yeyote mtaani (salimia kwa E na uulize "Una kazi?"), endesha daladala kwa Mzee Omari, vua samaki gatini, vuna mwani kwa kilo, washinde watoto mpira wa ufukweni, zamu za saruji, posho za kujitolea, biashara ya madafu, nauli na mbio za bajaji, kupeleka pizza, dau za penalti na mbio za sarafu.',
+  'You start with a chumba (room) behind the daladala depot, rent paid for the first week. Sleep there to restore energy, shower, cook and change clothes. Rent is due every Jumamosi from Pesa; move up to an Uptown studio or a Burj sea-view flat. Your phone (P) orders a boda, bajaji or private daladala that drives to wherever you are, plus food delivery and jobs.': 'Unaanza na chumba nyuma ya kituo cha daladala, kodi ya wiki ya kwanza imeshalipwa. Lala hapo kurudisha nishati, oga, pika na ubadili nguo. Kodi inadaiwa kila Jumamosi kutoka Pesa; hamia studio ya Uptown au fleti ya Burj inayotazama bahari. Simu yako (P) inaagiza boda, bajaji au daladala binafsi inayokufuata popote ulipo, pamoja na chakula na kazi.',
+  'Live': 'Ishi',
+  "Eat before you get hungry, keep savings on Pesa where pickpockets can't reach them (street stalls want cash), bargain at the market, and brake early when the rain comes. Knock people down and the police come after you.": 'Kula kabla njaa haijakushika, weka akiba kwenye Pesa ambako wezi wa mfukoni hawaifikii (vibanda vya mtaani vinataka pesa taslimu), pigana bei sokoni, na funga breki mapema mvua ikinyesha. Ukiwagonga watu, polisi watakufuata.',
+  'Lose': 'Poteza',
+  'Real prices: daladala TSh 700, Zanzibar pizza TSh 4,000, a TSh 30,000 speeding fine, clinic bills, pickpockets in red caps and cash dropped when traffic knocks you down.': 'Bei halisi: daladala TSh 700, pizza ya Zanzibar TSh 4,000, faini ya mwendo kasi TSh 30,000, bili za kliniki, wezi wa mfukoni wenye kofia nyekundu na pesa zinazodondoka gari likikugonga.',
+  'Move or drive': 'Tembea au endesha', 'Mouse': 'Kipanya', 'Look (click the game first)': 'Angalia (bofya mchezo kwanza)', 'Sprint': 'Kimbia kwa kasi',
+  'Jump or handbrake': 'Ruka au breki ya mkono', 'Talk, buy, ride': 'Ongea, nunua, panda', 'Shoot the ball, tackle, high-five': 'Piga mpira, kaba, gonga tano',
+  'Phone: rides, food, jobs, Pesa': 'Simu: usafiri, chakula, kazi, Pesa', 'Hide or show the on-screen display': 'Ficha au onyesha maelezo ya skrini',
+  'Horn': 'Honi', 'Pause menu': 'Menyu ya kusimamisha', 'Wave, dance, cheer': 'Punga mkono, cheza, shangilia',
+  'Left thumb: joystick to walk or drive. Right thumb: drag the screen to look. Buttons: E to talk, buy and ride, Jump, Run, Chat. Top right: Phone, HUD (hide the display) and Menu.': 'Kidole gumba cha kushoto: kijiti cha kutembea au kuendesha. Kidole gumba cha kulia: buruta skrini kuangalia. Vitufe: E kuongea, kununua na kupanda, Ruka, Kimbia, Soga. Juu kulia: Simu, HUD (ficha maelezo) na Menyu.',
+  'Multiplayer': 'Wachezaji wengi', 'Checking for other fans…': 'Inatafuta mashabiki wengine…',
+  'Multiplayer is coming soon: chat, high-fives, races and dropped cash with friends in the same Fumba streets. For now, explore, work and collect your stamps solo.': 'Wachezaji wengi wanakuja hivi karibuni: soga, kugonga tano, mbio na pesa zilizodondoka pamoja na marafiki katika mitaa ileile ya Fumba. Kwa sasa, tembea, fanya kazi na kusanya mihuri yako peke yako.',
+  'The host opens this game in Claude, presses': 'Mwenyeji anafungua mchezo huu ndani ya Claude, anabonyeza', 'and': 'na',
+  'adds each friend by email': 'anaongeza kila rafiki kwa barua pepe', '. Sending the link alone is not enough.': '. Kutuma kiungo pekee hakutoshi.',
+  'Each friend signs in to Claude with that email, then opens the link.': 'Kila rafiki anaingia Claude kwa barua pepe hiyo, kisha anafungua kiungo.',
+  "They appear in Fumba with you: chat, high-fives, races, dropped cash, and each other's passport stamps.": 'Wanaonekana Fumba pamoja nawe: soga, kugonga tano, mbio, pesa zilizodondoka, na mihuri ya pasipoti ya kila mmoja.',
+  'To check it works on your own, open the game in a second browser tab: your other tab appears as a second fan.': 'Kujaribu mwenyewe, fungua mchezo kwenye kichupo cha pili cha kivinjari: kichupo chako kingine kinaonekana kama shabiki wa pili.',
+  'Your setup': 'Mipangilio yako', 'Graphics': 'Picha', 'High': 'Bora', 'Fast': 'Haraka', 'Sound': 'Sauti', 'On': 'Washa', 'Off': 'Zima',
+  'Camera follow': 'Kamera ifuate', 'On-screen display': 'Maelezo ya skrini', 'Full': 'Kamili', 'Minimal': 'Kidogo',
+  'Fast graphics turns off soft shadows and lowers the resolution for phones and older laptops.': 'Picha za Haraka zinazima vivuli laini na kupunguza ubora kwa simu na kompyuta za zamani.',
+  'For brands': 'Kwa makampuni', 'Your billboard in AfconCity': 'Bango lako ndani ya AfconCity', 'On your phone': 'Kwenye simu yako', 'Install AfconCity': 'Sakinisha AfconCity',
+  'Add the game to your home screen: it opens full screen like an app, and after the first visit it starts fast, even on a weak connection.': 'Weka mchezo kwenye skrini yako ya mwanzo: unafunguka skrini nzima kama programu, na baada ya mara ya kwanza unaanza haraka, hata mtandao ukiwa dhaifu.',
+  'In Safari, tap the': 'Kwenye Safari, gusa kitufe cha', 'button (the square with an arrow).': '(mraba wenye mshale).', 'Scroll down and tap': 'Shuka chini kisha gusa',
+  ', then': ', kisha', 'Open the browser menu (': 'Fungua menyu ya kivinjari (', 'in Chrome).': 'kwenye Chrome).', 'Tap': 'Gusa', 'or': 'au',
+  'AfconCity is installed. Open it from your home screen.': 'AfconCity imesakinishwa. Ifungue kutoka skrini yako ya mwanzo.',
+  'About': 'Kuhusu', "Real Fumba, tomorrow's plans": 'Fumba halisi, mipango ya kesho',
+  'Streets, coastline, land cover and building outlines are real: OpenStreetMap contributors (ODbL) and Google Open Buildings (CC BY 4.0), via Overture Maps. AfconCity sits on the real Zanzibar Sports City site beside the Fumba road.': 'Mitaa, ufukwe, matumizi ya ardhi na michoro ya majengo ni halisi: wachangiaji wa OpenStreetMap (ODbL) na Google Open Buildings (CC BY 4.0), kupitia Overture Maps. AfconCity iko kwenye eneo halisi la Zanzibar Sports City kando ya barabara ya Fumba.',
+  'The empty plots hold projects from public plans for Greater Fumba and the Fumba Economic Zone: the Continental Mall of Zanzibar, Burj Zanzibar, the IIT Madras campus, a 400-bed hotel, a medical tourism hospital, ZHC housing towers, a basketball centre, a film studio, a four-lane highway and a ferry pier. Their designs and exact spots are imagined.': 'Viwanja vitupu vina miradi kutoka mipango ya umma ya Greater Fumba na Fumba Economic Zone: Continental Mall of Zanzibar, Burj Zanzibar, kampasi ya IIT Madras, hoteli ya vitanda 400, hospitali ya utalii wa matibabu, minara ya makazi ya ZHC, kituo cha mpira wa kikapu, studio ya filamu, barabara kuu ya njia nne na gati la feri. Miundo yao na maeneo yao halisi ni ya kubuni.',
+  'Prices follow 2026 Zanzibar rates (daladala TSh 700, about TSh 2,600 to the US dollar). All money is in-game only. Independent prototype, not affiliated with CAF, the Revolutionary Government of Zanzibar or any developer named.': 'Bei zinafuata viwango vya Zanzibar vya 2026 (daladala TSh 700, takriban TSh 2,600 kwa dola ya Marekani). Pesa zote ni za ndani ya mchezo tu. Mfano huru, hauhusiani na CAF, Serikali ya Mapinduzi ya Zanzibar wala mwekezaji yeyote aliyetajwa.',
+  // the VIP ending
+  'Walk away': 'Ondoka', 'VIP stand · AfconCity Stadium': 'Jukwaa la VIP · Uwanja wa AfconCity', 'Karibu VIP. You made it to AFCON': 'Karibu VIP. Umefika AFCON',
+  'Cash left': 'Pesa iliyobaki', 'Earned': 'Ulichopata', 'Lost or spent': 'Kilichopotea au kutumika', 'Time played': 'Muda wa kucheza',
+  'Partner rewards unlocked': 'Zawadi za washirika zimefunguliwa', 'Airport transfer, 10% off': 'Usafiri wa uwanja wa ndege, punguzo la 10%', 'Sample partner': 'Mshirika wa mfano',
+  'Fan Village late checkout': 'Kuondoka kwa kuchelewa Fan Village', 'Free Zanzibar pizza on matchday': 'Pizza ya Zanzibar bure siku ya mechi',
+  'Placeholders for where partner offers would sit in the commercial version.': 'Nafasi za mfano za ofa za washirika katika toleo la kibiashara.', 'Keep hustling': 'Endelea kupambana',
+  // pause menu
+  'Paused': 'Umesimama', 'Solo': 'Peke yako', 'Passport': 'Pasipoti', 'Stats': 'Takwimu', 'Friends': 'Marafiki', 'Leaders': 'Viongozi',
+  'Billboards': 'Mabango', 'Feedback': 'Maoni', 'Controls': 'Vidhibiti',
+  'Multiplayer is coming soon. For now, Fumba is all yours.': 'Wachezaji wengi wanakuja hivi karibuni. Kwa sasa, Fumba ni yako peke yako.',
+  'and adds each friend by email.': 'na anaongeza kila rafiki kwa barua pepe.', 'Friends sign in to Claude with that email and open the link.': 'Marafiki wanaingia Claude kwa barua pepe hiyo na kufungua kiungo.',
+  'They appear here and in the streets, live. Open a second tab to test it yourself.': 'Wanaonekana hapa na mitaani, mubashara. Fungua kichupo cha pili kujaribu mwenyewe.',
+  'Time of day': 'Wakati wa siku', 'Live clock': 'Saa halisi', 'Day': 'Mchana', 'Night': 'Usiku', 'Mouse sensitivity': 'Unyeti wa kipanya', 'Cloud save': 'Hifadhi mtandaoni',
+  'in the game to cycle Full, Minimal and Off. The live clock runs a day in about 19 minutes. Progress saves in this browser, and on afconcity.com it is also backed up online with your save code.': 'ndani ya mchezo kubadili Kamili, Kidogo na Zima. Saa halisi inamaliza siku moja kwa takriban dakika 19. Maendeleo yanahifadhiwa kwenye kivinjari hiki, na kwenye afconcity.com pia yanahifadhiwa mtandaoni kwa msimbo wako wa kuhifadhi.',
+  'On a phone: joystick bottom-left, drag anywhere to look, buttons bottom-right.': 'Kwenye simu: kijiti chini kushoto, buruta popote kuangalia, vitufe chini kulia.',
+  'Resume': 'Endelea', "I'm stuck": 'Nimekwama',
+  // labels read by screen readers and tooltips
+  '3D view of Fumba Uptown, Zanzibar': 'Mwonekano wa 3D wa Fumba Uptown, Zanzibar', 'Game time: rent is due every Jumamosi (Saturday) at 10:00': 'Saa ya mchezo: kodi inadaiwa kila Jumamosi saa 10:00',
+  'Money on your phone: pickpockets cannot take it': 'Pesa kwenye simu yako: wezi wa mfukoni hawawezi kuichukua', 'Phone (P)': 'Simu (P)',
+  'Change the on-screen display (H)': 'Badilisha maelezo ya skrini (H)', 'Fans online': 'Mashabiki mtandaoni', 'Show the on-screen display (H)': 'Onyesha maelezo ya skrini (H)',
+  'Message everyone in Fumba…': 'Mtumie kila mtu Fumba ujumbe…', 'Chat message': 'Ujumbe wa soga', 'Quick phrases': 'Maneno ya haraka',
+  'Radar. Click for the full map.': 'Rada. Bofya kuona ramani nzima.', 'Health: rest or visit the Kliniki to refill': 'Afya: pumzika au nenda Kliniki kujaza',
+  'Stamina: used when you run, refills when you walk': 'Pumzi: inatumika ukikimbia, inajaa ukitembea', 'Food: eat to refill': 'Chakula: kula kujaza',
+  'Energy: sleep at home to refill': 'Nishati: lala nyumbani kujaza', 'Your phone': 'Simu yako', 'Back': 'Rudi', 'Home screen': 'Skrini ya mwanzo',
+  'Put the phone away': 'Weka simu mbali', 'Your home': 'Nyumbani kwako', 'Main menu': 'Menyu kuu', 'Save code': 'Msimbo wa kuhifadhi', 'Shop': 'Duka',
+  'Map of Fumba Uptown and AfconCity with your position and places': 'Ramani ya Fumba Uptown na AfconCity, ulipo na maeneo', 'Zoom in': 'Kuza', 'Zoom out': 'Punguza',
+  'Centre on me': 'Nionyeshe nilipo', 'Show on screen': 'Onyesha kwenye skrini',
+  // welcome questions
+  'Karibu Fumba': 'Karibu Fumba', 'Fill your purse': 'Jaza pochi yako', 'Starting purse': 'Pochi ya kuanzia', 'Skip': 'Ruka', 'Twende · Play': 'Twende · Cheza',
+  'Hongera! All answered': 'Hongera! Umejibu yote', 'How we use them': 'Jinsi tunavyoyatumia',
+  'Answers are anonymous: no names, numbers or contact details. They help us plan events, matches and new features.': 'Majibu hayana majina: hakuna majina, namba wala mawasiliano. Yanatusaidia kupanga matukio, mechi na vipengele vipya.',
+  'TSh you have now': 'TSh ulizonazo sasa', 'TSh in your starting purse': 'TSh kwenye pochi yako ya kuanzia', 'TSh to start: answer 8 quick questions': 'TSh za kuanzia: jibu maswali 8 mafupi',
+  'Where are you playing from?': 'Unacheza ukiwa wapi?', 'Mainland Tanzania': 'Tanzania Bara', 'South Africa': 'Afrika Kusini', 'Elsewhere in Africa': 'Kwingineko Afrika',
+  'Europe': 'Ulaya', 'The Americas': 'Amerika', 'Asia or Middle East': 'Asia au Mashariki ya Kati', 'Somewhere else': 'Kwingineko',
+  'Who are you backing at AFCON 2027?': 'Unashabikia timu gani AFCON 2027?', 'South Africa · Bafana Bafana': 'Afrika Kusini · Bafana Bafana', 'Egypt · The Pharaohs': 'Misri · The Pharaohs',
+  'Morocco · Atlas Lions': 'Moroko · Atlas Lions', "Côte d'Ivoire · The Elephants": "Côte d'Ivoire · Tembo", 'Another team': 'Timu nyingine',
+  'Have you been to Zanzibar?': 'Umewahi kufika Zanzibar?', 'I live here': 'Ninaishi hapa', 'I have visited': 'Nimewahi kutembelea', 'Planning a trip': 'Napanga safari', 'Not yet, one day': 'Bado, siku moja',
+  'Which age group are you in?': 'Uko kwenye kundi gani la umri?', 'Under 18': 'Chini ya 18', '45 or over': '45 au zaidi',
+  'How much football do you watch?': 'Unatazama mpira kiasi gani?', 'Every match I can': 'Kila mechi ninayoweza', 'Most weekends': 'Wikendi nyingi', 'Big tournaments only': 'Mashindano makubwa tu', 'Hardly any': 'Karibu hata kidogo',
+  'Will you go to an AFCON 2027 match?': 'Utaenda kwenye mechi ya AFCON 2027?', 'I have tickets': 'Nina tiketi', 'Planning to go': 'Napanga kwenda', 'Watching on TV': 'Nitatazama kwenye TV', 'Not sure yet': 'Bado sina uhakika',
+  'How did you find AfconCity?': 'Uliijuaje AfconCity?', 'A friend': 'Rafiki',
+  'What do you want most from this game?': 'Unataka nini zaidi kwenye mchezo huu?', 'Exploring Zanzibar': 'Kuzunguka Zanzibar', 'Making money': 'Kutengeneza pesa',
+  'Driving and racing': 'Kuendesha na mashindano', 'Playing with friends': 'Kucheza na marafiki', 'Football': 'Mpira wa miguu', 'Fashion and homes': 'Mitindo na nyumba',
+  'Playing from': 'Anacheza kutoka', 'AFCON team': 'Timu ya AFCON', 'Age group': 'Kundi la umri', 'Watches football': 'Anatazama mpira', 'AFCON 2027 match': 'Mechi ya AFCON 2027', 'Found us via': 'Alitupata kupitia', 'Wants most': 'Anataka zaidi',
+  // wardrobe
+  'Your own look': 'Mtindo wako mwenyewe', 'Limited-edition prints': 'Michoro ya toleo maalum', 'Man': 'Mwanamume', 'Woman': 'Mwanamke', 'Limited · yours': 'Toleo maalum · lako',
+  'Top': 'Juu', 'Bottom': 'Chini', 'Shoes': 'Viatu', 'Hat': 'Kofia', 'Shades': 'Miwani', 'Hair': 'Nywele', 'Colour': 'Rangi', 'Shuffle': 'Changanya',
+  'Everyone online sees your look.': 'Kila aliye mtandaoni anaona mtindo wako.',
+  'White': 'Nyeupe', 'Sand': 'Mchanga', 'Terracotta': 'Udongo', 'Coral': 'Matumbawe', 'Blush': 'Waridi hafifu', 'Mustard': 'Haradali', 'Sage': 'Kijani hafifu', 'Olive': 'Zeituni',
+  'Turquoise': 'Feruzi', 'Ocean': 'Bahari', 'Navy': 'Bluu iliyokolea', 'Lilac': 'Zambarau hafifu', 'Black': 'Nyeusi', 'Denim': 'Denimu', 'Stone': 'Jiwe', 'Red': 'Nyekundu',
+  'Brown': 'Kahawia', 'Tan': 'Hudhurungi', 'Pink': 'Waridi', 'Gold': 'Dhahabu',
+  'Football jersey': 'Jezi ya mpira', 'Resort shirt': 'Shati la likizo', 'Linen shirt': 'Shati la kitani', 'Breton top': 'Fulana ya mistari', 'T-shirt': 'Fulana',
+  'Kitenge shirt': 'Shati la kitenge', 'Tank top': 'Fulana ya mikono wazi', 'Peasant blouse': 'Blauzi', 'Kaftan': 'Kaftani', 'Maxi dress': 'Gauni refu', 'Midi dress': 'Gauni la kati',
+  'Kitenge gown': 'Gauni la kitenge', 'Kit shorts': 'Kaptura ya jezi', 'Kit track pants': 'Suruali ya mazoezi', 'Chino shorts': 'Kaptura ya chino', 'Swim shorts': 'Kaptura ya kuogelea',
+  'Bermudas': 'Bermuda', 'Linen trousers': 'Suruali ya kitani', 'Chinos': 'Suruali ya chino', 'Jeans': 'Jinzi', 'Cropped trousers': 'Suruali fupi', 'Palazzo pants': 'Suruali pana',
+  'Maxi skirt': 'Sketi ndefu', 'Midi skirt': 'Sketi ya kati', 'Sneakers': 'Raba', 'Espadrilles': 'Espadrili', 'Sandals': 'Ndala', 'Slides': 'Sapatu', 'Loafers': 'Viatu vya ngozi',
+  'Short': 'Fupi', 'Braids': 'Kusuka', 'Headscarf': 'Kilemba', 'Cap': 'Kofia ya jua', 'Bald': 'Kipara', 'Top bun': 'Kishungi', 'Locs': 'Rasta',
+  // daily reward and challenges
+  'Daily reward': 'Zawadi ya kila siku', 'Karibu tena!': 'Karibu tena!',
+  'Come back tomorrow to keep the streak: the reward grows every day for a week.': 'Rudi kesho kuendeleza mfululizo: zawadi inaongezeka kila siku kwa wiki nzima.',
+  'Play on more days in a row and the daily reward grows, up to TSh 50,000 on day 7.': 'Cheza siku nyingi mfululizo na zawadi ya kila siku inaongezeka, hadi TSh 50,000 siku ya 7.',
+  "Today's challenges": 'Changamoto za leo', 'New challenges every day. Finish all three for a TSh 15,000 bonus.': 'Changamoto mpya kila siku. Maliza zote tatu upate bonasi ya TSh 15,000.',
+  'Catch a pickpocket': 'Mkamate mwizi wa mfukoni', 'Earn a passport stamp': 'Pata muhuri wa pasipoti', 'Run an errand for someone on the street': 'Tumwa na mtu mtaani',
+  "All of today's challenges": 'Changamoto zote za leo',
+  // cloud saves, leaderboards and invites
+  'Copy': 'Nakili', 'Copied': 'Imenakiliwa', 'Cloud saves work when you play on afconcity.com.': 'Hifadhi ya mtandaoni inafanya kazi ukicheza kwenye afconcity.com.',
+  'This save now lives on another phone. Start a new game here, or load a different code from the start screen.': 'Hifadhi hii sasa iko kwenye simu nyingine. Anza mchezo mpya hapa, au pakia msimbo mwingine kutoka skrini ya mwanzo.',
+  'Your progress is backed up online a minute after you start playing. Your save code will appear here.': 'Maendeleo yako yanahifadhiwa mtandaoni dakika moja baada ya kuanza kucheza. Msimbo wako wa kuhifadhi utaonekana hapa.',
+  'Save codes work on afconcity.com.': 'Misimbo ya kuhifadhi inafanya kazi kwenye afconcity.com.', 'Looking for your save…': 'Inatafuta hifadhi yako…',
+  'Could not reach the server. Check your connection.': 'Imeshindwa kufikia seva. Angalia mtandao wako.', 'That code did not work.': 'Msimbo huo haukufanya kazi.',
+  'That save is from a version of the game this phone cannot read.': 'Hifadhi hiyo ni ya toleo la mchezo ambalo simu hii haiwezi kusoma.',
+  'Leaderboards and invites run on afconcity.com.': 'Orodha za viongozi na mialiko zinapatikana kwenye afconcity.com.', 'Loading the leaderboards…': 'Inapakia orodha za viongozi…',
+  'Could not load the leaderboards. Check your connection.': 'Imeshindwa kupakia orodha za viongozi. Angalia mtandao wako.', 'Nobody yet. Be first!': 'Bado hakuna. Kuwa wa kwanza!',
+  'Weekly Passport Race': 'Mbio za Pasipoti za Wiki', 'Richest fans': 'Mashabiki matajiri zaidi', 'Cash plus Pesa, right now.': 'Pesa taslimu pamoja na Pesa, sasa hivi.',
+  'Fastest bajaji race': 'Mbio za bajaji za kasi zaidi', 'Best time round the Fumba race course.': 'Muda bora kwenye njia ya mbio ya Fumba.',
+  'Invite friends · TSh 25,000 each': 'Alika marafiki · TSh 25,000 kila mmoja', 'Share link': 'Shiriki kiungo', 'Link copied': 'Kiungo kimenakiliwa',
+  // match days
+  'Live now': 'Mubashara sasa', 'Next match day': 'Siku ijayo ya mechi', 'AFCON qualifiers · matchdays 3 and 4': 'Mechi za kufuzu AFCON · raundi ya 3 na 4',
+  'AFCON qualifiers · matchdays 5 and 6': 'Mechi za kufuzu AFCON · raundi ya 5 na 6', 'AFCON 2027 opening match': 'Mechi ya ufunguzi ya AFCON 2027',
+  'AFCON 2027 · every match on the big screen': 'AFCON 2027 · kila mechi kwenye skrini kubwa', 'AFCON 2027 final': 'Fainali ya AFCON 2027',
+  'That is the watch-party pay for this match day. Enjoy the game!': 'Hayo ndiyo malipo ya kutazama kwa siku hii ya mechi. Furahia mchezo!',
+}));
+const swG = (x) => { const s = swOf(x); return s == null ? x : s; };
+/* strings with numbers or names in them */
+const SW_RE = [
+  [/^Shot (\d) of (\d)$/, (m, a, b) => `Shuti ${a} kati ya ${b}`],
+  [/^Fan Passport · (\d+) of (\d+)$/, (m, a, b) => `Pasipoti ya Shabiki · ${a} kati ya ${b}`],
+  [/^Goals (\d+)$/, (m, a) => `Magoli ${a}`],
+  [/^You step off the daladala on Fumba Road with (up to )?(TSh [\d,]+)\. A VIP seat for the AFCON 2027 match at AfconCity costs TSh 1,000,000, and only fans with a full Fan Passport of Zanzibar experiences can buy one\. Work, explore and haggle at real Zanzibar prices\.$/, (m, up, n) => `Unashuka kwenye daladala barabara ya Fumba ukiwa na ${up ? 'hadi ' : ''}${n}. Kiti cha VIP kwa mechi ya AFCON 2027 uwanjani AfconCity kinagharimu TSh 1,000,000, na ni mashabiki wenye Pasipoti ya Shabiki iliyojaa uzoefu wa Zanzibar pekee wanaoweza kukinunua. Fanya kazi, zunguka na pigana bei kwa bei halisi za Zanzibar.`],
+  [/^Every answer adds (TSh [\d,]+) to the cash you start with\. Answer all (\d+) for a (TSh [\d,]+) bonus: up to (TSh [\d,]+)\.$/, (m, a, n, b, c) => `Kila jibu linaongeza ${a} kwenye pesa za kuanzia. Jibu yote ${n} upate bonasi ya ${b}: hadi ${c}.`],
+  [/^(Mgeni|Rafiki|Jirani|Mwenyeji) · .+$/, (m, a) => a],
+  [/^Start with (TSh [\d,]+)$/, (m, a) => `Anza na ${a}`],
+  [/^You start with (TSh [\d,]+)$/, (m, a) => `Unaanza na ${a}`],
+  [/^(\d+) of (\d+) answered$/, (m, a, b) => `${a} kati ya ${b} yamejibiwa`],
+  [/^That includes the (TSh [\d,]+) bonus for answering everything\. Asante sana, (.+)!$/, (m, a, b) => `Hiyo inajumuisha bonasi ya ${a} kwa kujibu yote. Asante sana, ${b}!`],
+  [/^Answer the rest next time you start a new game to grow your purse to (TSh [\d,]+)\.$/, (m, a) => `Jibu yaliyobaki utakapoanza mchezo mpya ili pochi yako ifike ${a}.`],
+  [/^Question (\d+) of (\d+) · \+(TSh [\d,]+)$/, (m, a, b, c) => `Swali ${a} kati ya ${b} · +${c}`],
+  [/^Bonus \+(TSh [\d,]+)$/, (m, a) => `Bonasi +${a}`],
+  [/^Rank up · (.+)$/, (m, a) => `Cheo kipya · ${a}`],
+  [/^(\d+) to (\d+)$/, (m, a, b) => `${a} hadi ${b}`],
+  [/^Limited · (TSh [\d,]+)$/, (m, a) => `Toleo maalum · ${a}`],
+  [/^Skin tone (\d+)$/, (m, a) => `Rangi ya ngozi ${a}`],
+  [/^You need (TSh [\d,]+) in cash or on Pesa for this\.$/, (m, a) => `Unahitaji ${a} taslimu au kwenye Pesa kwa hili.`],
+  [/^Limited prints are bought with game shillings \((TSh [\d,]+)\)\. Start playing, then open the wardrobe at home or from here\.$/, (m, a) => `Michoro ya toleo maalum inanunuliwa kwa shilingi za mchezo (${a}). Anza kucheza, kisha fungua kabati la nguo nyumbani au hapa.`],
+  [/^Day (\d+) in a row!$/, (m, a) => `Siku ya ${a} mfululizo!`],
+  [/^Day (\d+)$/, (m, a) => `Siku ${a}`],
+  [/^Day (\d+) streak$/, (m, a) => `Mfululizo wa siku ${a}`],
+  [/^Collect (TSh [\d,]+)$/, (m, a) => `Chukua ${a}`],
+  [/^Today's challenges · day (\d+) streak$/, (m, a) => `Changamoto za leo · mfululizo wa siku ${a}`],
+  [/^Done · \+(TSh [\d,]+)$/, (m, a) => `Imekamilika · +${a}`],
+  [/^Earn (TSh [\d,]+)$/, (m, a) => `Pata ${a}`],
+  [/^Finish (\d+) jobs$/, (m, a) => `Maliza kazi ${a}`],
+  [/^Grab (\d+) street coins$/, (m, a) => `Okota sarafu ${a} za mtaani`],
+  [/^Harvest (\d+) kg of seaweed$/, (m, a) => `Vuna kilo ${a} za mwani`],
+  [/^Sell (\d+) madafu on the beach$/, (m, a) => `Uza madafu ${a} ufukweni`],
+  [/^Catch (\d+) fish off the pier$/, (m, a) => `Vua samaki ${a} gatini`],
+  [/^Run (\d+) errands for someone on the street$/, (m, a) => `Tumwa mara ${a} na watu mtaani`],
+  [/^Found it: (.+) with (TSh [\d,]+)\. Loading…$/, (m, a, b) => `Imepatikana: ${a} mwenye ${b}. Inapakia…`],
+  [/^Type this code on another phone or computer \(start screen, "Have a save code\?"\) to carry on there\. Keep it private: anyone with it can load your game\.(?: Last backed up (.+)\.)?$/, (m, a) => `Andika msimbo huu kwenye simu au kompyuta nyingine (skrini ya mwanzo, "Una msimbo wa kuhifadhi?") kuendelea huko. Uweke siri: yeyote mwenye msimbo huu anaweza kupakia mchezo wako.${a ? ` Ulihifadhiwa mwisho saa ${a}.` : ''}`],
+  [/^Most passport stamps this week \(Monday to Sunday\), then most shillings earned\. You: (\d+) stamps?, (TSh [\d,]+)\.$/, (m, a, b) => `Mihuri mingi zaidi ya pasipoti wiki hii (Jumatatu hadi Jumapili), kisha shilingi nyingi zaidi. Wewe: mihuri ${a}, ${b}.`],
+  [/^(\d+) stamps? · (TSh [\d,]+)$/, (m, a, b) => `mihuri ${a} · ${b}`],
+  [/^Send your link\. When a friend starts playing through it, you both get (TSh [\d,]+) \(up to 10 friends a week\)\.$/, (m, a) => `Tuma kiungo chako. Rafiki akianza kucheza kupitia kiungo hicho, nyote wawili mnapata ${a} (hadi marafiki 10 kwa wiki).`],
+  [/^Come play AfconCity with me: real Fumba, Zanzibar in 3D\. Start with (TSh [\d,]+) extra:$/, (m, a) => `Njoo ucheze AfconCity nami: Fumba halisi, Zanzibar kwa 3D. Anza na ${a} za ziada:`],
+  [/^Your friend's invite paid (TSh [\d,]+)$/, (m, a) => `Mwaliko wa rafiki yako umekulipa ${a}`],
+  [/^(\d+) friends? started playing · \+(TSh [\d,]+)$/, (m, a, b) => `Marafiki ${a} wameanza kucheza · +${b}`],
+  [/^(.+) · watch party at the Fan Zone$/, (m, a) => `${swG(a)} · sherehe ya kutazama Fan Zone`],
+  [/^(.+) · today at (.+)$/, (m, a, b) => `${swG(a)} · leo saa ${b}`],
+  [/^(.+) · in (\d+) days$/, (m, a, b) => `${swG(a)} · baada ya siku ${b}`],
+  [/^(TSh [\d,]+) a minute in the Fan Zone$/, (m, a) => `${a} kwa dakika Fan Zone`],
+  [/^(.+) · \+(TSh [\d,]+)$/, (m, a, b) => { const s = swOf(a); return s == null ? null : `${s} · +${b}`; }],
+  [/^(.+) · (TSh [\d,]+)$/, (m, a, b) => { const s = swOf(a); return s == null ? null : `${s} · ${b}`; }],
+];
+const I18N = { orig: new WeakMap(), attr: new WeakMap(), cache: new Map(), obs: null };
+const SW_ATTRS = ['placeholder', 'aria-label', 'title'];
+const SW_SKIP = 'script,style,textarea,kbd,code,.chatlog,.ph-bub,#chatPhrases,.lb-list b,.cloud-code,[data-notr]';
+function swOf(s) {
+  const d = SW.get(s); if (d !== undefined) return d;
+  const c = I18N.cache.get(s); if (c !== undefined) return c;
+  let r = null;
+  if (s.length < 600) for (const [re, f] of SW_RE) { const m = re.exec(s); if (m) { r = f(...m); if (r != null) break; } }
+  if (I18N.cache.size > 4000) I18N.cache.clear();
+  I18N.cache.set(s, r); return r;
+}
+/* for text the code builds itself (share messages and the like) */
+const tr = (s) => LANG === 'sw' ? swG(String(s).trim()) : s;
+function swText(n) {
+  const raw = n.nodeValue, o = I18N.orig.get(n), en = o && raw === o.sw ? o.en : raw;
+  if (LANG !== 'sw') { if (o) { if (raw === o.sw) n.nodeValue = o.en; I18N.orig.delete(n); } return; }
+  const t = en.trim(); if (!t || !/[A-Za-z]/.test(t)) return;
+  const p = n.parentElement; if (!p || p.closest(SW_SKIP)) return;
+  const s = swOf(t); if (s == null) return;
+  const i = en.indexOf(t), out = en.slice(0, i) + s + en.slice(i + t.length);
+  I18N.orig.set(n, { en, sw: out });
+  if (out !== raw) n.nodeValue = out;
+}
+function swAttr(e, a) {
+  const raw = e.getAttribute(a); if (raw == null) return;
+  const m = I18N.attr.get(e) || {}, o = m[a], en = o && raw === o.sw ? o.en : raw;
+  if (LANG !== 'sw') { if (o) { if (raw === o.sw) e.setAttribute(a, o.en); delete m[a]; } return; }
+  if (e.closest(SW_SKIP)) return;
+  const s = swOf(en.trim()); if (s == null) return;
+  m[a] = { en, sw: s }; I18N.attr.set(e, m);
+  if (s !== raw) e.setAttribute(a, s);
+}
+function swTree(root) {
+  if (root.nodeType === 3) { swText(root); return; }
+  if (root.nodeType !== 1) return;
+  const w = document.createTreeWalker(root, NodeFilter.SHOW_TEXT); let n;
+  while ((n = w.nextNode())) swText(n);
+  const els = root.querySelectorAll('[placeholder],[aria-label],[title]');
+  for (const a of SW_ATTRS) if (root.hasAttribute(a)) swAttr(root, a);
+  for (const e of els) for (const a of SW_ATTRS) if (e.hasAttribute(a)) swAttr(e, a);
+}
+function applyLang(l) {
+  if (l) { LANG = l === 'sw' ? 'sw' : 'en'; try { localStorage.setItem(LANG_KEY, LANG); } catch (e) {} }
+  document.documentElement.lang = LANG;
+  swTree(document.body);
+  document.querySelectorAll('[data-seg="lang"] button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === LANG)));
+  document.querySelectorAll('[data-lang-note]').forEach(p => { p.hidden = LANG !== 'sw'; });
+}
+function initLang() {
+  I18N.obs = new MutationObserver((list) => {
+    if (LANG !== 'sw') return;
+    for (const r of list) {
+      if (r.type === 'childList') { for (const n of r.addedNodes) swTree(n); }
+      else if (r.type === 'characterData') swText(r.target);
+      else if (r.type === 'attributes') swAttr(r.target, r.attributeName);
+    }
+  });
+  I18N.obs.observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: SW_ATTRS });
+  document.querySelectorAll('[data-seg="lang"] button').forEach(b => b.addEventListener('click', () => { applyLang(b.dataset.v); if (typeof track === 'function') track('lang', { l: LANG }); }));
+  applyLang();
+}
+initLang();
 /* ===================== 10 world: terrain, roads, buildings, vegetation, venues ===================== */
 function shapeFrom(pts) { const s = new T.Shape(); pts.forEach((p, i) => i ? s.lineTo(p[0], -p[1]) : s.moveTo(p[0], -p[1])); return s; }
 function flatShape(pts, mat, y, recv) {
@@ -859,7 +1150,8 @@ function buildLamps() {
   lb.add(new T.CylinderGeometry(0.05, 0.05, 1.9, 8), mat4(0, 7.05, 0.85, 0, 1, 1, 1, Math.PI / 2 - 0.25), pc);
   lb.add(roundedBox(0.36, 0.14, 0.8, 0.06, 1), mat4(0, 7.2, 1.75, 0), pc);
   lb.add(new T.CylinderGeometry(0.16, 0.2, 0.5, 10), mat4(0, 0.25, 0, 0), C(0x6a6e78));
-  chunked(lb.build(), VC.clone(), lamps, (l, o) => { o.position.set(l[0], 0, l[1]); o.rotation.set(0, l[2], 0); }, { cast: true, cell: 320 });
+  const lbl = new Builder(); lbl.add(new T.CylinderGeometry(0.08, 0.11, 7.2, 4, 1, true), mat4(0, 3.6, 0, 0), pc); lbl.add(box(0.12, 0.12, 1.9), mat4(0, 7.1, 0.9, 0), pc); lbl.add(box(0.36, 0.14, 0.8), mat4(0, 7.2, 1.75, 0), pc);
+  chunked(lb.build(), VC.clone(), lamps, (l, o) => { o.position.set(l[0], 0, l[1]); o.rotation.set(0, l[2], 0); }, { cast: true, cell: 320, lo: lbl.build() });
   const bulbMat = new T.MeshStandardMaterial({ color: C(0xfff6e0), emissive: C(0xffd58a), emissiveIntensity: 0.0 });
   nightable(bulbMat, 0.0, 3.2);
   const heads = lamps.map(l => [l[0] + Math.sin(l[2]) * 1.75, l[1] + Math.cos(l[2]) * 1.75, l[2]]);
@@ -940,9 +1232,12 @@ function shedRoofGeo(w, d, h, o) {
   return g;
 }
 function buildBuildings() {
-  const B = { wall: new Builder(), tile: new Builder(), mab: new Builder(), trim: new Builder(), glassL: new Builder(), glassD: new Builder(), door: new Builder() };
+  // one set of builders per 320 m square, so each part of town is culled (and skipped past the haze) on its own
+  const cellsB = new Map(), cellB = (x, z) => { const k = Math.floor(x / 320) + ',' + Math.floor(z / 320); if (!cellsB.has(k)) cellsB.set(k, { wall: new Builder(), tile: new Builder(), mab: new Builder(), trim: new Builder(), glassL: new Builder(), glassD: new Builder(), door: new Builder() }); return cellsB.get(k); };
+  let B = null;
   const white = C(0xf8f5ef), teak = C(0x6b3e22), dark = C(0x2a2d33), black = C(0x18191c), steel = C(0x9aa0a8);
   for (const [x, z, w0, d0, ang, kind] of WORLD.blds) {
+    B = cellB(x, z);
     const w = Math.max(2, w0), d = Math.max(2, d0), area = w * d, hv = hash2(x, z), hv2 = hash2(z, x), hv3 = hash2(x + 3.1, z - 7.7);
     const thin = Math.min(w, d) < 3.2 && Math.max(w, d) > 7;
     let style, floors;
@@ -1027,13 +1322,8 @@ function buildBuildings() {
   }
   const mk = (b, mat, cast) => { if (b.empty) return null; const m = new T.Mesh(b.build(), mat); m.castShadow = !!cast; m.receiveShadow = true; scene.add(m); return m; };
   const nrm = (k, s2) => TEX[k] ? { normalMap: TEX[k], normalScale: new T.Vector2(s2, s2) } : {};
-  mk(B.wall, new T.MeshStandardMaterial(Object.assign({ map: TEX.plaster, vertexColors: true, roughness: 0.9 }, nrm('plasterN', 0.5))), true);
-  mk(B.tile, new T.MeshStandardMaterial(Object.assign({ map: TEX.tiles, vertexColors: true, roughness: 0.72, side: T.DoubleSide }, nrm('tilesN', 0.9))), true);
-  mk(B.mab, new T.MeshStandardMaterial(Object.assign({ map: TEX.mabati, vertexColors: true, roughness: 0.42, metalness: 0.4, side: T.DoubleSide }, nrm('mabatiN', 0.8))), true);
-  mk(B.trim, new T.MeshStandardMaterial({ vertexColors: true, roughness: 0.7, metalness: 0.05, side: T.DoubleSide }), true);
-  mk(B.glassL, glassLitMat, false);
-  mk(B.glassD, glassMat, false);
-  mk(B.door, new T.MeshStandardMaterial({ map: TEX.door, roughness: 0.7 }), false);
+  const M = { wall: new T.MeshStandardMaterial(Object.assign({ map: TEX.plaster, vertexColors: true, roughness: 0.9 }, nrm('plasterN', 0.5))), tile: new T.MeshStandardMaterial(Object.assign({ map: TEX.tiles, vertexColors: true, roughness: 0.72, side: T.DoubleSide }, nrm('tilesN', 0.9))), mab: new T.MeshStandardMaterial(Object.assign({ map: TEX.mabati, vertexColors: true, roughness: 0.42, metalness: 0.4, side: T.DoubleSide }, nrm('mabatiN', 0.8))), trim: new T.MeshStandardMaterial({ vertexColors: true, roughness: 0.7, metalness: 0.05, side: T.DoubleSide }), glassL: glassLitMat, glassD: glassMat, door: new T.MeshStandardMaterial({ map: TEX.door, roughness: 0.7 }) };
+  for (const cb of cellsB.values()) for (const k of Object.keys(M)) mk(cb[k], M[k], k !== 'glassL' && k !== 'glassD' && k !== 'door');
 }
 
 /* ---------- vegetation ---------- */
@@ -1049,8 +1339,8 @@ function blockedForPlant(x, z, pad) {
   for (const s of STANDS) if (Math.hypot(x - s.x, z - s.z) < 12) return true;
   return !!nearRoad(x, z, pad + 2.4);
 }
-function frondGeo() {
-  const L = 5.4, W = 1.7, g = new T.PlaneGeometry(L, W, 9, 2), p = g.attributes.position, uv = g.attributes.uv;
+function frondGeo(lo) {
+  const L = 5.4, W = lo ? 2.2 : 1.7, g = new T.PlaneGeometry(L, W, lo ? 3 : 9, lo ? 1 : 2), p = g.attributes.position, uv = g.attributes.uv;
   for (let i = 0; i < p.count; i++) { const X = p.getX(i) + L / 2, t = X / L, Y = p.getY(i); p.setXYZ(i, X, Math.sin(t * Math.PI * 0.62) * 1.1 - t * t * 2.7 - Math.abs(Y) * 0.4 * t, Y * (1 - t * 0.75)); uv.setXY(i, t, Y / W + 0.5); }
   g.computeVertexNormals();
   return g;
@@ -1123,10 +1413,11 @@ function buildVegetation() {
     for (let k = 0; k < 4; k++) nutItems.push([v.x + Math.cos(k * 1.6) * 0.32, v.z + Math.sin(k * 1.6) * 0.32, v.y - 0.32, sc]);
     if (inPlay(x, z, 30)) addCircle(x, z, 0.4);
   });
-  chunked(trunkGeo, new T.MeshStandardMaterial({ map: barkT, roughness: 0.95 }), trunkItems, (it, o) => { o.position.set(it[0], 0, it[1]); o.rotation.set(0, it[2], 0); o.scale.setScalar(it[3]); }, { cast: true, recv: true, cell: 240 });
+  const trunkLo = new T.TubeGeometry(curve, 4, 0.26, 4, false);
+  chunked(trunkGeo, new T.MeshStandardMaterial({ map: barkT, roughness: 0.95 }), trunkItems, (it, o) => { o.position.set(it[0], 0, it[1]); o.rotation.set(0, it[2], 0); o.scale.setScalar(it[3]); }, { cast: true, recv: true, cell: 240, lo: trunkLo });
   const frondMat = addWind(new T.MeshStandardMaterial({ map: TEX.frond, alphaTest: 0.42, side: T.DoubleSide, roughness: 0.7 }), 0.05);
-  chunked(frondGeo(), frondMat, frondItems, (it, o) => { o.position.set(it[0], it[2], it[1]); o.rotation.order = 'YZX'; o.rotation.set(0, it[3], it[4]); o.scale.setScalar(it[5]); return greens[it[6]]; }, { cast: true, depth: alphaDepth(TEX.frond), cell: 240 });
-  chunked(new T.SphereGeometry(0.26, 10, 8), new T.MeshStandardMaterial({ color: C(0x5d4426), roughness: 0.7 }), nutItems, (it, o) => { o.position.set(it[0], it[2], it[1]); o.scale.setScalar(it[3]); }, { cell: 240, far: 320 });
+  chunked(frondGeo(), frondMat, frondItems, (it, o) => { o.position.set(it[0], it[2], it[1]); o.rotation.order = 'YZX'; o.rotation.set(0, it[3], it[4]); o.scale.setScalar(it[5]); return greens[it[6]]; }, { cast: true, depth: alphaDepth(TEX.frond), cell: 240, lo: frondGeo(true), loKeep: (it, i) => i % 2 === 0 });
+  chunked(new T.SphereGeometry(0.26, 10, 8), new T.MeshStandardMaterial({ color: C(0x5d4426), roughness: 0.7 }), nutItems, (it, o) => { o.position.set(it[0], it[2], it[1]); o.scale.setScalar(it[3]); }, { cell: 240, far: 260 });
   // broadleaf trees and acacias
   const tb = new Builder(), bark = C(0x6a5038);
   tb.add(new T.CylinderGeometry(0.22, 0.36, 4.2, 8), mat4(0, 2.1, 0, 0), bark);
@@ -1136,13 +1427,14 @@ function buildVegetation() {
   const tint = [new T.Color(1, 1, 1), new T.Color(0.88, 1.0, 0.82), new T.Color(1.08, 1.04, 0.82), new T.Color(0.82, 0.94, 0.88)];
   const items = (list) => list.map(([x, z], i) => { const sc = rr(0.8, 1.4); if (inPlay(x, z, 20)) addCircle(x, z, 0.45 * sc); return [x, z, rnd() * TAU, sc, sc * rr(0.9, 1.15), i % 4]; });
   const ti = items(trees), ai = items(acacias);
-  chunked(tb.build(), trunkMat, ti.concat(ai), (it, o) => { o.position.set(it[0], 0, it[1]); o.rotation.set(0, it[2], 0); o.scale.set(it[3], it[4], it[3]); }, { cast: true, recv: true, cell: 240 });
+  const tbl = new Builder(); tbl.add(new T.CylinderGeometry(0.2, 0.36, 4.6, 5, 1, true), mat4(0, 2.3, 0, 0), bark);
+  chunked(tb.build(), trunkMat, ti.concat(ai), (it, o) => { o.position.set(it[0], 0, it[1]); o.rotation.set(0, it[2], 0); o.scale.set(it[3], it[4], it[3]); }, { cast: true, recv: true, cell: 240, lo: tbl.build() });
   const leafMat = addWind(new T.MeshStandardMaterial({ map: TEX.leaves, alphaTest: 0.5, side: T.DoubleSide, roughness: 0.82 }), 0.035);
   const leafDepth = alphaDepth(TEX.leaves);
   const cg = canopyGeo(9, 5.6, false); cg.translate(0, 5.6, 0);
-  chunked(cg, leafMat, ti, (it, o) => { o.position.set(it[0], 0, it[1]); o.rotation.set(0, it[2], 0); o.scale.set(it[3], it[4], it[3]); return tint[it[5]]; }, { cast: true, recv: true, depth: leafDepth, cell: 240 });
+  chunked(cg, leafMat, ti, (it, o) => { o.position.set(it[0], 0, it[1]); o.rotation.set(0, it[2], 0); o.scale.set(it[3], it[4], it[3]); return tint[it[5]]; }, { cast: true, recv: true, depth: leafDepth, cell: 240, lo: (() => { const g = canopyGeo(4, 5.8, false); g.translate(0, 5.6, 0); return g; })() });
   const ag = canopyGeo(7, 7.5, true); ag.translate(0, 5.4, 0);
-  chunked(ag, leafMat, ai, (it, o) => { o.position.set(it[0], 0, it[1]); o.rotation.set(0, it[2], 0); o.scale.set(it[3], it[4], it[3]); return tint[(it[5] + 2) % 4]; }, { cast: true, recv: true, depth: leafDepth, cell: 240 });
+  chunked(ag, leafMat, ai, (it, o) => { o.position.set(it[0], 0, it[1]); o.rotation.set(0, it[2], 0); o.scale.set(it[3], it[4], it[3]); return tint[(it[5] + 2) % 4]; }, { cast: true, recv: true, depth: leafDepth, cell: 240, lo: (() => { const g = canopyGeo(3, 7.8, true); g.translate(0, 5.4, 0); return g; })() });
   const bg = canopyGeo(4, 2.2, false); bg.translate(0, 0.85, 0);
   const pink = [C(0xff7ab8), C(0xff5aa0), C(0xffffff), C(0xe8f0d8)];
   const bushMat = new T.MeshStandardMaterial({ map: TEX.leaves, alphaTest: 0.5, side: T.DoubleSide, roughness: 0.85 });
@@ -1295,6 +1587,7 @@ function drawFanScreen(i) {
   const c = fanScreenTex.image.getContext('2d'), w = 1024, h = 576;
   const msgs = state.done ? [['LIVE', 'Kickoff at AfconCity'], ['ASANTE MASHABIKI', 'Thank you, fans'], ['PARTNER SLOT', 'Big screen · 30-second spot']]
     : [['KARIBU MASHABIKI', 'Welcome, fans'], [`${DAYS} DAYS`, 'until AFCON 2027 kicks off'], ['COIN RUSH', 'Every 3 minutes somewhere in Fumba'], ['PARTNER SLOT', 'Big screen · 30-second spot']];
+  msgs.unshift(...eventScreenMsgs());
   const [a, b] = msgs[i % msgs.length];
   c.fillStyle = i % 2 ? '#232a63' : '#141838'; c.fillRect(0, 0, w, h); kangaEdge(c, w, h, 22);
   c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = a === 'PARTNER SLOT' || a === 'COIN RUSH' ? '#f3b41b' : '#f7ead0';
@@ -1779,6 +2072,17 @@ function towerCrane(x, z, h, jib, ry, y0) {
   return g;
 }
 /* merge the many small static meshes the new places are made of: one draw call per shared material */
+/* static things past the fog are skipped entirely (sooner on Fast graphics, where the fog is closer) */
+function farCull() {
+  const sp = new T.Sphere();
+  for (const o of scene.children) {
+    if (!o.isMesh || o.isInstancedMesh || o.isSkinnedMesh || o.userData.dynamic || o.userData.farCulled) continue;
+    if (!o.geometry.boundingSphere) o.geometry.computeBoundingSphere();
+    o.updateWorldMatrix(true, false); sp.copy(o.geometry.boundingSphere).applyMatrix4(o.matrixWorld);
+    if (sp.radius > 700) continue;
+    o.userData.farCulled = true; LODS.push({ m: o, c: sp.center.clone(), r: sp.radius, far: 1700 });
+  }
+}
 function mergeStatic(roots) {
   const groups = new Map(), drop = [];
   const v = new T.Vector3();
@@ -1786,7 +2090,9 @@ function mergeStatic(roots) {
     if (!o.isMesh || o.isInstancedMesh || o.isSkinnedMesh || Array.isArray(o.material) || o.userData.keep) return;
     for (let q = o; q; q = q.parent) if (q.userData && q.userData.dynamic) return;
     if (!o.geometry.attributes.normal) return;
-    const key = o.material.uuid + (o.castShadow ? 's' : '') + (o.receiveShadow ? 'r' : '');
+    // merge per material and per 320 m square, so distant parts of town can be skipped
+    o.updateWorldMatrix(true, false); if (!o.geometry.boundingSphere) o.geometry.computeBoundingSphere(); v.copy(o.geometry.boundingSphere.center).applyMatrix4(o.matrixWorld);
+    const big = o.geometry.boundingSphere.radius > 260, key = o.material.uuid + (o.castShadow ? 's' : '') + (o.receiveShadow ? 'r' : '') + (big ? '' : '@' + Math.floor(v.x / 320) + ',' + Math.floor(v.z / 320));
     if (!groups.has(key)) groups.set(key, []);
     groups.get(key).push(o);
   });
@@ -1796,9 +2102,10 @@ function mergeStatic(roots) {
     const b = new Builder();
     for (const o of list) { o.updateWorldMatrix(true, false); b.add(o.geometry, o.matrixWorld, null, { uv: o.geometry.attributes.uv ? 'keep' : 'box', tile: 4 }); drop.push(o); }
     const m = new T.Mesh(b.build(), list[0].material); m.castShadow = list[0].castShadow; m.receiveShadow = list[0].receiveShadow; m.userData.merged = list.length; scene.add(m);
-    saved += list.length - 1; void v;
+    saved += list.length - 1;
   }
   for (const o of drop) o.parent && o.parent.remove(o);
+  farCull();
   return saved;
 }
 function updateCranes(t) { for (const c of cranes) c.slew.rotation.y = c.base + Math.sin(t * c.sp + c.ph) * c.amp; }
@@ -2717,7 +3024,7 @@ charMat.onBeforeCompile = (sh) => {
   sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float aRough;\nvarying float vRough;\nattribute float aPat;\nattribute vec4 aPuv;\nvarying float vPat;\nvarying vec4 vPuv;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvRough = aRough; vPat = aPat; vPuv = aPuv;');
   // printed cloth: the print's own colours over the garment colour, shaded like the cloth under it
   sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vRough;\nvarying float vPat;\nvarying vec4 vPuv;\nuniform sampler2D uPat;').replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = vRough;')
-    .replace('#include <color_fragment>', '#include <color_fragment>\nif (vPat > 0.5) { float pid = floor(vPat + 0.5) - 1.0; vec2 tl = vec2(mod(pid, 4.0), floor(pid / 4.0)); vec4 pc = texture2D(uPat, (tl + 0.006 + fract(vPuv.xy) * 0.988) * 0.25); diffuseColor.rgb = mix(diffuseColor.rgb, pow(pc.rgb, vec3(2.2)) * vPuv.z, pc.a * vPuv.w); }');
+    .replace('#include <color_fragment>', '#include <color_fragment>\nif (vPat > 0.5) { float pid = floor(vPat + 0.5) - 1.0; vec2 tl = vec2(mod(pid, 6.0), floor(pid / 6.0)); vec4 pc = texture2D(uPat, (tl + 0.006 + fract(vPuv.xy) * 0.988) / 6.0); diffuseColor.rgb = mix(diffuseColor.rgb, pow(pc.rgb, vec3(2.2)) * vPuv.z, pc.a * vPuv.w); }');
 };
 const numberTexCache = new Map();
 function numberTex(n, col) {
@@ -2985,18 +3292,21 @@ function updateFall(h, dt) {
 }
 const isDown = h => !!(h && h.userData.fall);
 /* ===================== 19b style: fabric prints, the island wardrobe, curated looks and the 15-character look code ===================== */
-/* Prints live in one 4 x 4 atlas (512 px). Clothes carry a print id and cloth coordinates in metres, and the character
+/* Prints live in one 6 x 6 atlas (768 px). Clothes carry a print id and cloth coordinates in metres, and the character
    shader lays the print over the garment colour. Far-away people use each print's average colour instead. */
-const PATS = ['', 'breton', 'pinstripe', 'palms', 'hibiscus', 'kitenge', 'kanga', 'gingham', 'polka', 'waves', 'tiedye', 'madras', 'denim', 'shells', 'cabana', 'mosaic', 'linen'];
-const PAT_NAMES = { '': 'Plain', breton: 'Breton stripe', pinstripe: 'Pinstripe', palms: 'Palm leaves', hibiscus: 'Hibiscus', kitenge: 'Kitenge', kanga: 'Kanga spots', gingham: 'Gingham', polka: 'Polka dots', waves: 'Waves', tiedye: 'Tie-dye', madras: 'Madras check', denim: 'Denim', shells: 'Shells', cabana: 'Cabana stripe', mosaic: 'Stone Town tile', linen: 'Linen weave' };
+const PATS = ['', 'breton', 'pinstripe', 'palms', 'hibiscus', 'kitenge', 'kanga', 'gingham', 'polka', 'waves', 'tiedye', 'madras', 'denim', 'shells', 'cabana', 'mosaic', 'linen', 'kente', 'doors', 'dhow', 'spice', 'ombre', 'marble', 'shuka'];
+const PAT_NAMES = { '': 'Plain', breton: 'Breton stripe', pinstripe: 'Pinstripe', palms: 'Palm leaves', hibiscus: 'Hibiscus', kitenge: 'Kitenge', kanga: 'Kanga spots', gingham: 'Gingham', polka: 'Polka dots', waves: 'Waves', tiedye: 'Tie-dye', madras: 'Madras check', denim: 'Denim', shells: 'Shells', cabana: 'Cabana stripe', mosaic: 'Stone Town tile', linen: 'Linen weave', kente: 'Gold kente', doors: 'Zanzibar doors', dhow: 'Dhow regatta', spice: 'Spice route', ombre: 'Sunset fade', marble: 'Ocean marble', shuka: 'Maasai shuka' };
+/* limited-edition prints: bought once with game shillings, then free on any garment that takes them */
+const PAT_PRICE = { kente: 40000, doors: 35000, dhow: 30000, spice: 30000, ombre: 25000, marble: 35000, shuka: 30000 };
+const ownsPrint = (p) => !PAT_PRICE[p] || ((state && state.prints) || []).includes(p);
 const PAT_M = 0.24; // one print tile covers 24 cm of cloth
-const PAT_TILE = 128;
+const PAT_TILE = 128, PAT_GRID = 6;
 let PAT_TEX = null;
 const PAT_AVG = [];
 (function buildPatterns() {
-  const S = PAT_TILE, cv = mkCanvas(S * 4, S * 4), x = cv.getContext('2d');
+  const S = PAT_TILE, G = PAT_GRID, cv = mkCanvas(S * G, S * G), x = cv.getContext('2d');
   const R = mulberry32(2027);
-  const at = (id) => { const i = id - 1; return [(i % 4) * S, (3 - Math.floor(i / 4)) * S]; };
+  const at = (id) => { const i = id - 1; return [(i % G) * S, (G - 1 - Math.floor(i / G)) * S]; };
   // draw fn(g) inside the tile, repeated across the edges so the print wraps seamlessly
   const tile = (id, fn) => { const [ox, oy] = at(id); x.save(); x.beginPath(); x.rect(ox, oy, S, S); x.clip(); for (const dx of [-S, 0, S]) for (const dy of [-S, 0, S]) { x.save(); x.translate(ox + dx, oy + dy); fn(x); x.restore(); } x.restore(); };
   const leaf = (g, cx, cy, len, w, rot, col, vein) => {
@@ -3055,12 +3365,28 @@ const PAT_AVG = [];
   });
   // 16 linen slub
   tile(16, (g) => { for (let i = 0; i < 70; i++) { g.fillStyle = R() < 0.5 ? 'rgba(255,255,255,.16)' : 'rgba(0,0,0,.1)'; g.fillRect(R() * S, R() * S, 8 + R() * 30, 1 + R() * 1.4); } for (let i = 0; i < S; i += 4) { g.fillStyle = 'rgba(0,0,0,.035)'; g.fillRect(i, 0, 1, S); } });
+
+  // ---- limited editions ----
+  // 17 gold kente: woven strips with stepped blocks
+  tile(17, (g) => { const cols = ['#e0a92e', '#1e7a3e', '#c8342c', '#141414']; for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) { const x0 = c * 32, y0 = r * 32, k = (r + c) % 2; g.fillStyle = k ? '#e0a92e' : '#1e7a3e'; g.fillRect(x0, y0, 32, 32); g.fillStyle = cols[(r * 2 + c) % 4]; if (k) { for (let i = 0; i < 4; i++) g.fillRect(x0, y0 + 3 + i * 8, 32, 3); } else { for (let i = 0; i < 4; i++) g.fillRect(x0 + 3 + i * 8, y0, 3, 32); } g.fillStyle = '#141414'; g.fillRect(x0 + 13, y0 + 13, 6, 6); } });
+  // 18 Zanzibar carved doors: arches studded with brass bosses
+  tile(18, (g) => { for (const [x0, y0] of [[0, 0], [64, 64], [64, 0], [0, 64]]) { g.strokeStyle = '#6b3e22'; g.lineWidth = 5; g.beginPath(); g.moveTo(x0 + 10, y0 + 60); g.lineTo(x0 + 10, y0 + 26); g.arc(x0 + 32, y0 + 26, 22, Math.PI, 0); g.lineTo(x0 + 54, y0 + 60); g.stroke(); g.fillStyle = '#d8a83c'; for (let k = 0; k < 4; k++) { g.beginPath(); g.arc(x0 + 32, y0 + 18 + k * 11, 3.2, 0, TAU); g.fill(); } g.beginPath(); g.arc(x0 + 32, y0 + 8, 4, 0, TAU); g.fill(); } });
+  // 19 dhow regatta: triangular sails on little hulls
+  tile(19, (g) => { for (const [cx, cy, s2] of [[30, 34, 1], [94, 30, 0.8], [62, 94, 1.1], [8, 100, 0.7], [118, 92, 0.75]]) { g.save(); g.translate(cx, cy); g.scale(s2, s2); g.fillStyle = '#f6f3ec'; g.beginPath(); g.moveTo(-2, -22); g.lineTo(18, 8); g.lineTo(-10, 8); g.closePath(); g.fill(); g.strokeStyle = '#3a2a1a'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(-2, -24); g.lineTo(-2, 10); g.stroke(); g.fillStyle = '#6b3e22'; g.beginPath(); g.moveTo(-16, 10); g.lineTo(20, 10); g.lineTo(12, 16); g.lineTo(-10, 16); g.closePath(); g.fill(); g.restore(); } });
+  // 20 spice route: cloves, star anise and cinnamon quills
+  tile(20, (g) => { const R2 = mulberry32(77); for (let i = 0; i < 9; i++) { const cx = R2() * S, cy = R2() * S, k = i % 3, rot = R2() * TAU; g.save(); g.translate(cx, cy); g.rotate(rot); if (k === 0) { g.fillStyle = '#5a2e1a'; for (let a = 0; a < 8; a++) { g.rotate(TAU / 8); g.beginPath(); g.ellipse(6, 0, 6, 2.6, 0, 0, TAU); g.fill(); } g.fillStyle = '#c8873a'; g.beginPath(); g.arc(0, 0, 2.5, 0, TAU); g.fill(); } else if (k === 1) { g.fillStyle = '#8a4a26'; g.fillRect(-14, -3, 28, 6); g.fillStyle = '#b06a36'; g.fillRect(-14, -1, 28, 2); } else { g.fillStyle = '#3a1e12'; g.fillRect(-1.5, -8, 3, 12); g.beginPath(); g.arc(0, -9, 3.5, 0, TAU); g.fill(); } g.restore(); } });
+  // 21 sunset fade: soft horizontal bands from coral to violet
+  tile(21, (g) => { const gr = g.createLinearGradient(0, 0, 0, S); gr.addColorStop(0, 'rgba(243,180,27,.85)'); gr.addColorStop(0.35, 'rgba(240,122,95,.85)'); gr.addColorStop(0.7, 'rgba(224,85,122,.8)'); gr.addColorStop(1, 'rgba(110,74,176,.8)'); g.fillStyle = gr; g.fillRect(0, 0, S, S); g.fillStyle = 'rgba(255,255,255,.18)'; for (let y = 0; y < S; y += 16) g.fillRect(0, y, S, 2); });
+  // 22 ocean marble: turquoise swirls
+  tile(22, (g) => { g.lineCap = 'round'; for (let k = 0; k < 9; k++) { g.strokeStyle = ['rgba(43,181,176,.75)', 'rgba(31,111,139,.7)', 'rgba(255,255,255,.65)'][k % 3]; g.lineWidth = 3 + (k % 3) * 2; g.beginPath(); for (let x0 = -8; x0 <= S + 8; x0 += 4) { const y = (k * 15 + 8) + Math.sin(x0 / S * TAU * 2 + k) * 10 + Math.sin(x0 / S * TAU + k * 2) * 6; if (x0 < -4) g.moveTo(x0, y); else g.lineTo(x0, y); } g.stroke(); } });
+  // 23 Maasai shuka: red and blue check
+  tile(23, (g) => { g.fillStyle = 'rgba(200,52,44,.9)'; g.fillRect(0, 0, S, S); for (const [p, w, c] of [[0, 10, 'rgba(31,45,85,.85)'], [24, 4, 'rgba(20,20,20,.8)'], [40, 18, 'rgba(31,45,85,.8)'], [70, 4, 'rgba(243,180,27,.8)'], [96, 12, 'rgba(20,20,20,.75)']]) { g.fillStyle = c; g.fillRect(p, 0, w, S); g.fillRect(0, p, S, w); } });
   // average colour and coverage of each print, in linear light, for far-away people
-  const data = x.getImageData(0, 0, S * 4, S * 4).data, lin = (v) => Math.pow(v / 255, 2.2);
+  const data = x.getImageData(0, 0, S * G, S * G).data, lin = (v) => Math.pow(v / 255, 2.2);
   PAT_AVG[0] = { c: new T.Color(0, 0, 0), a: 0 };
   for (let id = 1; id < PATS.length; id++) {
     const [ox, oy] = at(id); let r = 0, gg = 0, b = 0, a = 0, n = 0;
-    for (let yy = oy; yy < oy + S; yy += 2) for (let xx = ox; xx < ox + S; xx += 2) { const o = (yy * S * 4 + xx) * 4, al = data[o + 3] / 255; r += lin(data[o]) * al; gg += lin(data[o + 1]) * al; b += lin(data[o + 2]) * al; a += al; n++; }
+    for (let yy = oy; yy < oy + S; yy += 2) for (let xx = ox; xx < ox + S; xx += 2) { const o = (yy * S * G + xx) * 4, al = data[o + 3] / 255; r += lin(data[o]) * al; gg += lin(data[o + 1]) * al; b += lin(data[o + 2]) * al; a += al; n++; }
     PAT_AVG[id] = { c: a > 0 ? new T.Color(r / a, gg / a, b / a) : new T.Color(0, 0, 0), a: a / n };
   }
   PAT_TEX = new T.CanvasTexture(cv); PAT_TEX.minFilter = T.LinearFilter; PAT_TEX.magFilter = T.LinearFilter; PAT_TEX.generateMipmaps = false; PAT_TEX.wrapS = PAT_TEX.wrapT = T.ClampToEdgeWrapping;
@@ -3071,7 +3397,7 @@ const patSwatchCache = new Map();
 function patSwatch(p, hex) {
   const key = p + '|' + hex; if (patSwatchCache.has(key)) return patSwatchCache.get(key);
   const id = PATS.indexOf(p); const c = mkCanvas(48, 48), g = c.getContext('2d'); g.fillStyle = '#' + hex.toString(16).padStart(6, '0'); g.fillRect(0, 0, 48, 48);
-  if (id > 0) { const i = id - 1, src = PAT_TEX.userData.canvas; g.drawImage(src, (i % 4) * PAT_TILE, (3 - Math.floor(i / 4)) * PAT_TILE, PAT_TILE, PAT_TILE, 0, 0, 48, 48); }
+  if (id > 0) { const i = id - 1, src = PAT_TEX.userData.canvas; g.drawImage(src, (i % PAT_GRID) * PAT_TILE, (PAT_GRID - 1 - Math.floor(i / PAT_GRID)) * PAT_TILE, PAT_TILE, PAT_TILE, 0, 0, 48, 48); }
   const u = c.toDataURL(); patSwatchCache.set(key, u); return u;
 }
 
@@ -3081,31 +3407,31 @@ const PALETTE_NAMES = ['White', 'Sand', 'Terracotta', 'Coral', 'Blush', 'Mustard
 // sl: sleeve; neck: crew | collar | boat | v | tank; tuck: tucked in; dress: maxi | midi; only: f | m
 const TOPS = [
   { id: 'jersey', n: 'Football jersey', kit: true, sl: 'short', neck: 'crew', tuck: true, pats: [''] },
-  { id: 'resort', n: 'Resort shirt', sl: 'short', neck: 'collar', btn: true, pats: ['palms', 'hibiscus', 'shells', 'mosaic', 'waves', 'madras', ''], dc: 0, dp: 'palms' },
-  { id: 'linen', n: 'Linen shirt', sl: 'elbow', neck: 'collar', btn: true, pats: ['linen', 'pinstripe', 'gingham', ''], dc: 0, dp: 'linen' },
+  { id: 'resort', n: 'Resort shirt', sl: 'short', neck: 'collar', btn: true, pats: ['palms', 'hibiscus', 'shells', 'mosaic', 'waves', 'madras', '', 'dhow', 'spice', 'marble'], dc: 0, dp: 'palms' },
+  { id: 'linen', n: 'Linen shirt', sl: 'elbow', neck: 'collar', btn: true, pats: ['linen', 'pinstripe', 'gingham', '', 'doors'], dc: 0, dp: 'linen' },
   { id: 'breton', n: 'Breton top', sl: 'elbow', neck: 'boat', tuck: true, pats: ['breton', ''], dc: 0, dp: 'breton' },
-  { id: 'tee', n: 'T-shirt', sl: 'short', neck: 'crew', tuck: true, pats: ['', 'tiedye', 'cabana', 'polka'], dc: 8, dp: '' },
+  { id: 'tee', n: 'T-shirt', sl: 'short', neck: 'crew', tuck: true, pats: ['', 'tiedye', 'cabana', 'polka', 'ombre'], dc: 8, dp: '' },
   { id: 'polo', n: 'Polo', sl: 'short', neck: 'collar', tuck: true, polo: true, pats: ['', 'pinstripe'], dc: 10, dp: '' },
-  { id: 'kitenge', n: 'Kitenge shirt', sl: 'short', neck: 'collar', btn: true, pats: ['kitenge', 'kanga', 'mosaic'], dc: 5, dp: 'kitenge' },
+  { id: 'kitenge', n: 'Kitenge shirt', sl: 'short', neck: 'collar', btn: true, pats: ['kitenge', 'kanga', 'mosaic', 'kente', 'shuka'], dc: 5, dp: 'kitenge' },
   { id: 'tank', n: 'Tank top', sl: 'none', neck: 'tank', only: 'm', pats: ['', 'cabana', 'tiedye'], dc: 0, dp: '' },
   { id: 'blouse', n: 'Peasant blouse', sl: 'elbow', neck: 'boat', only: 'f', pats: ['', 'linen', 'gingham', 'polka'], dc: 0, dp: 'linen' },
-  { id: 'kaftan', n: 'Kaftan', nm: 'Kanzu', robe: true, sl: 'long', pats: ['', 'mosaic', 'kitenge', 'tiedye'], dc: 0, dp: '' },
-  { id: 'maxi', n: 'Maxi dress', dress: 'maxi', sl: 'short', neck: 'v', only: 'f', pats: ['hibiscus', 'palms', '', 'polka', 'tiedye', 'cabana'], dc: 3, dp: 'hibiscus' },
-  { id: 'midi', n: 'Midi dress', dress: 'midi', sl: 'short', neck: 'crew', only: 'f', pats: ['gingham', '', 'mosaic', 'linen', 'polka'], dc: 9, dp: 'gingham' },
-  { id: 'gown', n: 'Kitenge gown', dress: 'maxi', sl: 'elbow', neck: 'boat', only: 'f', pats: ['kitenge', 'kanga', 'mosaic'], dc: 9, dp: 'kitenge' },
+  { id: 'kaftan', n: 'Kaftan', nm: 'Kanzu', robe: true, sl: 'long', pats: ['', 'mosaic', 'kitenge', 'tiedye', 'kente', 'marble', 'doors'], dc: 0, dp: '' },
+  { id: 'maxi', n: 'Maxi dress', dress: 'maxi', sl: 'short', neck: 'v', only: 'f', pats: ['hibiscus', 'palms', '', 'polka', 'tiedye', 'cabana', 'spice', 'marble', 'ombre'], dc: 3, dp: 'hibiscus' },
+  { id: 'midi', n: 'Midi dress', dress: 'midi', sl: 'short', neck: 'crew', only: 'f', pats: ['gingham', '', 'mosaic', 'linen', 'polka', 'doors'], dc: 9, dp: 'gingham' },
+  { id: 'gown', n: 'Kitenge gown', dress: 'maxi', sl: 'elbow', neck: 'boat', only: 'f', pats: ['kitenge', 'kanga', 'mosaic', 'kente', 'shuka'], dc: 9, dp: 'kitenge' },
 ];
 // len: shorts | knee | crop | full; women's choices all cover the thigh
 const BOTTOMS = [
   { id: 'kit', n: 'Kit shorts', nf: 'Kit track pants', kit: true, len: 'kit', lenF: 'full', pats: [''] },
   { id: 'chinoS', n: 'Chino shorts', len: 'shorts', only: 'm', pats: ['', 'madras', 'gingham'], dc: 1, dp: '' },
-  { id: 'swim', n: 'Swim shorts', len: 'shorts', only: 'm', pats: ['waves', 'palms', 'hibiscus', 'shells', 'cabana'], dc: 9, dp: 'waves' },
+  { id: 'swim', n: 'Swim shorts', len: 'shorts', only: 'm', pats: ['waves', 'palms', 'hibiscus', 'shells', 'cabana', 'dhow'], dc: 9, dp: 'waves' },
   { id: 'bermuda', n: 'Bermudas', len: 'knee', only: 'm', pats: ['', 'madras', 'linen'], dc: 7, dp: '' },
   { id: 'linenT', n: 'Linen trousers', len: 'full', wide: 1, pats: ['linen', 'pinstripe', ''], dc: 1, dp: 'linen' },
   { id: 'chinos', n: 'Chinos', len: 'full', pats: ['', 'pinstripe'], dc: 10, dp: '' },
   { id: 'jeans', n: 'Jeans', len: 'full', pats: ['denim'], dc: 13, dp: 'denim' },
   { id: 'cropped', n: 'Cropped trousers', len: 'crop', pats: ['', 'linen', 'gingham'], dc: 0, dp: '' },
-  { id: 'palazzo', n: 'Palazzo pants', len: 'full', wide: 2, only: 'f', pats: ['', 'linen', 'kitenge', 'cabana'], dc: 0, dp: 'linen' },
-  { id: 'maxiS', n: 'Maxi skirt', skirt: 'maxi', only: 'f', pats: ['kitenge', '', 'hibiscus', 'palms', 'mosaic', 'tiedye', 'polka'], dc: 2, dp: 'kitenge' },
+  { id: 'palazzo', n: 'Palazzo pants', len: 'full', wide: 2, only: 'f', pats: ['', 'linen', 'kitenge', 'cabana', 'marble'], dc: 0, dp: 'linen' },
+  { id: 'maxiS', n: 'Maxi skirt', skirt: 'maxi', only: 'f', pats: ['kitenge', '', 'hibiscus', 'palms', 'mosaic', 'tiedye', 'polka', 'kente', 'spice', 'shuka'], dc: 2, dp: 'kitenge' },
   { id: 'midiS', n: 'Midi skirt', skirt: 'midi', only: 'f', pats: ['', 'gingham', 'polka', 'linen', 'kanga'], dc: 6, dp: '' },
 ];
 const SHOES = [{ id: 'sneaker', n: 'Sneakers', dc: 0 }, { id: 'espadrille', n: 'Espadrilles', dc: 10 }, { id: 'sandal', n: 'Sandals', dc: 16 }, { id: 'slide', n: 'Slides', dc: 12 }, { id: 'loafer', n: 'Loafers', dc: 16 }];
@@ -3136,7 +3462,15 @@ const PRESETS = [
   { n: 'Market Day', f: true, t: 'tee', tc: 5, tp: '', b: 'maxiS', bc: 2, bp: 'kitenge', sh: 'sneaker', shc: 0, ht: '', ey: '', h: 'afro' },
   { n: 'Beach Day', f: true, t: 'blouse', tc: 0, tp: 'gingham', b: 'cropped', bc: 9, bp: '', sh: 'slide', shc: 3, ht: 'bucket', hc: 4, ey: 'shades', h: 'locs' },
   { n: 'Matchday', f: true, t: 'jersey', b: 'kit', sh: 'sneaker', shc: 0, ht: '', ey: '', h: 'braids' },
+  // limited editions: they use prints you buy once with game shillings
+  { n: 'Sultan\'s Gold', f: false, t: 'kaftan', tc: 0, tp: 'kente', b: 'chinos', sh: 'loafer', shc: 16, ht: 'kofia', hc: 5, ey: 'aviator', h: 'short', ltd: true },
+  { n: 'Dhow Regatta', f: false, t: 'resort', tc: 9, tp: 'dhow', b: 'chinoS', bc: 0, sh: 'espadrille', shc: 0, ht: 'panama', hc: 1, ey: 'round', h: 'short', ltd: true },
+  { n: 'Stone Town Doors', f: false, t: 'linen', tc: 1, tp: 'doors', b: 'linenT', bc: 0, bp: 'linen', sh: 'loafer', shc: 16, ht: '', ey: 'shades', h: 'locs', ltd: true },
+  { n: 'Spice Route', f: true, t: 'maxi', tc: 1, tp: 'spice', b: 'linenT', sh: 'sandal', shc: 17, ht: 'sunhat', hc: 1, ey: 'aviator', h: 'bun', ltd: true },
+  { n: 'Ocean Marble', f: true, t: 'kaftan', tc: 0, tp: 'marble', b: 'linenT', sh: 'slide', shc: 0, ht: '', ey: 'round', h: 'braids', ltd: true },
+  { n: 'Kente Royal', f: true, t: 'gown', tc: 5, tp: 'kente', b: 'linenT', sh: 'sandal', shc: 19, ht: '', ey: '', h: 'scarf', hc: 5, ltd: true },
 ];
+const presetPrints = (p) => [p.tp, p.bp].filter(x => x && PAT_PRICE[x]);
 /* apply a curated look (or a body change) to a look object, keeping skin tone */
 function applyPreset(lk, p) {
   lk.f = !!p.f; lk.h = p.h || lk.h;
@@ -3172,7 +3506,7 @@ function kitLook(kitIdx, lk, number) {
   const k = KITS[kitIdx] || KITS[0], f = !!lk.f, top = TOPS[lk.t], bot = BOTTOMS[lk.b], col = (i) => PALETTE[i];
   const L = { skin: PLAYER_SKINS[lk.s], f, hair: lk.h, hairCol: 0x141010, scarf: top.kit ? k.trim : PALETTE[lk.hc] };
   // top
-  if (top.kit) Object.assign(L, { kit: true, shirt: k.shirt, trim: k.trim, number, numCol: k.shirt === 0xf3efe6 || k.shirt === 0xf3b41b ? '#141838' : '#f7ead0' });
+  if (top.kit) Object.assign(L, { kit: true, shirt: k.shirt, trim: k.trim, number, numCol: ((k.shirt >> 16 & 255) * 0.3 + (k.shirt >> 8 & 255) * 0.59 + (k.shirt & 255) * 0.11) > 150 ? '#141838' : '#f7ead0' });
   else { L.shirt = col(lk.tc); L.tp = PATS[lk.tp]; L.trim = top.robe ? PALETTE[(lk.tc + 5) % PALETTE.length] : L.shirt; }
   L.sleeve = top.sl; L.neck = top.neck; L.untuck = !top.tuck && !top.robe && !top.dress; if (top.btn) L.style = 'button'; if (top.polo) L.style = 'polo';
   if (top.robe) { L.robe = true; L.lower = L.shirt; L.trim2 = L.trim; }
@@ -4330,6 +4664,8 @@ function applyNight(k) {
   hemi.color.copy(LDAY.hs).lerp(LNIGHT.hs, k); hemi.groundColor.copy(LDAY.hg).lerp(LNIGHT.hg, k); hemi.intensity = lerp(LDAY.hi, LNIGHT.hi, k);
   sun.color.copy(LDAY.sc).lerp(LNIGHT.sc, k); sun.intensity = lerp(LDAY.si, LNIGHT.si, k);
   renderer.toneMappingExposure = lerp(LDAY.exp, LNIGHT.exp, k);
+  // Fast graphics: closer haze, so far-off town can be skipped (see updateLOD and farCull)
+  scene.fog.near = HQ() ? 260 : 190; scene.fog.far = HQ() ? 1650 : 880;
   waterU.uShallow.value.copy(waterDay.s).lerp(waterNight.s, k); waterU.uDeep.value.copy(waterDay.d).lerp(waterNight.d, k); waterU.uFoam.value.copy(waterDay.f).lerp(waterNight.f, k);
   for (const n of nightMats) n.mat[n.prop] = lerp(n.a, n.b, k);
   pitchLight.intensity = 2.6 * k * (state.done || mode === 'kickoff' ? 1 : 0.4);
@@ -5130,11 +5466,12 @@ const FOG_RAIN = C(0x8d949c), FOG_RAIN_N = C(0x141820);
 function applyWeather(r) {
   applyNight(smooth(night));
   for (const w of WEATHER.wet) { w.m.roughness = lerp(w.r, 0.18, r); w.m.envMapIntensity = lerp(w.e, 1.6, r); w.m.color.copy(w.c).multiplyScalar(1 - 0.28 * r); }
-  if (r <= 0.001) { skyU.uRain.value = 0; cloudU.uRain.value = 0; scene.fog.near = 260; scene.fog.far = 1650; return; }
+  const fn = HQ() ? 260 : 190, ff = HQ() ? 1650 : 880;
+  if (r <= 0.001) { skyU.uRain.value = 0; cloudU.uRain.value = 0; scene.fog.near = fn; scene.fog.far = ff; return; }
   skyU.uRain.value = r; cloudU.uRain.value = r;
   sun.intensity *= 1 - 0.72 * r; hemi.intensity *= 1 + 0.6 * r;
   scene.fog.color.lerp(night > 0.5 ? FOG_RAIN_N : FOG_RAIN, r * 0.8); scene.background.copy(scene.fog.color);
-  scene.fog.near = lerp(260, 60, r); scene.fog.far = lerp(1650, 520, r);
+  scene.fog.near = lerp(fn, 60, r); scene.fog.far = lerp(ff, 520, r);
   renderer.toneMappingExposure *= 1 - 0.1 * r;
 }
 function updateRain(dt) {
@@ -5309,7 +5646,7 @@ function openOnboard(done) {
   const bar = el('div', 'ob-bar'); bar.setAttribute('aria-hidden', 'true'); const segs = ABOUT_Q.map(() => { const s = el('i'); bar.append(s); return s; });
   const intro = el('p', 'ob-lede', `Every answer adds ${tsh(ABOUT_PER)} to the cash you start with. Answer all ${ABOUT_Q.length} for a ${tsh(ABOUT_ALL)} bonus: up to ${tsh(PRICES.start + ABOUT_MAX)}.`);
   const body = el('div', 'ob-q'); body.setAttribute('aria-live', 'polite');
-  const foot = el('div', 'ob-foot'), skip = el('button', 'btn btn-ghost', 'Skip'), go = el('button', 'btn', ''), note = el('p', 'ob-note', 'Answers are anonymous: no names, numbers or contact details. They help us plan events, matches and new features.');
+  const foot = el('div', 'ob-foot'), skip = el('button', 'btn btn-ghost', 'Skip'), go = el('button', 'btn', ''), note = el('p', 'ob-note', 'Answers are anonymous: no names, numbers or contact details. They help us plan events, matches and new features. '); { const a = el('a', '', 'How we use them'); a.href = 'https://afconcity.com/privacy'; a.target = '_blank'; a.rel = 'noopener'; note.append(a); }
   skip.type = go.type = 'button'; foot.append(skip, go);
   card.append(head, bar, intro, body, foot, note);
   document.body.append(root);
@@ -5330,6 +5667,7 @@ function openOnboard(done) {
   const confetti = () => { if (reduceMotion) return; const c = el('div', 'ob-confetti'); for (let k = 0; k < 40; k++) { const s = el('i'); s.style.left = `${Math.random() * 100}%`; s.style.background = ['#f3b41b', '#1e9b57', '#e0553a', '#19b5b1', '#f6f1e7'][k % 5]; s.style.animationDelay = `${Math.random() * 0.4}s`; s.style.setProperty('--dx', `${(Math.random() - 0.5) * 120}px`); c.append(s); } card.append(c); setTimeout(() => c.remove(), 2600); };
   const finish = () => {
     aboutWrite({ v: 1, a: aboutClean(a), at: Date.now() });
+    track('onboard_done', { n: aboutCount(a) });
     cancelAnimationFrame(raf); document.removeEventListener('keydown', keys, true); root.remove();
     done();
   };
@@ -5414,7 +5752,7 @@ function webBackend() {
 }
 async function webSetSession(s) {
   const u = s && s.user;
-  WEB.uid = u ? u.id : null; WEB.email = (u && u.email) || ''; WEB.anon = !u || !!u.is_anonymous; WEB.admin = false;
+  WEB.uid = u ? u.id : null; WEB.token = (s && s.access_token) || ''; WEB.email = (u && u.email) || ''; WEB.anon = !u || !!u.is_anonymous; WEB.admin = false;
   if (u && !WEB.anon) { try { const r = await WEB.sb.rpc('is_admin'); WEB.admin = !!r.data; } catch (e) {} }
 }
 function onWebAuth(f) { WEB.listeners.push(f); }
@@ -5857,8 +6195,17 @@ function onServerChat(m) {
   (MP.log = MP.log || []).push({ by: m.by, nick, body, at: m.at }); if (MP.log.length > 40) MP.log.shift();
   if (PH.open && (PH.app === 'msgs' || (PH.app === 'thread' && PH.arg === '#live'))) renderPhone();
 }
+/* players who told us they are under 18 chat with friendly preset phrases only (the server checks this too) */
+const CHAT_PHRASES = ['Mambo! 👋', 'Poa!', 'Karibu Fumba!', 'Twende!', 'Asante!', 'GG!', 'Nice look! 🔥', 'Race me?', 'Follow me', 'Wait for me', 'Let\'s do a job', 'Goal! ⚽', 'Haha 😂', 'Need cash 😅', 'See you later! 👋'];
+const isTeen = () => { const v = aboutRead(); return !!(v && v.a && v.a.age === 'Under 18'); };
+function renderPhrases() {
+  const box = $('#chatPhrases'); if (!box || box.childElementCount) return;
+  for (const p of CHAT_PHRASES) { const b = document.createElement('button'); b.type = 'button'; b.textContent = p; b.addEventListener('click', () => { sendChat(p); closeChat(); }); box.append(b); }
+  const n = document.createElement('small'); n.textContent = 'Quick phrases keep chat friendly for players under 18.'; box.append(n);
+}
 function sendChat(text) {
   const msg = strOr(text, 90).trim(); if (!msg) return;
+  if (isTeen() && !CHAT_PHRASES.includes(msg)) { help('Pick one of the quick phrases.', 1800); return; }
   if (performance.now() - MP.chatT < 900) { help('Slow down a little. One message a second.', 1500); return; }
   if (MP.room && MP.room.chat) {
     MP.chatT = performance.now(); MP.typ = 0; sendPresence(true);
@@ -6061,7 +6408,7 @@ function renderAds(root, inGame) {
   }
   root.append(grid);
   root.append(renderPhoneAds(inGame), renderRadioAd());
-  if (AD.canEdit && AD.db) root.append(ownerConfig(), ownerInsights());
+  if (AD.canEdit && AD.db) { root.append(ownerConfig(), ownerInsights(), ownerEvents()); if (AD.web && WEB.sb) root.append(ownerBookings(), ownerAnalytics()); publishSlots(); }
   else if (AD.ready && AD.canEdit === false && !AD.web) root.append(el('p', 'fine', 'Ad artwork is managed by the game’s owner.'));
   if (AD.web && AD.db) root.append(webOwnerBox());
 }
@@ -6348,7 +6695,7 @@ function offerCopy(root, item) {
 }
 
 /* ---------- play stats and billboard view time ---------- */
-const GAME_VER = '2026.10.15';
+const GAME_VER = '2026.10.15.2';
 function avgFps() { if (!AD.fps.length) return 0; return AD.fps.reduce((a, b) => a + b, 0) / AD.fps.length; }
 const _adV = new T.Vector3();
 function updateAdStats(dt) {
@@ -6411,9 +6758,19 @@ function styleApply(lk, o) {
 function shuffleLook(lk) {
   const r = Math.random, pick = (a) => a[Math.floor(r() * a.length)], f = !!lk.f;
   const t = pick(TOPS.filter(it => fitsBody(it, f) && (!it.kit || r() < 0.4))), b = pick(BOTTOMS.filter(it => !it.kit && fitsBody(it, f)));
-  Object.assign(lk, { t: itemIx(TOPS, t.id), tc: Math.floor(r() * 16), tp: PATS.indexOf(pick(t.pats)), b: itemIx(BOTTOMS, b.id), bc: pick([0, 1, 10, 12, 13, 14, 7, 9, 2, 6]), bp: PATS.indexOf(r() < 0.55 ? b.pats[0] : pick(b.pats)), sh: Math.floor(r() * SHOES.length), shc: pick([0, 1, 10, 12, 16, 17, 2, 3]), ht: r() < 0.45 ? 1 + Math.floor(r() * (HATS.length - 1)) : 0, hc: pick([0, 1, 10, 5, 8, 4, 3]), ey: r() < 0.5 ? 1 + Math.floor(r() * (EYES.length - 1)) : 0 });
+  Object.assign(lk, { t: itemIx(TOPS, t.id), tc: Math.floor(r() * 16), tp: PATS.indexOf(pick(t.pats.filter(ownsPrint))), b: itemIx(BOTTOMS, b.id), bc: pick([0, 1, 10, 12, 13, 14, 7, 9, 2, 6]), bp: PATS.indexOf(r() < 0.55 || !b.pats.some(ownsPrint) ? b.pats[0] : pick(b.pats.filter(ownsPrint))), sh: Math.floor(r() * SHOES.length), shc: pick([0, 1, 10, 12, 16, 17, 2, 3]), ht: r() < 0.45 ? 1 + Math.floor(r() * (HATS.length - 1)) : 0, hc: pick([0, 1, 10, 5, 8, 4, 3]), ey: r() < 0.5 ? 1 + Math.floor(r() * (EYES.length - 1)) : 0 });
   if (t.kit) lk.b = 0;
   return lk;
+}
+/* limited prints cost game shillings, so they can only be bought once a game is under way */
+function buyPrints(list, where) {
+  const price = list.reduce((a, x) => a + (PAT_PRICE[x] || 0), 0);
+  const say = (t) => { let p = where && where.querySelector('.st-buy'); if (!p && where) { p = document.createElement('p'); p.className = 'fine st-buy'; where.prepend(p); } if (p) p.textContent = t; };
+  if (!state.intro) { say(`Limited prints are bought with game shillings (${tsh(price)}). Start playing, then open the wardrobe at home or from here.`); sfx.deny(); return false; }
+  if (!canPay(price)) { say(`You need ${tsh(price)} in cash or on Pesa for this.`); sfx.deny(); return false; }
+  spend(price, list.length > 1 ? 'Limited-edition prints' : `${PAT_NAMES[list[0]]} print`);
+  state.prints = Array.from(new Set((state.prints || []).concat(list))); track('print_bought', { p: list.join(',') }); writeSave();
+  return true;
 }
 /* the wardrobe editor; o.name keeps radio groups apart, o.after redraws other avatars, o.compact for the home panel */
 function renderStyle(root, o) {
@@ -6449,7 +6806,9 @@ function renderStyle(root, o) {
     if (top.dress || top.robe) { b1.style.backgroundImage = t1.style.backgroundImage; b1.style.backgroundSize = 'cover'; } else if (q.bp > 0) { b1.style.backgroundImage = `url(${patSwatch(PATS[q.bp], PALETTE[q.bc])})`; b1.style.backgroundSize = 'cover'; }
     const s2 = el('i', 's'); s2.style.backgroundColor = cssHex(PALETTE[q.shc]);
     art.append(t1, b1, s2); b.append(art, el('span', 'st-pn', p.n));
-    b.addEventListener('click', () => set((l) => applyPreset(l, p), 'cheer'));
+    const need = presetPrints(p).filter(x => !ownsPrint(x)), price = need.reduce((a, x) => a + PAT_PRICE[x], 0);
+    if (p.ltd) { b.classList.add('ltd'); b.append(el('span', 'st-tag', need.length ? `Limited · ${tsh(price)}` : 'Limited · yours')); }
+    b.addEventListener('click', () => { if (need.length && !buyPrints(need, grid.parentElement)) return; set((l) => applyPreset(l, p), 'cheer'); });
     grid.append(b);
   }
   // one slot at a time
@@ -6458,7 +6817,14 @@ function renderStyle(root, o) {
   for (const [k, n] of tabs) { const b = el('button', '', n); b.type = 'button'; b.setAttribute('role', 'tab'); b.setAttribute('aria-selected', String(STYLE.tab === k)); b.addEventListener('click', () => { STYLE.tab = k; redo(); root.querySelector('.st-tabs [aria-selected="true"]')?.focus(); }); tb.append(b); }
   const pane = el('div', 'st-pane'); s2.append(pane);
   const colours = (key, label) => { const r = row(pane, 'swatches'); r.setAttribute('aria-label', label); PALETTE.forEach((c, i) => chip(r, key, '', lk[key] === i, () => set((l) => { l[key] = i; }), cssHex(c)).querySelector('input').setAttribute('aria-label', PALETTE_NAMES[i])); };
-  const prints = (key, pats, colKey) => { if (pats.length < 2) return; const r = row(pane, 'swatches prints'); pats.forEach((p) => chip(r, key, PAT_NAMES[p], PATS[lk[key]] === p, () => set((l) => { l[key] = PATS.indexOf(p); }), null, patSwatch(p, PALETTE[lk[colKey]]))); };
+  const prints = (key, pats, colKey) => {
+    if (pats.length < 2) return;
+    const r = row(pane, 'swatches prints');
+    pats.forEach((p) => {
+      const own = ownsPrint(p), c = chip(r, key, own ? PAT_NAMES[p] : `${PAT_NAMES[p]} · ${tsh(PAT_PRICE[p])}`, PATS[lk[key]] === p, () => { if (!own && !buyPrints([p], pane)) { redo(); return; } set((l) => { l[key] = PATS.indexOf(p); }, own ? null : 'cheer'); }, null, patSwatch(p, PALETTE[lk[colKey]]));
+      if (!own) c.classList.add('locked');
+    });
+  };
   const top = TOPS[lk.t], bot = BOTTOMS[lk.b];
   if (STYLE.tab === 'top') {
     const r = row(pane); TOPS.forEach((it, i) => { if (fitsBody(it, lk.f)) chip(r, 'top', it.robe && !lk.f ? it.nm : it.n, lk.t === i, () => set((l) => { l.t = i; if (!it.pats.includes(PATS[l.tp])) l.tp = PATS.indexOf(it.dp === undefined ? it.pats[0] : it.dp); if (it.kit) l.b = 0; else if (BOTTOMS[l.b].kit) { l.b = itemIx(BOTTOMS, lk.f ? 'palazzo' : 'chinoS'); l.bc = BOTTOMS[l.b].dc; } })); });
@@ -8489,6 +8855,478 @@ function updateAudio(dt) {
   if (mv > 0.001) musicSchedule(); else MUS.nextT = 0;
   if (AU.engine && playerVeh) { const s = Math.abs(playerVeh.vf), base = playerVeh.kind === 'boda' ? 46 : 34; AU.engine.o1.frequency.setTargetAtTime(base + s * 6.5, t, 0.08); AU.engine.o2.frequency.setTargetAtTime((base + s * 6.5) / 2, t, 0.08); AU.engine.lp.frequency.setTargetAtTime(500 + s * 90, t, 0.1); AU.engine.lfo.frequency.setTargetAtTime(14 + s * 2.5, t, 0.1); }
 }
+/* ===================== 61 online extras on afconcity.com: cloud saves, leaderboards, invites, analytics ===================== */
+/* All of this talks to Supabase through the website's anonymous sign-in (49-web). In the Claude-hosted copy it switches off. */
+const ON = { sid: Math.random().toString(36).slice(2, 12), queue: [], t0: Date.now(), last: {}, cloudT: 0, cloudHash: '', scoreT: 0, collectT: 0, moved: false, lb: null, lbT: 0 };
+const lsGet = (k) => { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } };
+const lsSet = (k, v) => { try { if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) {} };
+const onlineReady = () => !!(MP.web && WEB.sb && WEB.uid);
+const fmtCode = (c) => c ? c.slice(0, 5) + '-' + c.slice(5) : '';
+
+/* ---------- analytics: small named events (see supabase/setup.sql, events) ---------- */
+function track(name, props) {
+  if (!MP.web) return;
+  ON.queue.push({ sid: ON.sid, name, props: props || {} });
+  if (onlineReady()) flushTrack();
+}
+function flushTrack() {
+  if (!onlineReady() || !ON.queue.length) return;
+  const rows = ON.queue.splice(0, 20);
+  WEB.sb.from('events').insert(rows).then(() => {}, () => {});
+}
+/* the last event of a visit has to survive the page closing, so it goes with keepalive */
+function trackBeacon(name, props) {
+  if (!onlineReady() || !WEB.token) return;
+  try { fetch(SB_CFG.url + '/rest/v1/events', { method: 'POST', keepalive: true, headers: { apikey: SB_CFG.key, Authorization: 'Bearer ' + WEB.token, 'Content-Type': 'application/json', Prefer: 'return=minimal' }, body: JSON.stringify([{ sid: ON.sid, name, props: props || {} }]) }); } catch (e) {}
+}
+function arrivalSource() {
+  const q = new URLSearchParams(location.search), ref = q.get('ref'), utm = q.get('utm_source');
+  if (utm) return String(utm).toLowerCase().replace(/[^a-z0-9_.-]/g, '').slice(0, 30);
+  if (ref) return 'invite';
+  try { const h = document.referrer ? new URL(document.referrer).hostname.replace(/^www\./, '') : ''; if (h && h !== location.hostname) return h.slice(0, 40); } catch (e) {}
+  return '';
+}
+/* milestones are noticed by watching the save, so no game code needs to report them */
+function watchMilestones() {
+  const L = ON.last, jobs = state.stats.jobs || 0, st = stampCount();
+  if (L.init) {
+    if (state.intro && !L.intro) track('met_amina');
+    if (jobs > 0 && !L.jobs) track('first_job');
+    if (st >= 3 && L.stamps < 3) track('stamps_3');
+    if (st >= REQUIRED.length && L.stamps < REQUIRED.length) track('stamps_all');
+    if (state.ticket && !L.ticket) track('vip_ticket');
+  }
+  Object.assign(L, { init: true, intro: state.intro, jobs, stamps: st, ticket: state.ticket });
+}
+
+/* ---------- cloud saves: a 10-letter code; typing it on another phone moves the save there ---------- */
+function cloudPayload() { const a = aboutRead(); return { save: state, about: a ? a.a : null, at: Date.now() }; }
+async function cloudSync(force) {
+  if (!onlineReady() || ON.moved || ON.cloudBusy || mode === 'intro') return;
+  if (!player) return;
+  if (!playerVeh) { state.x = P.x; state.z = P.z; state.ry = player.rotation.y; }
+  const body = cloudPayload(), hash = JSON.stringify(body.save).length + ':' + Math.round(state.cash) + ':' + stampCount() + ':' + state.stats.jobs + ':' + Math.round(state.playMs / 60000);
+  if (!force && hash === ON.cloudHash) return;
+  ON.cloudBusy = true;
+  try {
+    const { data, error } = await WEB.sb.rpc('save_put', { p_code: lsGet('afc-cloud') || null, p_data: body });
+    if (error) {
+      if (/moved to another device/i.test(error.message || '')) { ON.moved = true; help('Your cloud save is now on another phone. This copy will not upload any more.', 6000); }
+      else if (/unknown save code/i.test(error.message || '')) lsSet('afc-cloud', null);
+    } else if (data) { lsSet('afc-cloud', String(data)); ON.cloudHash = hash; ON.cloudAt = Date.now(); renderCloud(); }
+  } catch (e) {}
+  ON.cloudBusy = false;
+}
+async function cloudLoad(code, out) {
+  const say = (t, bad) => { if (out) { out.textContent = t; out.classList.toggle('bad', !!bad); } };
+  if (!MP.web) { say('Save codes work on afconcity.com.', true); return; }
+  if (!/^[A-HJ-NP-Z2-9]{10}$/.test(String(code || '').toUpperCase().replace(/[^A-Z0-9]/g, ''))) { say('A save code is 10 letters and numbers, like ABCDE-23456.', true); return; }
+  say('Looking for your save…');
+  try {
+    await webBackend();
+    if (!WEB.uid) { say('Could not reach the server. Check your connection.', true); return; }
+    const { data, error } = await WEB.sb.rpc('save_load', { p_code: code });
+    if (error) { say(error.message || 'That code did not work.', true); return; }
+    const s = data && data.data && data.data.save;
+    if (!s || s.v !== SAVE_V) { say('That save is from a version of the game this phone cannot read.', true); return; }
+    lsSet(SAVE_KEY, JSON.stringify(s)); lsSet('afc-cloud', data.code);
+    if (data.data.about) aboutWrite({ v: 1, a: aboutClean(data.data.about), at: Date.now() });
+    track('save_loaded');
+    say(`Found it: ${s.nick || 'Fan'} with ${tsh((s.cash || 0) + (s.bank || 0))}. Loading…`);
+    setTimeout(() => location.reload(), 900);
+  } catch (e) { say('Could not reach the server. Check your connection.', true); }
+}
+/* the save code card, in Settings (pause menu) */
+function renderCloud() {
+  const box = $('#cloudBox'); if (!box) return;
+  box.innerHTML = '';
+  const el = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x !== undefined) e.textContent = x; return e; };
+  if (!MP.web) { box.append(el('p', 'fine', 'Cloud saves work when you play on afconcity.com.')); return; }
+  const code = lsGet('afc-cloud');
+  if (ON.moved) { box.append(el('p', 'fine', 'This save now lives on another phone. Start a new game here, or load a different code from the start screen.')); return; }
+  if (!code) { box.append(el('p', 'fine', 'Your progress is backed up online a minute after you start playing. Your save code will appear here.')); return; }
+  const row = el('div', 'cloud-row'), b = el('b', 'cloud-code', fmtCode(code)), cp = el('button', 'btn btn-sm', 'Copy');
+  cp.type = 'button'; cp.addEventListener('click', () => { try { navigator.clipboard.writeText(fmtCode(code)).then(() => { cp.textContent = 'Copied'; }, () => {}); } catch (e) {} });
+  row.append(b, cp); box.append(row);
+  box.append(el('p', 'fine', `Type this code on another phone or computer (start screen, "Have a save code?") to carry on there. Keep it private: anyone with it can load your game.${ON.cloudAt ? ' Last backed up ' + new Date(ON.cloudAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + '.' : ''}`));
+}
+
+/* ---------- leaderboards ---------- */
+function isoWeek(d) {
+  d = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const day = d.getUTCDay() || 7; d.setUTCDate(d.getUTCDate() + 4 - day);
+  const y0 = new Date(Date.UTC(d.getUTCFullYear(), 0, 1)), wk = Math.ceil(((d - y0) / 86400000 + 1) / 7);
+  return `${d.getUTCFullYear()}-W${String(wk).padStart(2, '0')}`;
+}
+/* this week's numbers are counted from where the week started for this save */
+function weekNumbers() {
+  const wk = isoWeek(new Date());
+  if (!state.week || state.week.id !== wk) state.week = { id: wk, stamps0: stampCount(), earned0: state.stats.earned || 0 };
+  return { week: wk, week_stamps: Math.max(0, stampCount() - state.week.stamps0), week_earned: Math.max(0, Math.round((state.stats.earned || 0) - state.week.earned0)) };
+}
+async function scoreSync() {
+  if (!onlineReady() || mode === 'intro' || !state.intro) return;
+  const w = weekNumbers(), best = state.stats.best ? Math.round(state.stats.best * 1000) : null;
+  const row = { uid: WEB.uid, nick: (state.nick || 'Fan').slice(0, 16), worth: clamp(Math.round(money()), 0, 99999999), stamps: stampCount(), week: w.week, week_stamps: w.week_stamps, week_earned: clamp(w.week_earned, 0, 99999999), best_race: best && best >= 20000 && best <= 3600000 ? best : null };
+  const key = JSON.stringify(row); if (key === ON.scoreKey) return;
+  try { const { error } = await WEB.sb.from('scores').upsert(row, { onConflict: 'uid' }); if (!error) ON.scoreKey = key; } catch (e) {}
+}
+async function loadBoards() {
+  if (!MP.web) return null;
+  await webBackend(); if (!WEB.sb) return null;
+  const wk = isoWeek(new Date()), sel = 'uid,nick,worth,stamps,week_stamps,week_earned,best_race';
+  const [a, b, c] = await Promise.all([
+    WEB.sb.from('scores').select(sel).eq('week', wk).gt('week_stamps', 0).order('week_stamps', { ascending: false }).order('week_earned', { ascending: false }).limit(10),
+    WEB.sb.from('scores').select(sel).gt('worth', 0).order('worth', { ascending: false }).limit(10),
+    WEB.sb.from('scores').select(sel).not('best_race', 'is', null).order('best_race', { ascending: true }).limit(10),
+  ]);
+  return { week: wk, race: a.data || [], rich: b.data || [], fast: c.data || [] };
+}
+async function renderLeaders() {
+  const box = $('#pmLeaders'); if (!box) return;
+  const el = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x !== undefined) e.textContent = x; return e; };
+  box.innerHTML = '';
+  if (!MP.web) { box.append(el('p', 'fine', 'Leaderboards and invites run on afconcity.com.')); return; }
+  box.append(el('p', 'fine', 'Loading the leaderboards…'));
+  scoreSync();
+  let L = null; try { L = await loadBoards(); } catch (e) {}
+  box.innerHTML = '';
+  // invite card first: it is how the boards grow
+  box.append(inviteCard());
+  if (!L) { box.append(el('p', 'fine', 'Could not load the leaderboards. Check your connection.')); return; }
+  const me = WEB.uid;
+  const board = (title, sub, rows, val) => {
+    const s = el('section', 'lb'); s.append(el('h3', '', title), el('p', 'fine', sub));
+    const ol = el('ol', 'lb-list');
+    if (!rows.length) ol.append(el('li', 'lb-empty', 'Nobody yet. Be first!'));
+    rows.forEach((r) => { const li = el('li', r.uid === me ? 'me' : ''); li.append(el('b', '', r.nick || 'Fan'), el('span', '', val(r))); ol.append(li); });
+    s.append(ol); box.append(s);
+  };
+  const w = weekNumbers();
+  board('Weekly Passport Race', `Most passport stamps this week (Monday to Sunday), then most shillings earned. You: ${w.week_stamps} stamp${w.week_stamps === 1 ? '' : 's'}, ${tsh(w.week_earned)}.`, L.race, (r) => `${r.week_stamps} stamp${r.week_stamps === 1 ? '' : 's'} · ${tsh(r.week_earned)}`);
+  board('Richest fans', 'Cash plus Pesa, right now.', L.rich, (r) => tsh(r.worth));
+  board('Fastest bajaji race', 'Best time round the Fumba race course.', L.fast, (r) => fmtTime(r.best_race / 1000));
+}
+
+/* ---------- invites: both players get TSh 25,000 once the new player gets going ---------- */
+const INVITE_PAY = 25000;
+function inviteCard() {
+  const el = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x !== undefined) e.textContent = x; return e; };
+  const s = el('section', 'lb invite'); s.append(el('h3', '', 'Invite friends · TSh 25,000 each'), el('p', 'fine', `Send your link. When a friend starts playing through it, you both get ${tsh(INVITE_PAY)} (up to 10 friends a week).`));
+  const row = el('div', 'cloud-row'), code = el('b', 'cloud-code', '…'), cp = el('button', 'btn btn-sm', 'Share link'); cp.type = 'button'; cp.disabled = true;
+  row.append(code, cp); s.append(row);
+  (async () => {
+    try {
+      await webBackend(); if (!WEB.sb) return;
+      const { data } = await WEB.sb.rpc('my_ref'); if (!data) return;
+      const url = `https://afconcity.com/?ref=${data}`; code.textContent = url.replace('https://', ''); cp.disabled = false;
+      cp.addEventListener('click', async () => {
+        const text = tr(`Come play AfconCity with me: real Fumba, Zanzibar in 3D. Start with ${tsh(INVITE_PAY)} extra:`);
+        track('invite_share');
+        try { if (navigator.share) { await navigator.share({ title: 'AfconCity', text, url }); return; } } catch (e) { return; }
+        try { await navigator.clipboard.writeText(`${text} ${url}`); cp.textContent = 'Link copied'; } catch (e) {}
+      });
+    } catch (e) {}
+  })();
+  return s;
+}
+/* arriving with ?ref=: remembered until this player has an ID, then registered once */
+function inviteArrive() { const r = new URLSearchParams(location.search).get('ref'); if (r && /^[a-z0-9]{6}$/i.test(r) && !lsGet('afc-ref-done')) lsSet('afc-ref', r.toLowerCase()); }
+async function inviteTick() {
+  if (!onlineReady()) return;
+  const ref = lsGet('afc-ref');
+  if (ref && !lsGet('afc-ref-done')) { try { await WEB.sb.rpc('invite_accept', { p_ref: ref }); } catch (e) {} lsSet('afc-ref-done', '1'); lsSet('afc-ref', null); }
+  // the new player's own reward: once they have met Amina and played a few minutes
+  if (lsGet('afc-ref-done') && !lsGet('afc-inv-q') && state.intro && state.playMs > 4 * 60000 && mode === 'play') {
+    try { const { data } = await WEB.sb.rpc('invite_qualify'); lsSet('afc-inv-q', '1'); if (data) { earn(INVITE_PAY, 'Invite bonus'); splash('KARIBU RAFIKI!', `Your friend's invite paid ${tsh(INVITE_PAY)}`, 'gold'); sfx.win(); track('invite_paid'); } } catch (e) {}
+  }
+  // the inviter's rewards
+  if (mode === 'play' && Date.now() - ON.collectT > 5 * 60000) {
+    ON.collectT = Date.now();
+    try { const { data } = await WEB.sb.rpc('invite_collect'); const n = +data || 0; if (n > 0) { earn(INVITE_PAY * n, n === 1 ? 'A friend joined' : `${n} friends joined`); splash('ASANTE!', `${n} friend${n === 1 ? '' : 's'} started playing · +${tsh(INVITE_PAY * n)}`, 'gold'); sfx.win(); } } catch (e) {}
+  }
+}
+
+/* ---------- the clock for all of the above ---------- */
+function initOnline() {
+  inviteArrive();
+  if (!MP.web) return;
+  webBackend().then(() => {
+    track('session_start', { src: arrivalSource(), dev: isCoarse ? 'touch' : 'desktop', gfx, w: innerWidth, returning: !!readSave() });
+    flushTrack();
+  }, () => {});
+  setInterval(() => {
+    if (!onlineReady()) return;
+    flushTrack();
+    if (mode !== 'intro') watchMilestones();
+    const t = Date.now();
+    if (mode !== 'intro' && t - ON.cloudT > 60000) { ON.cloudT = t; cloudSync(false); }
+    if (mode !== 'intro' && t - ON.scoreT > 90000) { ON.scoreT = t; scoreSync(); }
+    inviteTick();
+  }, 5000);
+  // play time is reported in pieces (each time the page is hidden), so pieces add up to the real total
+  const bye = () => { if (mode === 'intro') return; cloudSync(true); scoreSync(); const t = Date.now(); trackBeacon('session_end', { sec: Math.round((t - ON.t0) / 1000) }); ON.t0 = t; };
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') bye(); });
+  addEventListener('pagehide', bye);
+}
+/* ===================== 62 daily: a login reward that grows with a streak, and three small challenges a day ===================== */
+/* Days follow the player's own calendar. Challenges measure progress from where the day started, using the save's own counters. */
+const DAILY_PAY = [5000, 7500, 10000, 15000, 20000, 30000, 50000];
+const CHALLENGES = [
+  { id: 'earn', stat: 'earned', n: [30000, 60000], text: (n) => `Earn ${tsh(n)}`, pay: 10000, fmt: tsh },
+  { id: 'jobs', stat: 'jobs', n: [2, 3], text: (n) => `Finish ${n} jobs`, pay: 10000 },
+  { id: 'coins', stat: 'coins', n: [6, 10], text: (n) => `Grab ${n} street coins`, pay: 8000 },
+  { id: 'kg', stat: 'kg', n: [8, 15], text: (n) => `Harvest ${n} kg of seaweed`, pay: 10000 },
+  { id: 'sold', stat: 'sold', n: [3, 5], text: (n) => `Sell ${n} madafu on the beach`, pay: 8000 },
+  { id: 'fish', stat: 'fish', n: [2, 3], text: (n) => `Catch ${n} fish off the pier`, pay: 10000 },
+  { id: 'thieves', stat: 'thieves', n: [1, 1], text: () => 'Catch a pickpocket', pay: 15000 },
+  { id: 'errands', stat: 'errands', n: [1, 2], text: (n) => `Run ${n === 1 ? 'an errand' : n + ' errands'} for someone on the street`, pay: 8000 },
+  { id: 'stamp', stat: '@stamps', n: [1, 1], text: () => 'Earn a passport stamp', pay: 15000 },
+];
+const todayKey = (d) => { d = d || new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+const statNow = (stat) => stat === '@stamps' ? stampCount() : (state.stats[stat] || 0);
+/* a new day: keep the streak if yesterday was played, and draw three challenges that still make sense for this save */
+function dailyRoll() {
+  const today = todayKey(), D = state.daily;
+  if (D && D.day === today) return false;
+  const y = new Date(); y.setDate(y.getDate() - 1);
+  const streak = D && D.day === todayKey(y) ? (D.streak || 0) + 1 : 1;
+  const r = mulberry32(hashStr(today + (state.nick || '')) >>> 0), pool = CHALLENGES.filter(c => c.id !== 'stamp' || stampCount() < REQUIRED.length);
+  const pick = [];
+  while (pick.length < 3 && pool.length) { const c = pool.splice(Math.floor(r() * pool.length), 1)[0]; pick.push({ id: c.id, n: c.n[Math.floor(r() * c.n.length)], base: statNow(c.stat), done: false }); }
+  state.daily = { day: today, streak, claimed: false, ch: pick };
+  return true;
+}
+const dailyPay = () => DAILY_PAY[Math.min(DAILY_PAY.length, Math.max(1, state.daily.streak)) - 1];
+/* the login reward card: shown when a day's first game starts */
+function dailyCard() {
+  if (!state.daily || state.daily.claimed || $('#dailyCard') || (DEV && window.__noDaily)) return;
+  const el = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x !== undefined) e.textContent = x; return e; };
+  const s = state.daily.streak, pay = dailyPay();
+  const root = el('div', 'ob daily'); root.id = 'dailyCard'; root.setAttribute('role', 'dialog'); root.setAttribute('aria-modal', 'true'); root.setAttribute('aria-labelledby', 'dailyT');
+  const card = el('div', 'ob-card'); root.append(card);
+  const h = el('h2', '', s > 1 ? `Day ${s} in a row!` : 'Karibu tena!'); h.id = 'dailyT';
+  card.append(el('span', 'eyebrow', 'Daily reward'), h, el('p', 'ob-lede', s > 1 ? 'Come back tomorrow to keep the streak: the reward grows every day for a week.' : 'Play on more days in a row and the daily reward grows, up to TSh 50,000 on day 7.'));
+  const row = el('ol', 'daily-row');
+  DAILY_PAY.forEach((p, i) => { const li = el('li', i + 1 < Math.min(s, 7) ? 'past' : i + 1 === Math.min(s, 7) ? 'now' : ''); li.append(el('small', '', `Day ${i + 1}`), el('b', '', `${p / 1000}k`)); row.append(li); });
+  const go = el('button', 'btn btn-xl', `Collect ${tsh(pay)}`); go.type = 'button';
+  card.append(row, go);
+  const done = () => { document.removeEventListener('keydown', keys, true); root.remove(); canvas.focus(); };
+  const keys = (e) => { e.stopPropagation(); if (e.key === 'Escape' || e.key === 'Enter') { e.preventDefault(); go.click(); } };
+  go.addEventListener('click', () => { if (!state.daily.claimed) { state.daily.claimed = true; earn(pay, s > 1 ? `Day ${s} streak` : 'Daily reward'); sfx.coin(2); track('daily_reward', { streak: s }); writeSave(); } done(); });
+  document.addEventListener('keydown', keys, true);
+  document.body.append(root); go.focus();
+}
+/* checked every couple of seconds while playing */
+function dailyTick() {
+  if (mode !== 'play' || !state.intro || (DEV && window.__noDaily)) return;
+  if (dailyRoll()) dailyCard();
+  for (const c of state.daily.ch) {
+    if (c.done) continue;
+    const def = CHALLENGES.find(d => d.id === c.id); if (!def) continue;
+    if (statNow(def.stat) - c.base >= c.n) {
+      c.done = true; earn(def.pay, 'Daily challenge'); splash('CHANGAMOTO!', `${def.text(c.n)} · +${tsh(def.pay)}`, 'gold'); sfx.win(); track('challenge_done', { id: c.id });
+      if (state.daily.ch.every(q => q.done)) setTimeout(() => { earn(15000, 'All three challenges'); splash('HONGERA!', `All of today's challenges · +${tsh(15000)}`, 'gold'); sfx.win(); }, 2600);
+      writeSave();
+    }
+  }
+}
+/* the Passport tab shows today's challenges above the stamps */
+function dailyCardHTML(root) {
+  if (!state.daily) dailyRoll();
+  const el = (t, c, x) => { const e = document.createElement(t); if (c) e.className = c; if (x !== undefined) e.textContent = x; return e; };
+  const box = el('section', 'daily-box');
+  box.append(el('h3', '', `Today's challenges${state.daily.streak > 1 ? ` · day ${state.daily.streak} streak` : ''}`));
+  const ul = el('ul', 'daily-list');
+  for (const c of state.daily.ch) {
+    const def = CHALLENGES.find(d => d.id === c.id); if (!def) continue;
+    const got = Math.min(c.n, Math.max(0, statNow(def.stat) - c.base)), li = el('li', c.done ? 'done' : '');
+    const bar = el('i'); bar.style.setProperty('--p', `${Math.round(got / c.n * 100)}%`);
+    li.append(el('b', '', def.text(c.n)), el('span', '', c.done ? `Done · +${tsh(def.pay)}` : `${def.fmt ? def.fmt(got) : got} / ${def.fmt ? def.fmt(c.n) : c.n} · ${tsh(def.pay)}`), bar);
+    ul.append(li);
+  }
+  box.append(ul, el('p', 'fine', 'New challenges every day. Finish all three for a TSh 15,000 bonus.'));
+  root.prepend(box);
+}
+function initDaily() { setInterval(dailyTick, 2000); }
+/* ===================== 63 match days: AFCON dates built in, more added by the owner; watch parties at the Fan Zone ===================== */
+/* Times are stored in UTC. Built-in dates come from CAF's announced calendar (qualifiers and the 19 June – 17 July 2027 finals). */
+const MATCHDAYS = [
+  { id: 'q34', title: 'AFCON qualifiers · matchdays 3 and 4', start: '2026-11-09T10:00:00Z', end: '2026-11-17T22:00:00Z', kind: 'watch' },
+  { id: 'q56', title: 'AFCON qualifiers · matchdays 5 and 6', start: '2027-03-22T10:00:00Z', end: '2027-03-30T22:00:00Z', kind: 'watch' },
+  { id: 'open', title: 'AFCON 2027 opening match', start: '2027-06-19T08:00:00Z', end: '2027-06-19T23:30:00Z', kind: 'watch', big: true },
+  { id: 'finals', title: 'AFCON 2027 · every match on the big screen', start: '2027-06-20T08:00:00Z', end: '2027-07-16T23:30:00Z', kind: 'watch' },
+  { id: 'final', title: 'AFCON 2027 final', start: '2027-07-17T08:00:00Z', end: '2027-07-17T23:30:00Z', kind: 'watch', big: true },
+];
+const EV = { owner: [], live: null, next: null, t: 0, payT: 0 };
+const WATCH_PAY = 2000, WATCH_CAP = 30;
+const evAll = () => EV.owner.concat(MATCHDAYS);
+const inFanZone = () => Math.abs(P.x - FZ.x) < FZ.w / 2 && Math.abs(P.z - FZ.z) < FZ.d / 2;
+function cleanEvent(e) {
+  if (!e || typeof e !== 'object') return null;
+  const s = Date.parse(e.start), en = Date.parse(e.end), title = String(e.title || '').replace(/\s+/g, ' ').trim().slice(0, 70);
+  if (!title || !isFinite(s) || !isFinite(en) || en <= s || en - s > 40 * 86400000) return null;
+  return { id: String(e.id || s).slice(0, 24), title, start: new Date(s).toISOString(), end: new Date(en).toISOString(), kind: e.kind === 'party' ? 'party' : 'watch', note: String(e.note || '').slice(0, 80), big: !!e.big, own: true };
+}
+function evalEvents() {
+  const t = Date.now(); let live = null, next = null;
+  for (const e of evAll()) {
+    const s = Date.parse(e.start), en = Date.parse(e.end);
+    if (s <= t && t < en) { if (!live || (e.own && !live.own) || (e.big && !live.big)) live = e; }
+    else if (s > t && (!next || s < Date.parse(next.start))) next = e;
+  }
+  const changed = (live && live.id) !== (EV.live && EV.live.id);
+  EV.live = live; EV.next = next;
+  if (changed) { renderEventBanner(); if (live && mode === 'play') help(`<b class="hl">${escapeHtml(live.title)}</b> is on. Watch party at the <b class="hl">Fan Zone</b>: cheer with the crowd for ${tsh(WATCH_PAY)} a minute.`, 7000); }
+}
+const whenText = (iso) => { const d = new Date(iso), days = Math.ceil((d - Date.now()) / 86400000); return days <= 1 ? `today at ${d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : days < 14 ? `in ${days} days` : d.toLocaleDateString([], { day: 'numeric', month: 'long', year: 'numeric' }); };
+/* the start screen's match-day line */
+function renderEventBanner() {
+  const b = $('#eventBanner'); if (!b) return;
+  const e = EV.live || EV.next;
+  if (!e) { b.hidden = true; return; }
+  b.hidden = false; b.classList.toggle('live', !!EV.live);
+  b.innerHTML = '';
+  const tag = document.createElement('b'); tag.textContent = EV.live ? 'Live now' : 'Next match day';
+  const t = document.createElement('span'); t.textContent = EV.live ? `${e.title} · watch party at the Fan Zone` : `${e.title} · ${whenText(e.start)}`;
+  b.append(tag, t);
+}
+/* during a match day: cheering in the Fan Zone pays, up to 30 minutes per event per save */
+function eventsTick(dt) {
+  EV.t -= dt; if (EV.t <= 0) { EV.t = 20; evalEvents(); }
+  if (mode !== 'play' || !EV.live || !state.intro) return;
+  if (!inFanZone()) { EV.payT = 0; return; }
+  EV.payT += dt;
+  if (EV.payT >= 60) {
+    EV.payT = 0;
+    const w = state.watch = state.watch || {}, k = EV.live.id;
+    if ((w[k] || 0) < WATCH_CAP) { w[k] = (w[k] || 0) + 1; earn(WATCH_PAY, 'Watch party'); playEmote(player, 'cheer'); sfx.clap(); if (w[k] === 1) track('watch_party', { ev: k }); if (w[k] === WATCH_CAP) note('That is the watch-party pay for this match day. Enjoy the game!'); }
+  }
+}
+function eventScreenMsgs() {
+  if (EV.live) return [['WATCH PARTY · LIVE', EV.live.title], ['CHEER HERE', `${tsh(WATCH_PAY)} a minute in the Fan Zone`]];
+  if (EV.next && Date.parse(EV.next.start) - Date.now() < 7 * 86400000) return [['NEXT MATCH DAY', `${EV.next.title} · ${whenText(EV.next.start)}`]];
+  return [];
+}
+function initEvents() {
+  evalEvents();
+  // owner-added match days live in config/events, readable by everyone
+  const hook = setInterval(() => {
+    if (!AD.ready) return; clearInterval(hook);
+    if (!AD.db) return;
+    try { AD.db.doc('config/events').onSnapshot((s) => { const d = s.exists ? s.data() : {}; EV.owner = (Array.isArray(d.list) ? d.list : []).map(cleanEvent).filter(Boolean).slice(0, 40); evalEvents(); renderEventBanner(); }, () => {}); } catch (e) {}
+  }, 1000);
+}
+/* owner tools: add and remove match days */
+function ownerEvents() {
+  const box = el('section', 'ad-insights');
+  box.append(el('h3', '', 'Match days'), el('p', 'fine', 'On a match day the start screen and the Fan Zone big screen show it, and players earn TSh 2,000 a minute for cheering in the Fan Zone (up to 30 minutes each). AFCON dates are built in; add specific games here. Times are in your local time.'));
+  const ul = el('ul', 'jobs');
+  const draw = () => {
+    ul.innerHTML = '';
+    const list = evAll().slice().sort((a, b) => Date.parse(a.start) - Date.parse(b.start)).filter(e => Date.parse(e.end) > Date.now() - 86400000);
+    for (const e of list) {
+      const li = el('li'); li.append(el('b', '', e.title), el('span', '', `${new Date(e.start).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })} to ${new Date(e.end).toLocaleString([], { timeStyle: 'short' })}${e.own ? '' : ' · built in'}`));
+      if (e.own) { const del = el('button', 'btn btn-sm btn-ghost', 'Remove'); del.type = 'button'; del.addEventListener('click', async () => { await saveOwnerEvents(EV.owner.filter(x => x.id !== e.id)); draw(); }); li.append(del); }
+      ul.append(li);
+    }
+  };
+  draw();
+  const f = el('form', 'ad-form');
+  f.innerHTML = '<label>Title<input name="title" maxlength="70" placeholder="Tanzania vs Kenya" required></label><label>Day<input name="day" type="date" required></label><label>Starts<input name="from" type="time" value="18:00" required></label><label>Ends<input name="to" type="time" value="21:00" required></label><label>Kind<select name="kind"><option value="watch">Match screening</option><option value="party">Fan party</option></select></label><button class="btn btn-sm" type="submit">Add match day</button><p class="fine" data-out></p>';
+  f.addEventListener('keydown', (e) => e.stopPropagation());
+  f.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const q = (n) => f.querySelector(`[name=${n}]`).value, out = f.querySelector('[data-out]');
+    const s = new Date(`${q('day')}T${q('from')}`), en0 = new Date(`${q('day')}T${q('to')}`), en = en0 <= s ? new Date(en0.getTime() + 86400000) : en0;
+    const ev = cleanEvent({ id: 'o' + Date.now().toString(36), title: q('title'), start: s.toISOString(), end: en.toISOString(), kind: q('kind') });
+    if (!ev) { out.textContent = 'Check the title, day and times.'; return; }
+    try { await saveOwnerEvents(EV.owner.concat([ev])); out.textContent = 'Added. Players see it within a minute.'; f.reset(); draw(); } catch (err) { out.textContent = 'Could not save. Are you signed in as the owner?'; }
+  });
+  box.append(ul, f);
+  return box;
+}
+async function saveOwnerEvents(list) {
+  EV.owner = list.map(cleanEvent).filter(Boolean).slice(0, 40);
+  await AD.db.doc('config/events').set({ list: EV.owner.map((e) => { const o = Object.assign({}, e); delete o.own; return o; }), at: Date.now() });
+  evalEvents();
+}
+/* ===================== 64 owner tools on afconcity.com: paid brand bookings to approve, and player analytics ===================== */
+/* The brands page (afconcity.com/brands) needs the list of slots, which only exists inside the game: the owner's game publishes it. */
+async function publishSlots() {
+  if (!AD.db || !AD.canEdit) return;
+  const list = allSlots().map(s => ({ id: s.id, name: s.name, note: String(s.note || '').slice(0, 200), kind: s.kind || '' }));
+  const key = JSON.stringify(list); if (key === AD.slotsKey) return;
+  // remember it before writing: the write comes back as a change to config, which redraws this panel
+  AD.slotsKey = key;
+  try { await AD.db.doc('config/slots').set({ list, at: Date.now() }); } catch (e) { AD.slotsKey = ''; }
+}
+const addMonths = (iso, m) => { const d = new Date(iso + 'T00:00:00'); d.setMonth(d.getMonth() + m); d.setDate(d.getDate() - 1); return d.toISOString().slice(0, 10); };
+function ownerBookings() {
+  const box = el('section', 'ad-insights');
+  box.append(el('h3', '', 'Brand bookings (afconcity.com/brands)'));
+  const p = el('p', 'fine', 'Loading bookings…'); box.append(p);
+  const ul = el('ul', 'jobs bookings'); box.append(ul);
+  const draw = async () => {
+    try {
+      const { data, error } = await WEB.sb.from('bookings').select('*').in('status', ['paid', 'pending_payment', 'approved', 'declined']).order('created_at', { ascending: false }).limit(40);
+      if (error) throw error;
+      ul.innerHTML = '';
+      const paid = (data || []).filter(b => b.status === 'paid');
+      p.textContent = data && data.length ? `${paid.length} paid and waiting for you. Approving puts the design live on its start date; declining means you refund it in your Bachs dashboard.` : 'No bookings yet. Brands book and pay at afconcity.com/brands once you set prices above (Prices per month) and turn on Bachs.';
+      for (const b of data || []) {
+        if (b.status === 'pending_payment' && Date.now() - Date.parse(b.created_at) > 2 * 86400000) continue;
+        const slot = allSlots().find(s => s.id === b.slot), li = el('li', 'bk-' + b.status);
+        li.append(el('b', '', `${b.brand} · ${slot ? slot.name : b.slot}`), el('span', '', `${b.headline}${b.sub ? ' · ' + b.sub : ''} · from ${b.start_date} for ${b.months} month${b.months === 1 ? '' : 's'} · ${b.amount.toLocaleString()} ${b.currency} · ${b.contact_name} <${b.contact_email}> · ${b.status.replace('_', ' ')}${b.note ? ' · ' + b.note : ''}`));
+        if (b.status === 'paid') {
+          const ok = el('button', 'btn btn-sm', 'Approve'), no = el('button', 'btn btn-sm btn-ghost', 'Decline'); ok.type = no.type = 'button';
+          ok.addEventListener('click', async () => {
+            ok.disabled = no.disabled = true;
+            try {
+              await AD.db.doc('billboards/' + b.slot).set({ brand: b.brand, headline: b.headline, sub: b.sub, c1: b.c1, c2: b.c2, fg: b.fg, start: b.start_date, end: addMonths(b.start_date, b.months), status: 'live', booking: b.id, updatedAt: Date.now() });
+              await WEB.sb.from('bookings').update({ status: 'approved' }).eq('id', b.id); sfx.ding(); draw();
+            } catch (e) { ok.disabled = no.disabled = false; note('Could not approve it. Try again.'); }
+          });
+          no.addEventListener('click', async () => { ok.disabled = no.disabled = true; try { await WEB.sb.from('bookings').update({ status: 'declined', note: 'refund in Bachs' }).eq('id', b.id); draw(); } catch (e) { ok.disabled = no.disabled = false; } });
+          li.append(ok, no);
+        }
+        ul.append(li);
+      }
+    } catch (e) { p.textContent = 'Could not load bookings. Run the latest supabase/setup.sql, then reload.'; }
+  };
+  draw();
+  return box;
+}
+/* players, sessions, the path from first visit to VIP ticket, where players come from */
+function ownerAnalytics() {
+  const box = el('section', 'ad-insights an');
+  box.append(el('h3', '', 'Players · last 14 days'));
+  const p = el('p', 'fine', 'Loading analytics…'); box.append(p);
+  (async () => {
+    try {
+      const { data: A, error } = await WEB.sb.rpc('analytics_summary', { p_days: 14 });
+      if (error) throw error;
+      p.textContent = 'Counted from anonymous play events on afconcity.com. Events are kept 90 days.';
+      const pct = (a, b) => b ? Math.round(a * 100 / b) + '%' : '–';
+      const tiles = el('div', 'an-tiles');
+      for (const [v, l] of [[A.players, 'players'], [A.new_players, 'new players'], [pct(A.returned_next_day, A.new_players), 'came back next day'], [pct(A.returned_within_7_days, A.new_players), 'came back within 7 days'], [`${A.avg_session_min} min`, 'average visit'], [A.invites, 'friends invited'], [A.saves, 'cloud saves used']]) { const d = el('div'); d.append(el('b', '', String(v)), el('span', '', l)); tiles.append(d); }
+      box.append(tiles);
+      // daily players as bars
+      const max = Math.max(1, ...A.daily.map(d => d.players));
+      const bars = el('div', 'an-bars'); bars.setAttribute('role', 'img'); bars.setAttribute('aria-label', 'Players per day: ' + A.daily.map(d => `${d.day} ${d.players}`).join(', '));
+      for (const d of A.daily) { const c = el('div'); const i = el('i'); i.style.height = Math.round(d.players / max * 100) + '%'; c.title = `${d.day}: ${d.players} players, ${d.sessions} visits, ${d.minutes} min`; c.append(i, el('small', '', d.day.slice(8))); bars.append(c); }
+      box.append(el('h4', '', 'Players per day'), bars);
+      const names = { session_start: 'Opened the game', play: 'Pressed Play', onboard_done: 'Answered the questions', met_amina: 'Met Amina', first_job: 'Finished a job', stamps_3: '3 passport stamps', stamps_all: 'Full passport', vip_ticket: 'Bought the VIP ticket' };
+      const top = Math.max(1, A.funnel[0] ? A.funnel[0].players : 1), fl = el('ul', 'an-funnel');
+      for (const f of A.funnel) { const li = el('li'); const i = el('i'); i.style.width = Math.round(f.players / top * 100) + '%'; li.append(el('span', '', names[f.step] || f.step), el('b', '', `${f.players} · ${pct(f.players, top)}`), i); fl.append(li); }
+      box.append(el('h4', '', 'From first visit to VIP ticket'), fl);
+      const two = el('div', 'an-two'), list = (title, rows, key) => { const s = el('div'); s.append(el('h4', '', title)); const ul = el('ul', 'jobs'); if (!rows.length) ul.append(el('li', '', 'Nothing yet.')); for (const r of rows) { const li = el('li'); li.append(el('b', '', r[key]), el('span', '', `${r.players} players`)); ul.append(li); } s.append(ul); return s; };
+      two.append(list('Where players come from', A.sources, 'source'), list('Devices', A.devices, 'device'));
+      box.append(two, el('p', 'fine', 'Tip: add ?utm_source=whatsapp (or tiktok, instagram…) to links you share, to see which channel brings players.'));
+    } catch (e) { p.textContent = 'Could not load analytics. Run the latest supabase/setup.sql, then reload.'; }
+  })();
+  return box;
+}
 /* ===================== 90 main: player, camera, input, loop, boot ===================== */
 const cam = { yaw: 0, pitch: 0.26, dist: 4.4, curDist: 4.4, lastLook: -99, fov: 58 };
 const SETTINGS = { follow: true, sens: 1 };
@@ -8780,7 +9618,7 @@ function frame(nowMs) {
   else if (mode === 'wasted') { updateFall(player, dt); if (player.userData.fall && player.userData.fall.t > 1.9) player.userData.fall.t = 1.9; }
   else if (mode === 'penalty') updatePenalty(dt, t);
   else if (mode === 'kickoff') { updateKickoff(dt); animHuman(player, dt, t, 0, 'loco'); }
-  updateLOD(dt); updateRemotes(dt, t);
+  updateLOD(dt); updateRemotes(dt, t); eventsTick(dt);
   /* the pause menu freezes the world: no chases, rides, thieves or timers move behind it */
   if (mode !== 'paused') { updateCars(dt, t); updateWalkers(dt, t); updateThieves(dt, t); updateRentals(dt); updateCoins(dt, t); updateJobs(dt, t); updateQuests(dt, t); updateLife(dt, t); updateClock(dt); updateEnergy(dt); updatePhone(dt); updateSim(dt, t); updateHomeDoors(t); updateAdStats(dt); updateCranes(t); }
   playerHead.set(P.x, (player ? player.position.y : 0) + 1.62, P.z);
@@ -8843,6 +9681,7 @@ function segSet(sel, v) { document.querySelectorAll(sel + ' button').forEach(b =
 function enterPlay() {
   audioInit(); AD.view = null; setStyling(false);
   const bonus = applyStartBonus(); if (bonus) setTimeout(writeStats, 5000);
+  track('play', { fresh: !state.intro }); if (MP.web) watchMilestones();
   const nick = strOr($('#nick').value, 16).trim();
   state.nick = nick || state.nick || $('#nick').placeholder || 'Fan 27';
   ui.start.hidden = true; ui.hud.hidden = false; ui.tags.hidden = false;
@@ -8905,6 +9744,8 @@ function pmShow(tab) {
   else if (tab === 'goals') renderGoals();
   else if (tab === 'stats') renderStats();
   else if (tab === 'friends') renderPlayers();
+  else if (tab === 'leaders') renderLeaders();
+  else if (tab === 'settings') renderCloud();
   else if (tab === 'controls') $('#pmControls').innerHTML = $('#controlsKeys').innerHTML;
   else if (tab === 'ads') renderAds($('#pmAds'), true);
   else if (tab === 'feedback') renderFeedback();
@@ -8932,6 +9773,7 @@ function renderGoals() {
   const ul2 = document.createElement('ul'); ul2.className = 'jobs';
   for (const [a, b2] of jobs) { const li = document.createElement('li'); const x = document.createElement('b'); x.textContent = a; const y = document.createElement('span'); y.textContent = b2; li.append(x, y); ul2.append(li); }
   el.append(card, h, ul, h2, ul2);
+  if (state.intro) dailyCardHTML(el);
 }
 function renderStats() {
   const st = state.stats, s2 = Math.round(state.playMs / 1000);
@@ -8939,8 +9781,8 @@ function renderStats() {
   const el = $('#pmStats'); el.innerHTML = '';
   for (const [v, l] of rows) { const d = document.createElement('div'); const b = document.createElement('b'); b.textContent = v; const sp = document.createElement('span'); sp.textContent = l; d.append(b, sp); el.append(d); }
 }
-function openChat() { if (mode !== 'play') return; ui.chat.classList.add('open'); ui.chatbox.hidden = false; ui.chatHint.hidden = true; ui.chatInput.value = ''; if (document.pointerLockElement) document.exitPointerLock(); ui.chatInput.focus(); MP.typ = 1; sendPresence(true); }
-function closeChat() { ui.chat.classList.remove('open'); ui.chatbox.hidden = true; ui.chatHint.hidden = false; MP.typ = 0; sendPresence(true); canvas.focus(); }
+function openChat() { if (mode !== 'play') return; ui.chat.classList.add('open'); if (isTeen()) { renderPhrases(); $('#chatPhrases').hidden = false; ui.chatHint.hidden = true; if (document.pointerLockElement) document.exitPointerLock(); const f = $('#chatPhrases button'); if (f) f.focus(); return; } ui.chatbox.hidden = false; ui.chatHint.hidden = true; ui.chatInput.value = ''; if (document.pointerLockElement) document.exitPointerLock(); ui.chatInput.focus(); MP.typ = 1; sendPresence(true); }
+function closeChat() { ui.chat.classList.remove('open'); ui.chatbox.hidden = true; $('#chatPhrases').hidden = true; ui.chatHint.hidden = false; MP.typ = 0; sendPresence(true); canvas.focus(); }
 function openPause(tab) { if (mode !== 'play' && mode !== 'paused' && mode !== 'ride') return; if (mode !== 'paused') pausedFrom = mode; mode = 'paused'; ui.pause.hidden = false; if (document.pointerLockElement) document.exitPointerLock(); pmShow(typeof tab === 'string' ? tab : pmTab); $('#btnResume').focus(); }
 /* the look card on Play and the wardrobe panel */
 function renderKits() { renderLookSum(); renderPurseFact(); if (STYLE.on || !$('.sp[data-p="style"]').hidden) renderStyle($('#styleMain')); }
@@ -8960,6 +9802,8 @@ function wireUI() {
   // main menu: each item shows its panel
   const showSP = (k) => { document.querySelectorAll('.mm-item').forEach(b => b.setAttribute('aria-current', String(b.dataset.p === k))); document.querySelectorAll('.sp').forEach(p2 => { p2.hidden = p2.dataset.p !== k; }); if (k === 'ads') renderAds($('#adsMain'), false); else AD.view = null; if (mode === 'intro') setStyling(k === 'style'); if (k === 'style') renderStyle($('#styleMain')); };
   $('#btnStyle').addEventListener('click', () => showSP('style'));
+  $('#codeForm').addEventListener('submit', (e) => { e.preventDefault(); cloudLoad($('#codeInput').value, $('#codeOut')); });
+  $('#codeInput').addEventListener('keydown', (e) => e.stopPropagation());
   $('#btnStyleDone').addEventListener('click', () => { showSP('play'); $('#btnPlay').focus(); });
   window.addEventListener('keydown', (e) => { if (STYLE.on && mode === 'intro' && e.key === 'Escape') { e.preventDefault(); showSP('play'); $('#btnPlay').focus(); } });
   document.querySelectorAll('.mm-item').forEach(b => { b.addEventListener('click', () => { showSP(b.dataset.p); if (b.dataset.p === 'play' && !$('#btnPlay').disabled) $('#btnPlay').focus(); }); b.addEventListener('focus', () => showSP(b.dataset.p)); });
@@ -8989,7 +9833,8 @@ function wireUI() {
     el.addEventListener('click', (e) => { e.preventDefault(); if (performance.now() - (el._tapT || 0) < 700) return; fn(); });
   };
   const tJump = $('#tJump');
-  tap($('#tChat'), () => { if (ui.chatbox.hidden) openChat(); else closeChat(); });
+  tap($('#tChat'), () => { if (!ui.chat.classList.contains('open')) openChat(); else closeChat(); });
+  $('#chatPhrases').addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Escape') { e.preventDefault(); closeChat(); } });
   tap($('#tAct'), () => { if (curSec && !curInter) curSec.act(); else if (curInter) curInter.act(); });
   for (const el of document.querySelectorAll('#touch, #touch *')) el.addEventListener('touchstart', (e) => { if (e.cancelable) e.preventDefault(); }, { passive: false });
   document.addEventListener('gesturestart', (e) => e.preventDefault());
@@ -9067,7 +9912,7 @@ async function start(data) {
   state.tips = state.tips || {};
   // new players start in an island look (returning players keep what they wore)
   if (!saved || !saved.intro) { if (!state.look || state.look.t === undefined) state.look = newPlayerLook(!!(state.look && state.look.f)); }
-  initMultiplayer();
+  initMultiplayer(); initOnline(); initDaily();
   try { await Promise.race([Promise.all([document.fonts.load(`900 64px "Big Shoulders Display"`), document.fonts.load(`600 32px Figtree`)]), new Promise(r => setTimeout(r, 2500))]); } catch (e) {}
   await step('Painting textures…'); await loadTextures(); buildTextures();
   await step('Raising the sea…'); buildSea(); buildLand();
@@ -9087,6 +9932,7 @@ async function start(data) {
   btn.disabled = false; btn.textContent = saved && saved.intro ? 'Twende · Continue' : 'Twende · Play';
   $('#mmPlayHint').textContent = saved && saved.intro ? `Continue · ${tsh(money())}` : 'Start in Fumba';
   $('#btnNew').hidden = !(saved && saved.intro);
+  initEvents();
   requestAnimationFrame((n) => { last = n; requestAnimationFrame(loop); });
 }
 const hot = window.claude && window.claude.hot;

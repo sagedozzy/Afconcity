@@ -289,7 +289,7 @@ function frame(nowMs) {
   else if (mode === 'wasted') { updateFall(player, dt); if (player.userData.fall && player.userData.fall.t > 1.9) player.userData.fall.t = 1.9; }
   else if (mode === 'penalty') updatePenalty(dt, t);
   else if (mode === 'kickoff') { updateKickoff(dt); animHuman(player, dt, t, 0, 'loco'); }
-  updateLOD(dt); updateRemotes(dt, t);
+  updateLOD(dt); updateRemotes(dt, t); eventsTick(dt);
   /* the pause menu freezes the world: no chases, rides, thieves or timers move behind it */
   if (mode !== 'paused') { updateCars(dt, t); updateWalkers(dt, t); updateThieves(dt, t); updateRentals(dt); updateCoins(dt, t); updateJobs(dt, t); updateQuests(dt, t); updateLife(dt, t); updateClock(dt); updateEnergy(dt); updatePhone(dt); updateSim(dt, t); updateHomeDoors(t); updateAdStats(dt); updateCranes(t); }
   playerHead.set(P.x, (player ? player.position.y : 0) + 1.62, P.z);
@@ -352,6 +352,7 @@ function segSet(sel, v) { document.querySelectorAll(sel + ' button').forEach(b =
 function enterPlay() {
   audioInit(); AD.view = null; setStyling(false);
   const bonus = applyStartBonus(); if (bonus) setTimeout(writeStats, 5000);
+  track('play', { fresh: !state.intro }); if (MP.web) watchMilestones();
   const nick = strOr($('#nick').value, 16).trim();
   state.nick = nick || state.nick || $('#nick').placeholder || 'Fan 27';
   ui.start.hidden = true; ui.hud.hidden = false; ui.tags.hidden = false;
@@ -414,6 +415,8 @@ function pmShow(tab) {
   else if (tab === 'goals') renderGoals();
   else if (tab === 'stats') renderStats();
   else if (tab === 'friends') renderPlayers();
+  else if (tab === 'leaders') renderLeaders();
+  else if (tab === 'settings') renderCloud();
   else if (tab === 'controls') $('#pmControls').innerHTML = $('#controlsKeys').innerHTML;
   else if (tab === 'ads') renderAds($('#pmAds'), true);
   else if (tab === 'feedback') renderFeedback();
@@ -441,6 +444,7 @@ function renderGoals() {
   const ul2 = document.createElement('ul'); ul2.className = 'jobs';
   for (const [a, b2] of jobs) { const li = document.createElement('li'); const x = document.createElement('b'); x.textContent = a; const y = document.createElement('span'); y.textContent = b2; li.append(x, y); ul2.append(li); }
   el.append(card, h, ul, h2, ul2);
+  if (state.intro) dailyCardHTML(el);
 }
 function renderStats() {
   const st = state.stats, s2 = Math.round(state.playMs / 1000);
@@ -448,8 +452,8 @@ function renderStats() {
   const el = $('#pmStats'); el.innerHTML = '';
   for (const [v, l] of rows) { const d = document.createElement('div'); const b = document.createElement('b'); b.textContent = v; const sp = document.createElement('span'); sp.textContent = l; d.append(b, sp); el.append(d); }
 }
-function openChat() { if (mode !== 'play') return; ui.chat.classList.add('open'); ui.chatbox.hidden = false; ui.chatHint.hidden = true; ui.chatInput.value = ''; if (document.pointerLockElement) document.exitPointerLock(); ui.chatInput.focus(); MP.typ = 1; sendPresence(true); }
-function closeChat() { ui.chat.classList.remove('open'); ui.chatbox.hidden = true; ui.chatHint.hidden = false; MP.typ = 0; sendPresence(true); canvas.focus(); }
+function openChat() { if (mode !== 'play') return; ui.chat.classList.add('open'); if (isTeen()) { renderPhrases(); $('#chatPhrases').hidden = false; ui.chatHint.hidden = true; if (document.pointerLockElement) document.exitPointerLock(); const f = $('#chatPhrases button'); if (f) f.focus(); return; } ui.chatbox.hidden = false; ui.chatHint.hidden = true; ui.chatInput.value = ''; if (document.pointerLockElement) document.exitPointerLock(); ui.chatInput.focus(); MP.typ = 1; sendPresence(true); }
+function closeChat() { ui.chat.classList.remove('open'); ui.chatbox.hidden = true; $('#chatPhrases').hidden = true; ui.chatHint.hidden = false; MP.typ = 0; sendPresence(true); canvas.focus(); }
 function openPause(tab) { if (mode !== 'play' && mode !== 'paused' && mode !== 'ride') return; if (mode !== 'paused') pausedFrom = mode; mode = 'paused'; ui.pause.hidden = false; if (document.pointerLockElement) document.exitPointerLock(); pmShow(typeof tab === 'string' ? tab : pmTab); $('#btnResume').focus(); }
 /* the look card on Play and the wardrobe panel */
 function renderKits() { renderLookSum(); renderPurseFact(); if (STYLE.on || !$('.sp[data-p="style"]').hidden) renderStyle($('#styleMain')); }
@@ -469,6 +473,8 @@ function wireUI() {
   // main menu: each item shows its panel
   const showSP = (k) => { document.querySelectorAll('.mm-item').forEach(b => b.setAttribute('aria-current', String(b.dataset.p === k))); document.querySelectorAll('.sp').forEach(p2 => { p2.hidden = p2.dataset.p !== k; }); if (k === 'ads') renderAds($('#adsMain'), false); else AD.view = null; if (mode === 'intro') setStyling(k === 'style'); if (k === 'style') renderStyle($('#styleMain')); };
   $('#btnStyle').addEventListener('click', () => showSP('style'));
+  $('#codeForm').addEventListener('submit', (e) => { e.preventDefault(); cloudLoad($('#codeInput').value, $('#codeOut')); });
+  $('#codeInput').addEventListener('keydown', (e) => e.stopPropagation());
   $('#btnStyleDone').addEventListener('click', () => { showSP('play'); $('#btnPlay').focus(); });
   window.addEventListener('keydown', (e) => { if (STYLE.on && mode === 'intro' && e.key === 'Escape') { e.preventDefault(); showSP('play'); $('#btnPlay').focus(); } });
   document.querySelectorAll('.mm-item').forEach(b => { b.addEventListener('click', () => { showSP(b.dataset.p); if (b.dataset.p === 'play' && !$('#btnPlay').disabled) $('#btnPlay').focus(); }); b.addEventListener('focus', () => showSP(b.dataset.p)); });
@@ -498,7 +504,8 @@ function wireUI() {
     el.addEventListener('click', (e) => { e.preventDefault(); if (performance.now() - (el._tapT || 0) < 700) return; fn(); });
   };
   const tJump = $('#tJump');
-  tap($('#tChat'), () => { if (ui.chatbox.hidden) openChat(); else closeChat(); });
+  tap($('#tChat'), () => { if (!ui.chat.classList.contains('open')) openChat(); else closeChat(); });
+  $('#chatPhrases').addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Escape') { e.preventDefault(); closeChat(); } });
   tap($('#tAct'), () => { if (curSec && !curInter) curSec.act(); else if (curInter) curInter.act(); });
   for (const el of document.querySelectorAll('#touch, #touch *')) el.addEventListener('touchstart', (e) => { if (e.cancelable) e.preventDefault(); }, { passive: false });
   document.addEventListener('gesturestart', (e) => e.preventDefault());
@@ -576,7 +583,7 @@ async function start(data) {
   state.tips = state.tips || {};
   // new players start in an island look (returning players keep what they wore)
   if (!saved || !saved.intro) { if (!state.look || state.look.t === undefined) state.look = newPlayerLook(!!(state.look && state.look.f)); }
-  initMultiplayer();
+  initMultiplayer(); initOnline(); initDaily();
   try { await Promise.race([Promise.all([document.fonts.load(`900 64px "Big Shoulders Display"`), document.fonts.load(`600 32px Figtree`)]), new Promise(r => setTimeout(r, 2500))]); } catch (e) {}
   await step('Painting textures…'); await loadTextures(); buildTextures();
   await step('Raising the sea…'); buildSea(); buildLand();
@@ -596,6 +603,7 @@ async function start(data) {
   btn.disabled = false; btn.textContent = saved && saved.intro ? 'Twende · Continue' : 'Twende · Play';
   $('#mmPlayHint').textContent = saved && saved.intro ? `Continue · ${tsh(money())}` : 'Start in Fumba';
   $('#btnNew').hidden = !(saved && saved.intro);
+  initEvents();
   requestAnimationFrame((n) => { last = n; requestAnimationFrame(loop); });
 }
 const hot = window.claude && window.claude.hot;

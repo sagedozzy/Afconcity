@@ -1,0 +1,115 @@
+"""afconcity.com extras against the in-browser Supabase stand-in: analytics events, cloud save codes, leaderboards,
+invites, match days, brand bookings and owner analytics, and the Kiswahili switch."""
+import sys, time, json
+from harness import *
+R = []
+def check(n, ok, info=''):
+    R.append(bool(ok)); print(('PASS ' if ok else 'FAIL ') + n + ('  ' + str(info) if info else ''), flush=True)
+s = Session(claude=open(ROOT + '/tools/sbmock.js').read()).load(); s.ev("() => { window.__noRender = true; }")
+A = s.page
+GA = lambda e: A.evaluate('(s) => window.__G.run(s)', e)
+DB = lambda: json.loads(A.evaluate("() => localStorage.getItem('sbmock.db') || '{}'"))
+def until(G, expr, secs=12):
+    t0 = time.time()
+    while time.time() - t0 < secs:
+        try:
+            if G(expr): return True
+        except Exception: pass
+        time.sleep(0.25)
+    return False
+s.play()
+GA("talk('amina'), closeMenu(), 1")
+check('signed in on the website backend', until(GA, "MP.web === true && !!WEB.uid && !!WEB.token"))
+# analytics
+check('play events are recorded', until(GA, "(() => { const n = JSON.parse(localStorage.getItem('sbmock.db')).events.map(e => e.name); return n.includes('session_start') && n.includes('play'); })()"))
+check('meeting Amina is noticed as a milestone', until(GA, "(watchMilestones(), flushTrack(), JSON.parse(localStorage.getItem('sbmock.db')).events.some(e => e.name === 'met_amina'))"))
+# cloud save
+GA("cloudSync(true).then(() => 1)"); time.sleep(0.5)
+code = A.evaluate("() => localStorage.getItem('afc-cloud')")
+check('first backup creates a 10-letter save code', bool(code) and len(code) == 10, code)
+GA("openPause('settings'), 1"); time.sleep(0.4)
+check('settings shows the save code', until(GA, "document.querySelector('#cloudBox .cloud-code') && document.querySelector('#cloudBox .cloud-code').textContent === fmtCode(localStorage.getItem('afc-cloud'))"))
+GA("closeOverlays(), mode = 'play', 1")
+GA("state.cash += 1234, cloudSync().then(() => 1)"); time.sleep(0.4)
+check('later backups reuse the same code', A.evaluate("() => localStorage.getItem('afc-cloud')") == code and len(DB().get('saves', [])) == 1)
+# a second phone loads the code
+B = s.ctx.new_page(); B.on('pageerror', lambda e: s.errors.append('B: ' + str(e))); s._routes(B)
+B.goto(s.url, timeout=300000); B.wait_for_function("() => { const b = document.querySelector('#btnPlay'); return b && !b.disabled; }", timeout=300000)
+B.evaluate("() => { window.__noRender = true; }")
+GB = lambda e: B.evaluate('(s) => window.__G.run(s)', e)
+until(GB, "!!WEB.uid")
+B.evaluate("(c) => { window.__marker = 1; document.querySelector('#codeInput').value = c.slice(0, 5) + '-' + c.slice(5); document.querySelector('#codeForm').requestSubmit(); }", code)
+check('the code is found', until(lambda e: B.evaluate(e), "() => !window.__marker || /Found it/.test(document.querySelector('#codeOut').textContent)", 8), B.evaluate("() => window.__marker ? document.querySelector('#codeOut').textContent : 'reloaded'"))
+check('the other phone reloads with the save', until(lambda e: B.evaluate(e), "() => !window.__marker", 10))
+B.wait_for_function("() => { const b = document.querySelector('#btnPlay'); return b && !b.disabled; }", timeout=300000)
+B.evaluate("() => { window.__noRender = true; }")
+until(GB, "!!WEB.uid")
+saves = DB().get('saves', [])
+check('the save now belongs to the new phone', saves and saves[0]['owner'] != GA("WEB.uid"))
+GA("state.cash += 1, ON.cloudHash = '', cloudSync().then(() => 1)"); time.sleep(0.5)
+check('the old phone stops uploading', GA("ON.moved === true"))
+# leaderboards
+GA("ON.scoreKey = '', state.nick = 'Zuri', scoreSync().then(() => 1)"); time.sleep(0.4)
+check('score row is written for this player', any(r.get('nick') == 'Zuri' for r in DB().get('scores', [])))
+GA("openPause('leaders'), 1")
+check('leaderboards list the player', until(GA, "[...document.querySelectorAll('#pmLeaders .lb-list b')].some(b => b.textContent === 'Zuri')"))
+check('invite link is shown', until(GA, "/afconcity\\.com\\/\\?ref=[a-z0-9]{6}/.test(document.querySelector('#pmLeaders .invite .cloud-code').textContent)"))
+ref = GA("document.querySelector('#pmLeaders .invite .cloud-code').textContent.split('ref=')[1]")
+GA("closeOverlays(), mode = 'play', 1")
+# invites: B arrives through A's link
+B.evaluate("(r) => { localStorage.setItem('afc-ref', r); localStorage.removeItem('afc-ref-done'); localStorage.removeItem('afc-inv-q'); }", ref)
+B.evaluate("() => { document.querySelector('#btnPlay').click(); }")
+B.wait_for_function("() => window.__G && window.__G.mode === 'play'", timeout=60000)
+GB("talk('amina'), closeMenu(), 1")
+GB("inviteTick().then(() => 1)"); time.sleep(0.3)
+check('invite is accepted once', len(DB().get('invites', [])) == 1)
+cb = GB("money()"); GB("state.playMs = 5 * 60000, inviteTick().then(() => 1)"); time.sleep(0.4)
+check('new player gets TSh 25,000', GB("money()") - cb == 25000, GB("money()") - cb)
+ca = GA("money()"); GA("ON.collectT = 0, inviteTick().then(() => 1)"); time.sleep(0.4)
+check('inviter gets TSh 25,000', GA("money()") - ca == 25000, GA("money()") - ca)
+GA("ON.collectT = 0, inviteTick().then(() => 1)"); time.sleep(0.3)
+check('inviter is paid only once', GA("money()") - ca == 25000)
+# daily reward and challenges
+GA("window.__noDaily = false, state.daily = null, dailyRoll(), dailyCard(), 1")
+check('daily reward card shows on a new day', GA("!!document.querySelector('#dailyCard') && state.daily.ch.length === 3"))
+cd = GA("money()"); A.evaluate("() => document.querySelector('#dailyCard .btn').click()"); time.sleep(0.3)
+check('collecting pays the day-1 reward once', GA("money()") - cd == 5000 and GA("state.daily.claimed") and not GA("!!document.querySelector('#dailyCard')"), GA("money()") - cd)
+GA("state.daily = { day: '2000-01-01', streak: 3, claimed: true, ch: [] }, (() => { const y = new Date(); y.setDate(y.getDate() - 1); state.daily.day = todayKey(y); })(), dailyRoll(), 1")
+check('playing on consecutive days grows the streak', GA("state.daily.streak === 4 && dailyPay() === 15000"))
+dd = GA("(() => { state.daily.claimed = true; const c = state.daily.ch[0]; c.base = statNow(CHALLENGES.find(d => d.id === c.id).stat) - c.n; const m = money(); dailyTick(); return money() - m; })()")
+check('finishing a challenge pays it', GA("state.daily.ch[0].done") and dd >= 8000, dd)
+GA("window.__noDaily = true, 1")
+# match days
+GA("EV.owner = [cleanEvent({ id: 't1', title: 'Tanzania vs Kenya', start: new Date(Date.now() - 60000).toISOString(), end: new Date(Date.now() + 3600000).toISOString() })], evalEvents(), 1")
+check('a match day goes live', GA("EV.live && EV.live.id === 't1'") and GA("!document.querySelector('#eventBanner').hidden && /Live now/.test(document.querySelector('#eventBanner').textContent)"))
+c0 = GA("money()"); GA("P.x = FZ.x, P.z = FZ.z, EV.payT = 0, eventsTick(30), eventsTick(31), 1")
+check('cheering in the Fan Zone pays', GA("money()") - c0 == 2000, GA("money()") - c0)
+check('the big screen shows the watch party', GA("eventScreenMsgs()[0][0] === 'WATCH PARTY · LIVE'"))
+GA("EV.owner = [], evalEvents(), 1")
+# owner: bookings and analytics
+A.evaluate("""() => { const d = JSON.parse(localStorage.getItem('sbmock.db')); d.bookings = d.bookings || []; d.bookings.push({ id: '11111111-2222-3333-4444-555555555555', status: 'paid', slot: 'b2', brand: 'Kibo', headline: 'KIBO COFFEE', sub: 'Fresh', c1: '#141838', c2: '#1e9b57', fg: '#ffffff', start_date: '2026-11-01', months: 2, amount: 300000, currency: 'TZS', contact_name: 'Asha', contact_email: 'asha@example.com', created_at: new Date().toISOString() }); localStorage.setItem('sbmock.db', JSON.stringify(d)); }""")
+GA("openPause('ads'), 1"); time.sleep(0.5)
+A.evaluate("() => { const f = document.querySelector('#pmAds .ad-owner-login form'); f.querySelector('[name=email]').value = 'support@afconcity.com'; f.requestSubmit(); }")
+time.sleep(0.5)
+A.evaluate("() => { const f = document.querySelector('#pmAds .ad-owner-login form'); f.querySelector('[name=code]').value = '123456'; f.querySelector('[data-verify]').click(); }")
+check('owner signed in', until(GA, "AD.canEdit === true && WEB.admin === true"))
+check('slot list is published for the brands page', until(GA, "JSON.parse(localStorage.getItem('sbmock.db')).docs.some(d => d.coll === 'config' && d.id === 'slots' && d.data.list.length >= 10)"))
+check('paid booking waits for approval', until(GA, "[...document.querySelectorAll('#pmAds .bookings li')].some(l => /Kibo/.test(l.textContent) && l.querySelector('button'))"))
+A.evaluate("() => { const li = [...document.querySelectorAll('#pmAds .bookings li')].find(l => /Kibo/.test(l.textContent)); li.querySelector('button').click(); }")
+check('approving puts the design on the billboard', until(GA, "(() => { const d = JSON.parse(localStorage.getItem('sbmock.db')); const b = d.docs.find(x => x.coll === 'billboards' && x.id === 'b2'); return b && b.data.headline === 'KIBO COFFEE' && b.data.end === '2026-12-31' && d.bookings[0].status === 'approved'; })()"))
+check('analytics tiles and funnel show', until(GA, "document.querySelectorAll('#pmAds .an-tiles > div').length === 7 && document.querySelectorAll('#pmAds .an-funnel li').length === 8"))
+check('a player cannot read bookings', GB("WEB.sb.from('bookings').select('*').then(r => r.data.length === 0)"))
+check('a player cannot read analytics', GB("WEB.sb.rpc('analytics_summary', { p_days: 14 }).then(r => !!r.error)"))
+GA("closeOverlays(), mode = 'play', 1")
+# Kiswahili
+GA("applyLang('sw'), 1")
+check('Kiswahili: menus switch', GA("document.documentElement.lang === 'sw' && document.querySelector('#btnResume').firstChild.nodeValue.trim() === 'Endelea'"))
+GA("openPause('leaders'), 1")
+check('Kiswahili: panels built later are translated', until(GA, "[...document.querySelectorAll('#pmLeaders h3')].some(h => h.textContent === 'Mashabiki matajiri zaidi')"))
+check('Kiswahili: player names are left alone', GA("[...document.querySelectorAll('#pmLeaders .lb-list b')].some(b => b.textContent === 'Zuri')"))
+GA("applyLang('en'), 1")
+check('English again', GA("document.querySelector('#btnResume').firstChild.nodeValue.trim() === 'Resume' && [...document.querySelectorAll('#pmLeaders h3')].some(h => h.textContent === 'Richest fans')"))
+GA("closeOverlays(), mode = 'play', 1")
+check('no page errors', not s.errors, s.errors[:4])
+s.close()
+print('%d/%d passed' % (sum(R), len(R)))

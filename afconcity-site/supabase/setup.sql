@@ -100,6 +100,12 @@ create or replace function public.chat_enabled() returns boolean language sql st
   select coalesce((select (data ->> 'chat')::boolean from public.docs where coll = 'config' and id = 'chat'), true);
 $$;
 
+create table if not exists public.chat_phrases (phrase text primary key);
+alter table public.chat_phrases enable row level security;
+delete from public.chat_phrases;
+insert into public.chat_phrases (phrase) values
+  ('Mambo! 👋'), ('Poa!'), ('Karibu Fumba!'), ('Twende!'), ('Asante!'), ('GG!'), ('Nice look! 🔥'), ('Race me?'), ('Follow me'), ('Wait for me'), ('Let''s do a job'), ('Goal! ⚽'), ('Haha 😂'), ('Need cash 😅'), ('See you later! 👋') on conflict do nothing;
+
 create or replace function public.chat_guard() returns trigger language plpgsql security definer set search_path = public as $$
 declare w text;
 begin
@@ -111,6 +117,10 @@ begin
     raise exception 'Too many messages. Wait a minute.' using errcode = 'P0001'; end if;
   new.body := btrim(regexp_replace(new.body, '[[:cntrl:]]', '', 'g'));
   new.nick := btrim(regexp_replace(new.nick, '[[:cntrl:]]', '', 'g'));
+  -- players who said they are under 18 may only send the game's quick phrases
+  if exists (select 1 from public.docs d where d.coll = 'stats' and d.id = new.owner::text and d.data->'about'->>'age' = 'Under 18')
+     and not exists (select 1 from public.chat_phrases p where p.phrase = new.body) then
+    raise exception 'Pick one of the quick phrases.' using errcode = 'P0001'; end if;
   for w in select word from public.chat_words loop
     -- whole words only, so everyday words that merely start the same way (kumaliza) are left alone
     new.body := regexp_replace(new.body, '\m' || w || '\M', '***', 'gi');
@@ -142,4 +152,291 @@ grant select, insert, delete on public.chat_bans to authenticated;
 do $$ begin
   begin alter publication supabase_realtime add table public.docs; exception when duplicate_object then null; end;
   begin alter publication supabase_realtime add table public.chat_messages; exception when duplicate_object then null; end;
+end $$;
+
+-- =====================================================================================================
+-- Version 2 (October 2026): cloud saves, leaderboards, invites, analytics, brand bookings, clean-up
+-- =====================================================================================================
+
+-- ============ cloud saves: the game shows a code; typing it on another phone moves the save there ============
+create table if not exists public.saves (
+  code text primary key,
+  owner uuid not null,
+  data jsonb not null,
+  updated_at timestamptz not null default now(),
+  constraint save_code check (code ~ '^[A-HJ-NP-Z2-9]{10}$'),
+  constraint save_size check (octet_length(data::text) < 60000)
+);
+create index if not exists saves_owner on public.saves (owner);
+alter table public.saves enable row level security;  -- no policies: only the functions below read or write saves
+create table if not exists public.save_tries (uid uuid not null, at timestamptz not null default now());
+create index if not exists save_tries_uid on public.save_tries (uid, at desc);
+alter table public.save_tries enable row level security;
+
+create or replace function public.save_put(p_code text, p_data jsonb) returns text
+language plpgsql security definer set search_path = public as $$
+declare c text := upper(regexp_replace(coalesce(p_code, ''), '[^A-Za-z0-9]', '', 'g')); o uuid; a text := 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; i int;
+begin
+  if auth.uid() is null then raise exception 'Sign in first.' using errcode = 'P0001'; end if;
+  if p_data is null or octet_length(p_data::text) >= 60000 then raise exception 'This save is too big.' using errcode = 'P0001'; end if;
+  if c = '' then
+    if (select count(*) from saves where owner = auth.uid()) >= 5 then raise exception 'Too many save codes on this device.' using errcode = 'P0001'; end if;
+    loop
+      c := ''; for i in 1..10 loop c := c || substr(a, 1 + floor(random() * 32)::int, 1); end loop;
+      exit when not exists (select 1 from saves where code = c);
+    end loop;
+    insert into saves (code, owner, data) values (c, auth.uid(), p_data);
+    return c;
+  end if;
+  select owner into o from saves where code = c;
+  if o is null then raise exception 'Unknown save code.' using errcode = 'P0001'; end if;
+  if o <> auth.uid() then raise exception 'This save moved to another device.' using errcode = 'P0001'; end if;
+  update saves set data = p_data, updated_at = now() where code = c;
+  return c;
+end $$;
+
+create or replace function public.save_load(p_code text) returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare c text := upper(regexp_replace(coalesce(p_code, ''), '[^A-Za-z0-9]', '', 'g')); r public.saves;
+begin
+  if auth.uid() is null then raise exception 'Sign in first.' using errcode = 'P0001'; end if;
+  if (select count(*) from save_tries where uid = auth.uid() and at > now() - interval '1 hour') >= 20 then raise exception 'Too many tries. Wait an hour and try again.' using errcode = 'P0001'; end if;
+  insert into save_tries (uid) values (auth.uid());
+  select * into r from saves where code = c;
+  if r.code is null then raise exception 'No save has that code. Check it and try again.' using errcode = 'P0001'; end if;
+  update saves set owner = auth.uid(), updated_at = now() where code = c;  -- this device continues the save
+  return jsonb_build_object('code', r.code, 'data', r.data, 'updated_at', r.updated_at);
+end $$;
+revoke execute on function public.save_put(text, jsonb), public.save_load(text) from public, anon;
+grant execute on function public.save_put(text, jsonb), public.save_load(text) to authenticated;
+
+-- ============ leaderboards: everyone can read; each player writes only their own row, within sane limits ============
+create table if not exists public.scores (
+  uid uuid primary key default auth.uid(),
+  nick text not null default 'Fan',
+  worth bigint not null default 0,          -- cash plus Pesa
+  stamps int not null default 0,
+  week text not null default '',            -- ISO week of the weekly numbers, like 2026-W42
+  week_stamps int not null default 0,
+  week_earned bigint not null default 0,
+  best_race int,                            -- bajaji race, milliseconds
+  ref text unique,                          -- invite code
+  updated_at timestamptz not null default now(),
+  constraint scores_sane check (char_length(nick) between 1 and 16 and worth between 0 and 100000000 and stamps between 0 and 30
+    and week_stamps between 0 and 30 and week_earned between 0 and 100000000 and (best_race is null or best_race between 20000 and 3600000)
+    and (ref is null or ref ~ '^[a-z0-9]{6}$'))
+);
+create index if not exists scores_worth on public.scores (worth desc);
+create index if not exists scores_week on public.scores (week, week_stamps desc, week_earned desc);
+alter table public.scores enable row level security;
+create or replace function public.scores_guard() returns trigger language plpgsql security definer set search_path = public as $$
+declare w text;
+begin
+  if not public.is_admin() and coalesce(current_setting('afc.ref_ok', true), '') <> '1' then
+    if tg_op = 'UPDATE' and old.updated_at > now() - interval '10 seconds' then raise exception 'Too often.' using errcode = 'P0001'; end if;
+    if tg_op = 'UPDATE' then new.ref := old.ref; else new.ref := null; end if;  -- invite codes are handed out by my_ref()
+  end if;
+  new.nick := btrim(regexp_replace(new.nick, '[[:cntrl:]]', '', 'g'));
+  for w in select word from public.chat_words loop new.nick := regexp_replace(new.nick, '\m' || w || '\M', 'Fan', 'gi'); end loop;
+  if new.nick = '' then new.nick := 'Fan'; end if;
+  if exists (select 1 from public.chat_bans b where b.uid = new.uid) then new.nick := 'Fan'; end if;
+  new.updated_at := now();
+  return new;
+end $$;
+drop trigger if exists scores_guard on public.scores;
+create trigger scores_guard before insert or update on public.scores for each row execute function public.scores_guard();
+drop policy if exists scores_read on public.scores;
+create policy scores_read on public.scores for select to anon, authenticated using (true);
+drop policy if exists scores_insert on public.scores;
+create policy scores_insert on public.scores for insert to authenticated with check (uid = auth.uid());
+drop policy if exists scores_update on public.scores;
+create policy scores_update on public.scores for update to authenticated using (uid = auth.uid() or public.is_admin()) with check (uid = auth.uid() or public.is_admin());
+drop policy if exists scores_delete on public.scores;
+create policy scores_delete on public.scores for delete to authenticated using (public.is_admin());
+grant select on public.scores to anon, authenticated;
+grant insert, update, delete on public.scores to authenticated;
+
+-- ============ invites: afconcity.com/?ref=code pays both players once the new player gets going ============
+create or replace function public.my_ref() returns text
+language plpgsql security definer set search_path = public as $$
+declare r text; a text := 'abcdefghjkmnpqrstuvwxyz23456789'; i int;
+begin
+  if auth.uid() is null then return null; end if;
+  select ref into r from scores where uid = auth.uid();
+  if r is not null then return r; end if;
+  loop
+    r := ''; for i in 1..6 loop r := r || substr(a, 1 + floor(random() * 31)::int, 1); end loop;
+    exit when not exists (select 1 from scores where ref = r);
+  end loop;
+  perform set_config('afc.ref_ok', '1', true);
+  insert into scores (uid, ref) values (auth.uid(), r) on conflict (uid) do update set ref = r;
+  perform set_config('afc.ref_ok', '', true);
+  return r;
+end $$;
+create table if not exists public.invites (
+  invitee uuid primary key,
+  inviter uuid not null,
+  created_at timestamptz not null default now(),
+  qualified boolean not null default false,
+  paid_invitee boolean not null default false,
+  paid_inviter boolean not null default false
+);
+create index if not exists invites_inviter on public.invites (inviter);
+alter table public.invites enable row level security;  -- only the functions below
+create or replace function public.invite_accept(p_ref text) returns boolean
+language plpgsql security definer set search_path = public as $$
+declare inv uuid;
+begin
+  if auth.uid() is null then return false; end if;
+  select uid into inv from scores where ref = lower(p_ref);
+  if inv is null or inv = auth.uid() then return false; end if;
+  if exists (select 1 from invites where invitee = auth.uid()) then return false; end if;
+  if (select count(*) from invites where inviter = inv and created_at > now() - interval '7 days') >= 10 then return false; end if;
+  insert into invites (invitee, inviter) values (auth.uid(), inv);
+  return true;
+end $$;
+-- the new player has started properly (met Amina and played a few minutes): their reward, once
+create or replace function public.invite_qualify() returns boolean
+language plpgsql security definer set search_path = public as $$
+begin
+  update invites set qualified = true, paid_invitee = true where invitee = auth.uid() and not paid_invitee and created_at < now() - interval '3 minutes';
+  return found;
+end $$;
+-- the inviter collects one reward per friend who got going
+create or replace function public.invite_collect() returns int
+language plpgsql security definer set search_path = public as $$
+declare n int;
+begin
+  with x as (update invites set paid_inviter = true where inviter = auth.uid() and qualified and not paid_inviter returning 1) select count(*) into n from x;
+  return n;
+end $$;
+revoke execute on function public.my_ref(), public.invite_accept(text), public.invite_qualify(), public.invite_collect() from public, anon;
+grant execute on function public.my_ref(), public.invite_accept(text), public.invite_qualify(), public.invite_collect() to authenticated;
+
+-- ============ analytics: small events, kept 90 days, read only by the owner (as totals) ============
+create table if not exists public.events (
+  id bigint generated always as identity primary key,
+  uid uuid not null default auth.uid(),
+  sid text not null,
+  name text not null,
+  props jsonb not null default '{}'::jsonb,
+  at timestamptz not null default now(),
+  constraint events_sane check (name ~ '^[a-z0-9_]{2,32}$' and char_length(sid) between 4 and 40 and octet_length(props::text) < 1000)
+);
+create index if not exists events_at on public.events (at);
+create index if not exists events_uid on public.events (uid, at);
+alter table public.events enable row level security;
+create or replace function public.events_guard() returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if (select count(*) from public.events e where e.uid = new.uid and e.at > now() - interval '1 day') >= 500 then return null; end if;  -- quietly drop floods
+  new.at := now();
+  if random() < 0.002 then delete from public.events where at < now() - interval '90 days'; end if;
+  return new;
+end $$;
+drop trigger if exists events_guard on public.events;
+create trigger events_guard before insert on public.events for each row execute function public.events_guard();
+drop policy if exists events_insert on public.events;
+create policy events_insert on public.events for insert to authenticated with check (uid = auth.uid());
+drop policy if exists events_read on public.events;
+create policy events_read on public.events for select to authenticated using (public.is_admin());
+grant insert on public.events to authenticated;
+grant select on public.events to authenticated;
+
+create or replace function public.analytics_summary(p_days int default 14) returns jsonb
+language plpgsql stable security definer set search_path = public as $$
+declare d int := least(greatest(coalesce(p_days, 14), 1), 90); since timestamptz := date_trunc('day', now()) - (d - 1) * interval '1 day'; out jsonb;
+begin
+  if not public.is_admin() then raise exception 'Owners only.' using errcode = 'P0001'; end if;
+  with e as (select * from events where at >= since),
+  days as (select generate_series(date_trunc('day', since), date_trunc('day', now()), interval '1 day') as day),
+  daily as (
+    select to_char(days.day, 'YYYY-MM-DD') as day,
+      (select count(distinct uid) from e where e.name = 'session_start' and date_trunc('day', e.at) = days.day) as players,
+      (select count(*) from e where e.name = 'session_start' and date_trunc('day', e.at) = days.day) as sessions,
+      (select coalesce(round(sum(least((e.props->>'sec')::numeric, 14400)) / 60), 0) from e where e.name = 'session_end' and (e.props->>'sec') ~ '^[0-9]+(\.[0-9]+)?$' and date_trunc('day', e.at) = days.day) as minutes
+    from days order by days.day),
+  firsts as (select uid, min(date_trunc('day', at)) as d0 from events where name = 'session_start' group by uid),
+  cohort as (select f.uid, f.d0 from firsts f where f.d0 >= since),
+  ret as (select
+      count(*) as n,
+      count(*) filter (where exists (select 1 from events x where x.uid = c.uid and x.name = 'session_start' and date_trunc('day', x.at) = c.d0 + interval '1 day')) as d1,
+      count(*) filter (where exists (select 1 from events x where x.uid = c.uid and x.name = 'session_start' and date_trunc('day', x.at) between c.d0 + interval '1 day' and c.d0 + interval '7 days')) as d7
+    from cohort c)
+  select jsonb_build_object(
+    'days', d,
+    'daily', (select coalesce(jsonb_agg(daily), '[]'::jsonb) from daily),
+    'players', (select count(distinct uid) from e where name = 'session_start'),
+    'new_players', (select n from ret),
+    'returned_next_day', (select d1 from ret),
+    'returned_within_7_days', (select d7 from ret),
+    'avg_session_min', (select coalesce(round(sum(least((props->>'sec')::numeric, 14400)) / nullif(count(distinct sid), 0) / 60, 1), 0) from e where name = 'session_end' and (props->>'sec') ~ '^[0-9]+(\.[0-9]+)?$'),
+    'funnel', (select jsonb_agg(jsonb_build_object('step', s.step, 'players', (select count(distinct uid) from e where e.name = s.step)) order by s.ord)
+               from (values (1, 'session_start'), (2, 'play'), (3, 'onboard_done'), (4, 'met_amina'), (5, 'first_job'), (6, 'stamps_3'), (7, 'stamps_all'), (8, 'vip_ticket')) as s(ord, step)),
+    'sources', (select coalesce(jsonb_agg(jsonb_build_object('source', src, 'players', n) order by n desc), '[]'::jsonb) from (select coalesce(nullif(props->>'src', ''), 'direct') as src, count(distinct uid) as n from e where name = 'session_start' group by 1 order by 2 desc limit 10) q),
+    'devices', (select coalesce(jsonb_agg(jsonb_build_object('device', dev, 'players', n) order by n desc), '[]'::jsonb) from (select coalesce(props->>'dev', '?') as dev, count(distinct uid) as n from e where name = 'session_start' group by 1) q),
+    'invites', (select count(*) from invites where created_at >= since),
+    'saves', (select count(*) from saves where updated_at >= since)
+  ) into out;
+  return out;
+end $$;
+revoke execute on function public.analytics_summary(int) from public, anon;
+grant execute on function public.analytics_summary(int) to authenticated;
+
+-- ============ brand bookings: created by the bachs-checkout Edge Function, paid through Bachs, approved by the owner ============
+create table if not exists public.bookings (
+  id uuid primary key default gen_random_uuid(),
+  created_at timestamptz not null default now(),
+  slot text not null,
+  months int not null check (months between 1 and 12),
+  start_date date not null,
+  brand text not null check (char_length(brand) between 1 and 40),
+  headline text not null check (char_length(headline) between 1 and 40),
+  sub text not null default '' check (char_length(sub) <= 60),
+  c1 text not null default '#141838', c2 text not null default '#232a63', fg text not null default '#ffffff',
+  contact_name text not null check (char_length(contact_name) between 1 and 80),
+  contact_email text not null check (contact_email ~* '^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$' and char_length(contact_email) <= 120),
+  company text not null default '' check (char_length(company) <= 80),
+  amount numeric not null,
+  currency text not null,
+  status text not null default 'pending_payment' check (status in ('pending_payment', 'paid', 'approved', 'declined', 'refunded', 'cancelled')),
+  checkout_id text,
+  paid_at timestamptz,
+  note text not null default ''
+);
+create index if not exists bookings_status on public.bookings (status, created_at desc);
+alter table public.bookings enable row level security;
+drop policy if exists bookings_owner on public.bookings;
+create policy bookings_owner on public.bookings for all to authenticated using (public.is_admin()) with check (public.is_admin());
+grant select, update on public.bookings to authenticated;
+create table if not exists public.bachs_events (id text primary key, type text, received_at timestamptz not null default now());
+alter table public.bachs_events enable row level security;
+
+-- ============ clean-up, as promised on afconcity.com/privacy ============
+create or replace function public.afc_cleanup() returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  delete from chat_messages where created_at < now() - interval '30 days';
+  delete from events where at < now() - interval '90 days';
+  delete from save_tries where at < now() - interval '2 days';
+  delete from saves where updated_at < now() - interval '12 months';
+  delete from scores where updated_at < now() - interval '12 months';
+  delete from docs where (coll = 'stats' or coll = 'reports' or coll like 'feedback%') and updated_at < now() - interval '12 months';
+end $$;
+revoke execute on function public.afc_cleanup() from public, anon, authenticated;
+-- every night at 03:17 UTC, if the pg_cron extension is available (Database > Extensions); chat also tidies itself as it goes
+do $$ begin
+  create extension if not exists pg_cron;
+  perform cron.schedule('afc-cleanup', '17 3 * * *', 'select public.afc_cleanup()');
+exception when others then raise notice 'Nightly clean-up not scheduled (%). Turn on pg_cron under Database > Extensions and run this file again.', sqlerrm;
+end $$;
+create or replace function public.chat_tidy() returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if random() < 0.02 then delete from chat_messages where created_at < now() - interval '30 days'; end if;
+  return null;
+end $$;
+drop trigger if exists chat_tidy on public.chat_messages;
+create trigger chat_tidy after insert on public.chat_messages for each statement execute function public.chat_tidy();
+
+do $$ begin
+  begin alter publication supabase_realtime add table public.scores; exception when duplicate_object then null; end;
 end $$;

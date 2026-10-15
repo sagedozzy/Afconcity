@@ -227,8 +227,17 @@ function onServerChat(m) {
   (MP.log = MP.log || []).push({ by: m.by, nick, body, at: m.at }); if (MP.log.length > 40) MP.log.shift();
   if (PH.open && (PH.app === 'msgs' || (PH.app === 'thread' && PH.arg === '#live'))) renderPhone();
 }
+/* players who told us they are under 18 chat with friendly preset phrases only (the server checks this too) */
+const CHAT_PHRASES = ['Mambo! 👋', 'Poa!', 'Karibu Fumba!', 'Twende!', 'Asante!', 'GG!', 'Nice look! 🔥', 'Race me?', 'Follow me', 'Wait for me', 'Let\'s do a job', 'Goal! ⚽', 'Haha 😂', 'Need cash 😅', 'See you later! 👋'];
+const isTeen = () => { const v = aboutRead(); return !!(v && v.a && v.a.age === 'Under 18'); };
+function renderPhrases() {
+  const box = $('#chatPhrases'); if (!box || box.childElementCount) return;
+  for (const p of CHAT_PHRASES) { const b = document.createElement('button'); b.type = 'button'; b.textContent = p; b.addEventListener('click', () => { sendChat(p); closeChat(); }); box.append(b); }
+  const n = document.createElement('small'); n.textContent = 'Quick phrases keep chat friendly for players under 18.'; box.append(n);
+}
 function sendChat(text) {
   const msg = strOr(text, 90).trim(); if (!msg) return;
+  if (isTeen() && !CHAT_PHRASES.includes(msg)) { help('Pick one of the quick phrases.', 1800); return; }
   if (performance.now() - MP.chatT < 900) { help('Slow down a little. One message a second.', 1500); return; }
   if (MP.room && MP.room.chat) {
     MP.chatT = performance.now(); MP.typ = 0; sendPresence(true);

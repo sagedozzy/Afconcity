@@ -71,7 +71,8 @@ s.wait(1.1)
 check('volunteer stamp', G("hasStamp('kujitolea')"))
 G("(() => { const n = NPC_BY_ID.musa; P.x = n.x; P.z = n.z + 1.5; talk('musa'); pickMenu(0); return 1; })()")
 c0 = G("state.cash")
-for i in range(8):
+for i in range(16):
+    if not G("!!job && job.type === 'site'"): break
     G("(() => { P.x = CONSTRUCTION.truck.x + 5.5; P.z = CONSTRUCTION.truck.z; return 1; })()"); s.wait(0.3)
     G("(() => { P.x = CONSTRUCTION.mixer.x + 2.4; P.z = CONSTRUCTION.mixer.z; return 1; })()"); s.wait(0.3)
 check('cement shift pays TSh 35,000', G("!job") and G("state.cash") - c0 == 35000, G("state.cash") - c0)

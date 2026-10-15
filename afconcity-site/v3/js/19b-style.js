@@ -1,16 +1,19 @@
 /* ===================== 19b style: fabric prints, the island wardrobe, curated looks and the 15-character look code ===================== */
-/* Prints live in one 4 x 4 atlas (512 px). Clothes carry a print id and cloth coordinates in metres, and the character
+/* Prints live in one 6 x 6 atlas (768 px). Clothes carry a print id and cloth coordinates in metres, and the character
    shader lays the print over the garment colour. Far-away people use each print's average colour instead. */
-const PATS = ['', 'breton', 'pinstripe', 'palms', 'hibiscus', 'kitenge', 'kanga', 'gingham', 'polka', 'waves', 'tiedye', 'madras', 'denim', 'shells', 'cabana', 'mosaic', 'linen'];
-const PAT_NAMES = { '': 'Plain', breton: 'Breton stripe', pinstripe: 'Pinstripe', palms: 'Palm leaves', hibiscus: 'Hibiscus', kitenge: 'Kitenge', kanga: 'Kanga spots', gingham: 'Gingham', polka: 'Polka dots', waves: 'Waves', tiedye: 'Tie-dye', madras: 'Madras check', denim: 'Denim', shells: 'Shells', cabana: 'Cabana stripe', mosaic: 'Stone Town tile', linen: 'Linen weave' };
+const PATS = ['', 'breton', 'pinstripe', 'palms', 'hibiscus', 'kitenge', 'kanga', 'gingham', 'polka', 'waves', 'tiedye', 'madras', 'denim', 'shells', 'cabana', 'mosaic', 'linen', 'kente', 'doors', 'dhow', 'spice', 'ombre', 'marble', 'shuka'];
+const PAT_NAMES = { '': 'Plain', breton: 'Breton stripe', pinstripe: 'Pinstripe', palms: 'Palm leaves', hibiscus: 'Hibiscus', kitenge: 'Kitenge', kanga: 'Kanga spots', gingham: 'Gingham', polka: 'Polka dots', waves: 'Waves', tiedye: 'Tie-dye', madras: 'Madras check', denim: 'Denim', shells: 'Shells', cabana: 'Cabana stripe', mosaic: 'Stone Town tile', linen: 'Linen weave', kente: 'Gold kente', doors: 'Zanzibar doors', dhow: 'Dhow regatta', spice: 'Spice route', ombre: 'Sunset fade', marble: 'Ocean marble', shuka: 'Maasai shuka' };
+/* limited-edition prints: bought once with game shillings, then free on any garment that takes them */
+const PAT_PRICE = { kente: 40000, doors: 35000, dhow: 30000, spice: 30000, ombre: 25000, marble: 35000, shuka: 30000 };
+const ownsPrint = (p) => !PAT_PRICE[p] || ((state && state.prints) || []).includes(p);
 const PAT_M = 0.24; // one print tile covers 24 cm of cloth
-const PAT_TILE = 128;
+const PAT_TILE = 128, PAT_GRID = 6;
 let PAT_TEX = null;
 const PAT_AVG = [];
 (function buildPatterns() {
-  const S = PAT_TILE, cv = mkCanvas(S * 4, S * 4), x = cv.getContext('2d');
+  const S = PAT_TILE, G = PAT_GRID, cv = mkCanvas(S * G, S * G), x = cv.getContext('2d');
   const R = mulberry32(2027);
-  const at = (id) => { const i = id - 1; return [(i % 4) * S, (3 - Math.floor(i / 4)) * S]; };
+  const at = (id) => { const i = id - 1; return [(i % G) * S, (G - 1 - Math.floor(i / G)) * S]; };
   // draw fn(g) inside the tile, repeated across the edges so the print wraps seamlessly
   const tile = (id, fn) => { const [ox, oy] = at(id); x.save(); x.beginPath(); x.rect(ox, oy, S, S); x.clip(); for (const dx of [-S, 0, S]) for (const dy of [-S, 0, S]) { x.save(); x.translate(ox + dx, oy + dy); fn(x); x.restore(); } x.restore(); };
   const leaf = (g, cx, cy, len, w, rot, col, vein) => {
@@ -69,12 +72,28 @@ const PAT_AVG = [];
   });
   // 16 linen slub
   tile(16, (g) => { for (let i = 0; i < 70; i++) { g.fillStyle = R() < 0.5 ? 'rgba(255,255,255,.16)' : 'rgba(0,0,0,.1)'; g.fillRect(R() * S, R() * S, 8 + R() * 30, 1 + R() * 1.4); } for (let i = 0; i < S; i += 4) { g.fillStyle = 'rgba(0,0,0,.035)'; g.fillRect(i, 0, 1, S); } });
+
+  // ---- limited editions ----
+  // 17 gold kente: woven strips with stepped blocks
+  tile(17, (g) => { const cols = ['#e0a92e', '#1e7a3e', '#c8342c', '#141414']; for (let r = 0; r < 4; r++) for (let c = 0; c < 4; c++) { const x0 = c * 32, y0 = r * 32, k = (r + c) % 2; g.fillStyle = k ? '#e0a92e' : '#1e7a3e'; g.fillRect(x0, y0, 32, 32); g.fillStyle = cols[(r * 2 + c) % 4]; if (k) { for (let i = 0; i < 4; i++) g.fillRect(x0, y0 + 3 + i * 8, 32, 3); } else { for (let i = 0; i < 4; i++) g.fillRect(x0 + 3 + i * 8, y0, 3, 32); } g.fillStyle = '#141414'; g.fillRect(x0 + 13, y0 + 13, 6, 6); } });
+  // 18 Zanzibar carved doors: arches studded with brass bosses
+  tile(18, (g) => { for (const [x0, y0] of [[0, 0], [64, 64], [64, 0], [0, 64]]) { g.strokeStyle = '#6b3e22'; g.lineWidth = 5; g.beginPath(); g.moveTo(x0 + 10, y0 + 60); g.lineTo(x0 + 10, y0 + 26); g.arc(x0 + 32, y0 + 26, 22, Math.PI, 0); g.lineTo(x0 + 54, y0 + 60); g.stroke(); g.fillStyle = '#d8a83c'; for (let k = 0; k < 4; k++) { g.beginPath(); g.arc(x0 + 32, y0 + 18 + k * 11, 3.2, 0, TAU); g.fill(); } g.beginPath(); g.arc(x0 + 32, y0 + 8, 4, 0, TAU); g.fill(); } });
+  // 19 dhow regatta: triangular sails on little hulls
+  tile(19, (g) => { for (const [cx, cy, s2] of [[30, 34, 1], [94, 30, 0.8], [62, 94, 1.1], [8, 100, 0.7], [118, 92, 0.75]]) { g.save(); g.translate(cx, cy); g.scale(s2, s2); g.fillStyle = '#f6f3ec'; g.beginPath(); g.moveTo(-2, -22); g.lineTo(18, 8); g.lineTo(-10, 8); g.closePath(); g.fill(); g.strokeStyle = '#3a2a1a'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(-2, -24); g.lineTo(-2, 10); g.stroke(); g.fillStyle = '#6b3e22'; g.beginPath(); g.moveTo(-16, 10); g.lineTo(20, 10); g.lineTo(12, 16); g.lineTo(-10, 16); g.closePath(); g.fill(); g.restore(); } });
+  // 20 spice route: cloves, star anise and cinnamon quills
+  tile(20, (g) => { const R2 = mulberry32(77); for (let i = 0; i < 9; i++) { const cx = R2() * S, cy = R2() * S, k = i % 3, rot = R2() * TAU; g.save(); g.translate(cx, cy); g.rotate(rot); if (k === 0) { g.fillStyle = '#5a2e1a'; for (let a = 0; a < 8; a++) { g.rotate(TAU / 8); g.beginPath(); g.ellipse(6, 0, 6, 2.6, 0, 0, TAU); g.fill(); } g.fillStyle = '#c8873a'; g.beginPath(); g.arc(0, 0, 2.5, 0, TAU); g.fill(); } else if (k === 1) { g.fillStyle = '#8a4a26'; g.fillRect(-14, -3, 28, 6); g.fillStyle = '#b06a36'; g.fillRect(-14, -1, 28, 2); } else { g.fillStyle = '#3a1e12'; g.fillRect(-1.5, -8, 3, 12); g.beginPath(); g.arc(0, -9, 3.5, 0, TAU); g.fill(); } g.restore(); } });
+  // 21 sunset fade: soft horizontal bands from coral to violet
+  tile(21, (g) => { const gr = g.createLinearGradient(0, 0, 0, S); gr.addColorStop(0, 'rgba(243,180,27,.85)'); gr.addColorStop(0.35, 'rgba(240,122,95,.85)'); gr.addColorStop(0.7, 'rgba(224,85,122,.8)'); gr.addColorStop(1, 'rgba(110,74,176,.8)'); g.fillStyle = gr; g.fillRect(0, 0, S, S); g.fillStyle = 'rgba(255,255,255,.18)'; for (let y = 0; y < S; y += 16) g.fillRect(0, y, S, 2); });
+  // 22 ocean marble: turquoise swirls
+  tile(22, (g) => { g.lineCap = 'round'; for (let k = 0; k < 9; k++) { g.strokeStyle = ['rgba(43,181,176,.75)', 'rgba(31,111,139,.7)', 'rgba(255,255,255,.65)'][k % 3]; g.lineWidth = 3 + (k % 3) * 2; g.beginPath(); for (let x0 = -8; x0 <= S + 8; x0 += 4) { const y = (k * 15 + 8) + Math.sin(x0 / S * TAU * 2 + k) * 10 + Math.sin(x0 / S * TAU + k * 2) * 6; if (x0 < -4) g.moveTo(x0, y); else g.lineTo(x0, y); } g.stroke(); } });
+  // 23 Maasai shuka: red and blue check
+  tile(23, (g) => { g.fillStyle = 'rgba(200,52,44,.9)'; g.fillRect(0, 0, S, S); for (const [p, w, c] of [[0, 10, 'rgba(31,45,85,.85)'], [24, 4, 'rgba(20,20,20,.8)'], [40, 18, 'rgba(31,45,85,.8)'], [70, 4, 'rgba(243,180,27,.8)'], [96, 12, 'rgba(20,20,20,.75)']]) { g.fillStyle = c; g.fillRect(p, 0, w, S); g.fillRect(0, p, S, w); } });
   // average colour and coverage of each print, in linear light, for far-away people
-  const data = x.getImageData(0, 0, S * 4, S * 4).data, lin = (v) => Math.pow(v / 255, 2.2);
+  const data = x.getImageData(0, 0, S * G, S * G).data, lin = (v) => Math.pow(v / 255, 2.2);
   PAT_AVG[0] = { c: new T.Color(0, 0, 0), a: 0 };
   for (let id = 1; id < PATS.length; id++) {
     const [ox, oy] = at(id); let r = 0, gg = 0, b = 0, a = 0, n = 0;
-    for (let yy = oy; yy < oy + S; yy += 2) for (let xx = ox; xx < ox + S; xx += 2) { const o = (yy * S * 4 + xx) * 4, al = data[o + 3] / 255; r += lin(data[o]) * al; gg += lin(data[o + 1]) * al; b += lin(data[o + 2]) * al; a += al; n++; }
+    for (let yy = oy; yy < oy + S; yy += 2) for (let xx = ox; xx < ox + S; xx += 2) { const o = (yy * S * G + xx) * 4, al = data[o + 3] / 255; r += lin(data[o]) * al; gg += lin(data[o + 1]) * al; b += lin(data[o + 2]) * al; a += al; n++; }
     PAT_AVG[id] = { c: a > 0 ? new T.Color(r / a, gg / a, b / a) : new T.Color(0, 0, 0), a: a / n };
   }
   PAT_TEX = new T.CanvasTexture(cv); PAT_TEX.minFilter = T.LinearFilter; PAT_TEX.magFilter = T.LinearFilter; PAT_TEX.generateMipmaps = false; PAT_TEX.wrapS = PAT_TEX.wrapT = T.ClampToEdgeWrapping;
@@ -85,7 +104,7 @@ const patSwatchCache = new Map();
 function patSwatch(p, hex) {
   const key = p + '|' + hex; if (patSwatchCache.has(key)) return patSwatchCache.get(key);
   const id = PATS.indexOf(p); const c = mkCanvas(48, 48), g = c.getContext('2d'); g.fillStyle = '#' + hex.toString(16).padStart(6, '0'); g.fillRect(0, 0, 48, 48);
-  if (id > 0) { const i = id - 1, src = PAT_TEX.userData.canvas; g.drawImage(src, (i % 4) * PAT_TILE, (3 - Math.floor(i / 4)) * PAT_TILE, PAT_TILE, PAT_TILE, 0, 0, 48, 48); }
+  if (id > 0) { const i = id - 1, src = PAT_TEX.userData.canvas; g.drawImage(src, (i % PAT_GRID) * PAT_TILE, (PAT_GRID - 1 - Math.floor(i / PAT_GRID)) * PAT_TILE, PAT_TILE, PAT_TILE, 0, 0, 48, 48); }
   const u = c.toDataURL(); patSwatchCache.set(key, u); return u;
 }
 
@@ -95,31 +114,31 @@ const PALETTE_NAMES = ['White', 'Sand', 'Terracotta', 'Coral', 'Blush', 'Mustard
 // sl: sleeve; neck: crew | collar | boat | v | tank; tuck: tucked in; dress: maxi | midi; only: f | m
 const TOPS = [
   { id: 'jersey', n: 'Football jersey', kit: true, sl: 'short', neck: 'crew', tuck: true, pats: [''] },
-  { id: 'resort', n: 'Resort shirt', sl: 'short', neck: 'collar', btn: true, pats: ['palms', 'hibiscus', 'shells', 'mosaic', 'waves', 'madras', ''], dc: 0, dp: 'palms' },
-  { id: 'linen', n: 'Linen shirt', sl: 'elbow', neck: 'collar', btn: true, pats: ['linen', 'pinstripe', 'gingham', ''], dc: 0, dp: 'linen' },
+  { id: 'resort', n: 'Resort shirt', sl: 'short', neck: 'collar', btn: true, pats: ['palms', 'hibiscus', 'shells', 'mosaic', 'waves', 'madras', '', 'dhow', 'spice', 'marble'], dc: 0, dp: 'palms' },
+  { id: 'linen', n: 'Linen shirt', sl: 'elbow', neck: 'collar', btn: true, pats: ['linen', 'pinstripe', 'gingham', '', 'doors'], dc: 0, dp: 'linen' },
   { id: 'breton', n: 'Breton top', sl: 'elbow', neck: 'boat', tuck: true, pats: ['breton', ''], dc: 0, dp: 'breton' },
-  { id: 'tee', n: 'T-shirt', sl: 'short', neck: 'crew', tuck: true, pats: ['', 'tiedye', 'cabana', 'polka'], dc: 8, dp: '' },
+  { id: 'tee', n: 'T-shirt', sl: 'short', neck: 'crew', tuck: true, pats: ['', 'tiedye', 'cabana', 'polka', 'ombre'], dc: 8, dp: '' },
   { id: 'polo', n: 'Polo', sl: 'short', neck: 'collar', tuck: true, polo: true, pats: ['', 'pinstripe'], dc: 10, dp: '' },
-  { id: 'kitenge', n: 'Kitenge shirt', sl: 'short', neck: 'collar', btn: true, pats: ['kitenge', 'kanga', 'mosaic'], dc: 5, dp: 'kitenge' },
+  { id: 'kitenge', n: 'Kitenge shirt', sl: 'short', neck: 'collar', btn: true, pats: ['kitenge', 'kanga', 'mosaic', 'kente', 'shuka'], dc: 5, dp: 'kitenge' },
   { id: 'tank', n: 'Tank top', sl: 'none', neck: 'tank', only: 'm', pats: ['', 'cabana', 'tiedye'], dc: 0, dp: '' },
   { id: 'blouse', n: 'Peasant blouse', sl: 'elbow', neck: 'boat', only: 'f', pats: ['', 'linen', 'gingham', 'polka'], dc: 0, dp: 'linen' },
-  { id: 'kaftan', n: 'Kaftan', nm: 'Kanzu', robe: true, sl: 'long', pats: ['', 'mosaic', 'kitenge', 'tiedye'], dc: 0, dp: '' },
-  { id: 'maxi', n: 'Maxi dress', dress: 'maxi', sl: 'short', neck: 'v', only: 'f', pats: ['hibiscus', 'palms', '', 'polka', 'tiedye', 'cabana'], dc: 3, dp: 'hibiscus' },
-  { id: 'midi', n: 'Midi dress', dress: 'midi', sl: 'short', neck: 'crew', only: 'f', pats: ['gingham', '', 'mosaic', 'linen', 'polka'], dc: 9, dp: 'gingham' },
-  { id: 'gown', n: 'Kitenge gown', dress: 'maxi', sl: 'elbow', neck: 'boat', only: 'f', pats: ['kitenge', 'kanga', 'mosaic'], dc: 9, dp: 'kitenge' },
+  { id: 'kaftan', n: 'Kaftan', nm: 'Kanzu', robe: true, sl: 'long', pats: ['', 'mosaic', 'kitenge', 'tiedye', 'kente', 'marble', 'doors'], dc: 0, dp: '' },
+  { id: 'maxi', n: 'Maxi dress', dress: 'maxi', sl: 'short', neck: 'v', only: 'f', pats: ['hibiscus', 'palms', '', 'polka', 'tiedye', 'cabana', 'spice', 'marble', 'ombre'], dc: 3, dp: 'hibiscus' },
+  { id: 'midi', n: 'Midi dress', dress: 'midi', sl: 'short', neck: 'crew', only: 'f', pats: ['gingham', '', 'mosaic', 'linen', 'polka', 'doors'], dc: 9, dp: 'gingham' },
+  { id: 'gown', n: 'Kitenge gown', dress: 'maxi', sl: 'elbow', neck: 'boat', only: 'f', pats: ['kitenge', 'kanga', 'mosaic', 'kente', 'shuka'], dc: 9, dp: 'kitenge' },
 ];
 // len: shorts | knee | crop | full; women's choices all cover the thigh
 const BOTTOMS = [
   { id: 'kit', n: 'Kit shorts', nf: 'Kit track pants', kit: true, len: 'kit', lenF: 'full', pats: [''] },
   { id: 'chinoS', n: 'Chino shorts', len: 'shorts', only: 'm', pats: ['', 'madras', 'gingham'], dc: 1, dp: '' },
-  { id: 'swim', n: 'Swim shorts', len: 'shorts', only: 'm', pats: ['waves', 'palms', 'hibiscus', 'shells', 'cabana'], dc: 9, dp: 'waves' },
+  { id: 'swim', n: 'Swim shorts', len: 'shorts', only: 'm', pats: ['waves', 'palms', 'hibiscus', 'shells', 'cabana', 'dhow'], dc: 9, dp: 'waves' },
   { id: 'bermuda', n: 'Bermudas', len: 'knee', only: 'm', pats: ['', 'madras', 'linen'], dc: 7, dp: '' },
   { id: 'linenT', n: 'Linen trousers', len: 'full', wide: 1, pats: ['linen', 'pinstripe', ''], dc: 1, dp: 'linen' },
   { id: 'chinos', n: 'Chinos', len: 'full', pats: ['', 'pinstripe'], dc: 10, dp: '' },
   { id: 'jeans', n: 'Jeans', len: 'full', pats: ['denim'], dc: 13, dp: 'denim' },
   { id: 'cropped', n: 'Cropped trousers', len: 'crop', pats: ['', 'linen', 'gingham'], dc: 0, dp: '' },
-  { id: 'palazzo', n: 'Palazzo pants', len: 'full', wide: 2, only: 'f', pats: ['', 'linen', 'kitenge', 'cabana'], dc: 0, dp: 'linen' },
-  { id: 'maxiS', n: 'Maxi skirt', skirt: 'maxi', only: 'f', pats: ['kitenge', '', 'hibiscus', 'palms', 'mosaic', 'tiedye', 'polka'], dc: 2, dp: 'kitenge' },
+  { id: 'palazzo', n: 'Palazzo pants', len: 'full', wide: 2, only: 'f', pats: ['', 'linen', 'kitenge', 'cabana', 'marble'], dc: 0, dp: 'linen' },
+  { id: 'maxiS', n: 'Maxi skirt', skirt: 'maxi', only: 'f', pats: ['kitenge', '', 'hibiscus', 'palms', 'mosaic', 'tiedye', 'polka', 'kente', 'spice', 'shuka'], dc: 2, dp: 'kitenge' },
   { id: 'midiS', n: 'Midi skirt', skirt: 'midi', only: 'f', pats: ['', 'gingham', 'polka', 'linen', 'kanga'], dc: 6, dp: '' },
 ];
 const SHOES = [{ id: 'sneaker', n: 'Sneakers', dc: 0 }, { id: 'espadrille', n: 'Espadrilles', dc: 10 }, { id: 'sandal', n: 'Sandals', dc: 16 }, { id: 'slide', n: 'Slides', dc: 12 }, { id: 'loafer', n: 'Loafers', dc: 16 }];
@@ -150,7 +169,15 @@ const PRESETS = [
   { n: 'Market Day', f: true, t: 'tee', tc: 5, tp: '', b: 'maxiS', bc: 2, bp: 'kitenge', sh: 'sneaker', shc: 0, ht: '', ey: '', h: 'afro' },
   { n: 'Beach Day', f: true, t: 'blouse', tc: 0, tp: 'gingham', b: 'cropped', bc: 9, bp: '', sh: 'slide', shc: 3, ht: 'bucket', hc: 4, ey: 'shades', h: 'locs' },
   { n: 'Matchday', f: true, t: 'jersey', b: 'kit', sh: 'sneaker', shc: 0, ht: '', ey: '', h: 'braids' },
+  // limited editions: they use prints you buy once with game shillings
+  { n: 'Sultan\'s Gold', f: false, t: 'kaftan', tc: 0, tp: 'kente', b: 'chinos', sh: 'loafer', shc: 16, ht: 'kofia', hc: 5, ey: 'aviator', h: 'short', ltd: true },
+  { n: 'Dhow Regatta', f: false, t: 'resort', tc: 9, tp: 'dhow', b: 'chinoS', bc: 0, sh: 'espadrille', shc: 0, ht: 'panama', hc: 1, ey: 'round', h: 'short', ltd: true },
+  { n: 'Stone Town Doors', f: false, t: 'linen', tc: 1, tp: 'doors', b: 'linenT', bc: 0, bp: 'linen', sh: 'loafer', shc: 16, ht: '', ey: 'shades', h: 'locs', ltd: true },
+  { n: 'Spice Route', f: true, t: 'maxi', tc: 1, tp: 'spice', b: 'linenT', sh: 'sandal', shc: 17, ht: 'sunhat', hc: 1, ey: 'aviator', h: 'bun', ltd: true },
+  { n: 'Ocean Marble', f: true, t: 'kaftan', tc: 0, tp: 'marble', b: 'linenT', sh: 'slide', shc: 0, ht: '', ey: 'round', h: 'braids', ltd: true },
+  { n: 'Kente Royal', f: true, t: 'gown', tc: 5, tp: 'kente', b: 'linenT', sh: 'sandal', shc: 19, ht: '', ey: '', h: 'scarf', hc: 5, ltd: true },
 ];
+const presetPrints = (p) => [p.tp, p.bp].filter(x => x && PAT_PRICE[x]);
 /* apply a curated look (or a body change) to a look object, keeping skin tone */
 function applyPreset(lk, p) {
   lk.f = !!p.f; lk.h = p.h || lk.h;
@@ -186,7 +213,7 @@ function kitLook(kitIdx, lk, number) {
   const k = KITS[kitIdx] || KITS[0], f = !!lk.f, top = TOPS[lk.t], bot = BOTTOMS[lk.b], col = (i) => PALETTE[i];
   const L = { skin: PLAYER_SKINS[lk.s], f, hair: lk.h, hairCol: 0x141010, scarf: top.kit ? k.trim : PALETTE[lk.hc] };
   // top
-  if (top.kit) Object.assign(L, { kit: true, shirt: k.shirt, trim: k.trim, number, numCol: k.shirt === 0xf3efe6 || k.shirt === 0xf3b41b ? '#141838' : '#f7ead0' });
+  if (top.kit) Object.assign(L, { kit: true, shirt: k.shirt, trim: k.trim, number, numCol: ((k.shirt >> 16 & 255) * 0.3 + (k.shirt >> 8 & 255) * 0.59 + (k.shirt & 255) * 0.11) > 150 ? '#141838' : '#f7ead0' });
   else { L.shirt = col(lk.tc); L.tp = PATS[lk.tp]; L.trim = top.robe ? PALETTE[(lk.tc + 5) % PALETTE.length] : L.shirt; }
   L.sleeve = top.sl; L.neck = top.neck; L.untuck = !top.tuck && !top.robe && !top.dress; if (top.btn) L.style = 'button'; if (top.polo) L.style = 'polo';
   if (top.robe) { L.robe = true; L.lower = L.shirt; L.trim2 = L.trim; }

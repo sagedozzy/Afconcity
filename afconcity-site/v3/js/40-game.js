@@ -572,6 +572,8 @@ function applyNight(k) {
   hemi.color.copy(LDAY.hs).lerp(LNIGHT.hs, k); hemi.groundColor.copy(LDAY.hg).lerp(LNIGHT.hg, k); hemi.intensity = lerp(LDAY.hi, LNIGHT.hi, k);
   sun.color.copy(LDAY.sc).lerp(LNIGHT.sc, k); sun.intensity = lerp(LDAY.si, LNIGHT.si, k);
   renderer.toneMappingExposure = lerp(LDAY.exp, LNIGHT.exp, k);
+  // Fast graphics: closer haze, so far-off town can be skipped (see updateLOD and farCull)
+  scene.fog.near = HQ() ? 260 : 190; scene.fog.far = HQ() ? 1650 : 880;
   waterU.uShallow.value.copy(waterDay.s).lerp(waterNight.s, k); waterU.uDeep.value.copy(waterDay.d).lerp(waterNight.d, k); waterU.uFoam.value.copy(waterDay.f).lerp(waterNight.f, k);
   for (const n of nightMats) n.mat[n.prop] = lerp(n.a, n.b, k);
   pitchLight.intensity = 2.6 * k * (state.done || mode === 'kickoff' ? 1 : 0.4);

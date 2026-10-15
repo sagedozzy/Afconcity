@@ -115,6 +115,31 @@ const KITS = [
   { name: 'Clove red', shirt: 0xd8452c, shorts: 0x141838, trim: 0xf6f1e7, css: '#d8452c', price: 35000 },
   { name: 'Dhow white', shirt: 0xf3efe6, shorts: 0x2a3270, trim: 0x22c2b8, css: '#f3efe6', price: 45000 },
   { name: 'Midnight', shirt: 0x15161c, shorts: 0x15161c, trim: 0xf3b41b, css: '#15161c', price: 60000 },
+  /* national colours for AFCON fans (not official kits): sold at Rehema's fan shop */
+  { name: 'Tanzania', shirt: 0x1eb53a, shorts: 0x00a3dd, trim: 0xfcd116, css: '#1eb53a', price: 35000, nation: true },
+  { name: 'Kenya', shirt: 0xbb0000, shorts: 0x006600, trim: 0xf6f1e7, css: '#bb0000', price: 35000, nation: true },
+  { name: 'Uganda', shirt: 0xfcdc04, shorts: 0x141414, trim: 0xd90000, css: '#fcdc04', price: 35000, nation: true },
+  { name: 'Nigeria', shirt: 0x008751, shorts: 0x008751, trim: 0xf6f1e7, css: '#008751', price: 45000, nation: true },
+  { name: 'Senegal', shirt: 0xf3efe6, shorts: 0xf3efe6, trim: 0x00853f, css: '#f3efe6', price: 45000, nation: true },
+  { name: 'Morocco', shirt: 0xc1272d, shorts: 0x006233, trim: 0x006233, css: '#c1272d', price: 45000, nation: true },
+  { name: 'Egypt', shirt: 0xce1126, shorts: 0xf3efe6, trim: 0x141414, css: '#ce1126', price: 45000, nation: true },
+  { name: 'Côte d\'Ivoire', shirt: 0xf77f00, shorts: 0xf3efe6, trim: 0x009e60, css: '#f77f00', price: 45000, nation: true },
+  { name: 'Ghana', shirt: 0xf3efe6, shorts: 0xf3efe6, trim: 0x141414, css: '#f3efe6', price: 45000, nation: true },
+  { name: 'Cameroon', shirt: 0x007a5e, shorts: 0xce1126, trim: 0xfcd116, css: '#007a5e', price: 45000, nation: true },
+  { name: 'Algeria', shirt: 0xf3efe6, shorts: 0xf3efe6, trim: 0x006233, css: '#f3efe6', price: 45000, nation: true },
+  { name: 'Tunisia', shirt: 0xe70013, shorts: 0xf3efe6, trim: 0xf3efe6, css: '#e70013', price: 45000, nation: true },
+  { name: 'South Africa', shirt: 0xffb81c, shorts: 0x007749, trim: 0x007749, css: '#ffb81c', price: 45000, nation: true },
+  { name: 'Mali', shirt: 0xfcd116, shorts: 0x14b53a, trim: 0xce1126, css: '#fcd116', price: 40000, nation: true },
+  { name: 'Burkina Faso', shirt: 0x009e49, shorts: 0xef2b2d, trim: 0xfcd116, css: '#009e49', price: 40000, nation: true },
+  { name: 'DR Congo', shirt: 0x2a8fe0, shorts: 0x2a8fe0, trim: 0xce1021, css: '#2a8fe0', price: 40000, nation: true },
+  { name: 'Zambia', shirt: 0x198a00, shorts: 0x141414, trim: 0xef7d00, css: '#198a00', price: 40000, nation: true },
+  { name: 'Guinea', shirt: 0xce1126, shorts: 0xfcd116, trim: 0x009460, css: '#ce1126', price: 40000, nation: true },
+  { name: 'Angola', shirt: 0xcc092f, shorts: 0x141414, trim: 0xffcb00, css: '#cc092f', price: 40000, nation: true },
+  { name: 'Cape Verde', shirt: 0x003893, shorts: 0x003893, trim: 0xf6f1e7, css: '#003893', price: 40000, nation: true },
+  { name: 'Equatorial Guinea', shirt: 0xe32118, shorts: 0x0073ce, trim: 0xf6f1e7, css: '#e32118', price: 40000, nation: true },
+  { name: 'Gabon', shirt: 0xfcd116, shorts: 0x3a75c4, trim: 0x009e60, css: '#fcd116', price: 40000, nation: true },
+  { name: 'Benin', shirt: 0xfcd116, shorts: 0x008751, trim: 0xe8112d, css: '#fcd116', price: 40000, nation: true },
+  { name: 'Mozambique', shirt: 0xd21034, shorts: 0x141414, trim: 0xfce100, css: '#d21034', price: 40000, nation: true },
 ];
 /* real Zanzibar prices in Tanzanian shillings (2026): fares, food, tours, fines, rentals. US$1 is about TSh 2,600 */
 /* what work pays: raised a little so a VIP ticket is reachable in an evening of play */
@@ -486,12 +511,15 @@ function M(hex, extra) { const key = hex + (extra ? JSON.stringify(extra) : '');
 const VC = new T.MeshStandardMaterial({ vertexColors: true, roughness: 0.82, metalness: 0 });
 
 /* small scenery (grass tufts, bushes) stops drawing past a distance; checked a few times a second */
-const LODS = [];
+const LODS = [], VLODS = [];
 let lodT = 0;
+/* trees and palms swap to a simple version past a distance (much sooner on Fast graphics, for cheap phones);
+   small details (coconuts, bushes, grass) stop drawing past a distance, also sooner on Fast */
 function updateLOD(dt) {
   lodT -= dt; if (lodT > 0) return; lodT = 0.25;
-  const cp = camera.position;
-  for (const l of LODS) l.m.visible = cp.distanceTo(l.c) - l.r < l.far;
+  const cp = camera.position, k = HQ() ? 1 : 0.5, near = HQ() ? 300 : 110;
+  for (const l of LODS) l.m.visible = cp.distanceTo(l.c) - l.r < l.far * k;
+  for (const l of VLODS) { const d = cp.distanceTo(l.c) - l.r, hi = d < near; l.hi.visible = hi; if (l.lo) l.lo.visible = !hi && d < (l.loFar || 1e9) * (HQ() ? 1 : 0.7); }
 }
 /* instanced scenery split into map chunks so each culls on its own */
 function chunked(geo, mat, items, apply, opts) {
@@ -519,6 +547,13 @@ function chunked(geo, mat, items, apply, opts) {
     if (opts.depth) m.customDepthMaterial = opts.depth;
     if (opts.far) LODS.push({ m, c: center, r: r + gr * maxS, far: opts.far });
     scene.add(m); out.push(m);
+    // a simpler stand-in for far away: fewer triangles, optionally fewer instances, no shadow
+    if (opts.lo) {
+      const keep = list.filter((it, i) => !opts.loKeep || opts.loKeep(it, i)), lg = opts.lo.clone(), lm = new T.InstancedMesh(lg, mat, Math.max(1, keep.length));
+      keep.forEach((it, i) => { o3.position.set(0, 0, 0); o3.rotation.order = 'XYZ'; o3.rotation.set(0, 0, 0); o3.scale.set(1, 1, 1); const col = apply(it, o3, i); o3.updateMatrix(); lm.setMatrixAt(i, o3.matrix); if (col) lm.setColorAt(i, col); });
+      lm.count = keep.length; lg.boundingSphere = g.boundingSphere.clone(); lm.receiveShadow = !!opts.recv; lm.visible = false; scene.add(lm);
+      VLODS.push({ hi: m, lo: lm, c: center, r: r + gr * maxS, loFar: opts.loFar });
+    }
   }
   return out;
 }

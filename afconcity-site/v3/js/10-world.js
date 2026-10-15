@@ -273,7 +273,8 @@ function buildLamps() {
   lb.add(new T.CylinderGeometry(0.05, 0.05, 1.9, 8), mat4(0, 7.05, 0.85, 0, 1, 1, 1, Math.PI / 2 - 0.25), pc);
   lb.add(roundedBox(0.36, 0.14, 0.8, 0.06, 1), mat4(0, 7.2, 1.75, 0), pc);
   lb.add(new T.CylinderGeometry(0.16, 0.2, 0.5, 10), mat4(0, 0.25, 0, 0), C(0x6a6e78));
-  chunked(lb.build(), VC.clone(), lamps, (l, o) => { o.position.set(l[0], 0, l[1]); o.rotation.set(0, l[2], 0); }, { cast: true, cell: 320 });
+  const lbl = new Builder(); lbl.add(new T.CylinderGeometry(0.08, 0.11, 7.2, 4, 1, true), mat4(0, 3.6, 0, 0), pc); lbl.add(box(0.12, 0.12, 1.9), mat4(0, 7.1, 0.9, 0), pc); lbl.add(box(0.36, 0.14, 0.8), mat4(0, 7.2, 1.75, 0), pc);
+  chunked(lb.build(), VC.clone(), lamps, (l, o) => { o.position.set(l[0], 0, l[1]); o.rotation.set(0, l[2], 0); }, { cast: true, cell: 320, lo: lbl.build() });
   const bulbMat = new T.MeshStandardMaterial({ color: C(0xfff6e0), emissive: C(0xffd58a), emissiveIntensity: 0.0 });
   nightable(bulbMat, 0.0, 3.2);
   const heads = lamps.map(l => [l[0] + Math.sin(l[2]) * 1.75, l[1] + Math.cos(l[2]) * 1.75, l[2]]);
@@ -354,9 +355,12 @@ function shedRoofGeo(w, d, h, o) {
   return g;
 }
 function buildBuildings() {
-  const B = { wall: new Builder(), tile: new Builder(), mab: new Builder(), trim: new Builder(), glassL: new Builder(), glassD: new Builder(), door: new Builder() };
+  // one set of builders per 320 m square, so each part of town is culled (and skipped past the haze) on its own
+  const cellsB = new Map(), cellB = (x, z) => { const k = Math.floor(x / 320) + ',' + Math.floor(z / 320); if (!cellsB.has(k)) cellsB.set(k, { wall: new Builder(), tile: new Builder(), mab: new Builder(), trim: new Builder(), glassL: new Builder(), glassD: new Builder(), door: new Builder() }); return cellsB.get(k); };
+  let B = null;
   const white = C(0xf8f5ef), teak = C(0x6b3e22), dark = C(0x2a2d33), black = C(0x18191c), steel = C(0x9aa0a8);
   for (const [x, z, w0, d0, ang, kind] of WORLD.blds) {
+    B = cellB(x, z);
     const w = Math.max(2, w0), d = Math.max(2, d0), area = w * d, hv = hash2(x, z), hv2 = hash2(z, x), hv3 = hash2(x + 3.1, z - 7.7);
     const thin = Math.min(w, d) < 3.2 && Math.max(w, d) > 7;
     let style, floors;
@@ -441,13 +445,8 @@ function buildBuildings() {
   }
   const mk = (b, mat, cast) => { if (b.empty) return null; const m = new T.Mesh(b.build(), mat); m.castShadow = !!cast; m.receiveShadow = true; scene.add(m); return m; };
   const nrm = (k, s2) => TEX[k] ? { normalMap: TEX[k], normalScale: new T.Vector2(s2, s2) } : {};
-  mk(B.wall, new T.MeshStandardMaterial(Object.assign({ map: TEX.plaster, vertexColors: true, roughness: 0.9 }, nrm('plasterN', 0.5))), true);
-  mk(B.tile, new T.MeshStandardMaterial(Object.assign({ map: TEX.tiles, vertexColors: true, roughness: 0.72, side: T.DoubleSide }, nrm('tilesN', 0.9))), true);
-  mk(B.mab, new T.MeshStandardMaterial(Object.assign({ map: TEX.mabati, vertexColors: true, roughness: 0.42, metalness: 0.4, side: T.DoubleSide }, nrm('mabatiN', 0.8))), true);
-  mk(B.trim, new T.MeshStandardMaterial({ vertexColors: true, roughness: 0.7, metalness: 0.05, side: T.DoubleSide }), true);
-  mk(B.glassL, glassLitMat, false);
-  mk(B.glassD, glassMat, false);
-  mk(B.door, new T.MeshStandardMaterial({ map: TEX.door, roughness: 0.7 }), false);
+  const M = { wall: new T.MeshStandardMaterial(Object.assign({ map: TEX.plaster, vertexColors: true, roughness: 0.9 }, nrm('plasterN', 0.5))), tile: new T.MeshStandardMaterial(Object.assign({ map: TEX.tiles, vertexColors: true, roughness: 0.72, side: T.DoubleSide }, nrm('tilesN', 0.9))), mab: new T.MeshStandardMaterial(Object.assign({ map: TEX.mabati, vertexColors: true, roughness: 0.42, metalness: 0.4, side: T.DoubleSide }, nrm('mabatiN', 0.8))), trim: new T.MeshStandardMaterial({ vertexColors: true, roughness: 0.7, metalness: 0.05, side: T.DoubleSide }), glassL: glassLitMat, glassD: glassMat, door: new T.MeshStandardMaterial({ map: TEX.door, roughness: 0.7 }) };
+  for (const cb of cellsB.values()) for (const k of Object.keys(M)) mk(cb[k], M[k], k !== 'glassL' && k !== 'glassD' && k !== 'door');
 }
 
 /* ---------- vegetation ---------- */
@@ -463,8 +462,8 @@ function blockedForPlant(x, z, pad) {
   for (const s of STANDS) if (Math.hypot(x - s.x, z - s.z) < 12) return true;
   return !!nearRoad(x, z, pad + 2.4);
 }
-function frondGeo() {
-  const L = 5.4, W = 1.7, g = new T.PlaneGeometry(L, W, 9, 2), p = g.attributes.position, uv = g.attributes.uv;
+function frondGeo(lo) {
+  const L = 5.4, W = lo ? 2.2 : 1.7, g = new T.PlaneGeometry(L, W, lo ? 3 : 9, lo ? 1 : 2), p = g.attributes.position, uv = g.attributes.uv;
   for (let i = 0; i < p.count; i++) { const X = p.getX(i) + L / 2, t = X / L, Y = p.getY(i); p.setXYZ(i, X, Math.sin(t * Math.PI * 0.62) * 1.1 - t * t * 2.7 - Math.abs(Y) * 0.4 * t, Y * (1 - t * 0.75)); uv.setXY(i, t, Y / W + 0.5); }
   g.computeVertexNormals();
   return g;
@@ -537,10 +536,11 @@ function buildVegetation() {
     for (let k = 0; k < 4; k++) nutItems.push([v.x + Math.cos(k * 1.6) * 0.32, v.z + Math.sin(k * 1.6) * 0.32, v.y - 0.32, sc]);
     if (inPlay(x, z, 30)) addCircle(x, z, 0.4);
   });
-  chunked(trunkGeo, new T.MeshStandardMaterial({ map: barkT, roughness: 0.95 }), trunkItems, (it, o) => { o.position.set(it[0], 0, it[1]); o.rotation.set(0, it[2], 0); o.scale.setScalar(it[3]); }, { cast: true, recv: true, cell: 240 });
+  const trunkLo = new T.TubeGeometry(curve, 4, 0.26, 4, false);
+  chunked(trunkGeo, new T.MeshStandardMaterial({ map: barkT, roughness: 0.95 }), trunkItems, (it, o) => { o.position.set(it[0], 0, it[1]); o.rotation.set(0, it[2], 0); o.scale.setScalar(it[3]); }, { cast: true, recv: true, cell: 240, lo: trunkLo });
   const frondMat = addWind(new T.MeshStandardMaterial({ map: TEX.frond, alphaTest: 0.42, side: T.DoubleSide, roughness: 0.7 }), 0.05);
-  chunked(frondGeo(), frondMat, frondItems, (it, o) => { o.position.set(it[0], it[2], it[1]); o.rotation.order = 'YZX'; o.rotation.set(0, it[3], it[4]); o.scale.setScalar(it[5]); return greens[it[6]]; }, { cast: true, depth: alphaDepth(TEX.frond), cell: 240 });
-  chunked(new T.SphereGeometry(0.26, 10, 8), new T.MeshStandardMaterial({ color: C(0x5d4426), roughness: 0.7 }), nutItems, (it, o) => { o.position.set(it[0], it[2], it[1]); o.scale.setScalar(it[3]); }, { cell: 240, far: 320 });
+  chunked(frondGeo(), frondMat, frondItems, (it, o) => { o.position.set(it[0], it[2], it[1]); o.rotation.order = 'YZX'; o.rotation.set(0, it[3], it[4]); o.scale.setScalar(it[5]); return greens[it[6]]; }, { cast: true, depth: alphaDepth(TEX.frond), cell: 240, lo: frondGeo(true), loKeep: (it, i) => i % 2 === 0 });
+  chunked(new T.SphereGeometry(0.26, 10, 8), new T.MeshStandardMaterial({ color: C(0x5d4426), roughness: 0.7 }), nutItems, (it, o) => { o.position.set(it[0], it[2], it[1]); o.scale.setScalar(it[3]); }, { cell: 240, far: 260 });
   // broadleaf trees and acacias
   const tb = new Builder(), bark = C(0x6a5038);
   tb.add(new T.CylinderGeometry(0.22, 0.36, 4.2, 8), mat4(0, 2.1, 0, 0), bark);
@@ -550,13 +550,14 @@ function buildVegetation() {
   const tint = [new T.Color(1, 1, 1), new T.Color(0.88, 1.0, 0.82), new T.Color(1.08, 1.04, 0.82), new T.Color(0.82, 0.94, 0.88)];
   const items = (list) => list.map(([x, z], i) => { const sc = rr(0.8, 1.4); if (inPlay(x, z, 20)) addCircle(x, z, 0.45 * sc); return [x, z, rnd() * TAU, sc, sc * rr(0.9, 1.15), i % 4]; });
   const ti = items(trees), ai = items(acacias);
-  chunked(tb.build(), trunkMat, ti.concat(ai), (it, o) => { o.position.set(it[0], 0, it[1]); o.rotation.set(0, it[2], 0); o.scale.set(it[3], it[4], it[3]); }, { cast: true, recv: true, cell: 240 });
+  const tbl = new Builder(); tbl.add(new T.CylinderGeometry(0.2, 0.36, 4.6, 5, 1, true), mat4(0, 2.3, 0, 0), bark);
+  chunked(tb.build(), trunkMat, ti.concat(ai), (it, o) => { o.position.set(it[0], 0, it[1]); o.rotation.set(0, it[2], 0); o.scale.set(it[3], it[4], it[3]); }, { cast: true, recv: true, cell: 240, lo: tbl.build() });
   const leafMat = addWind(new T.MeshStandardMaterial({ map: TEX.leaves, alphaTest: 0.5, side: T.DoubleSide, roughness: 0.82 }), 0.035);
   const leafDepth = alphaDepth(TEX.leaves);
   const cg = canopyGeo(9, 5.6, false); cg.translate(0, 5.6, 0);
-  chunked(cg, leafMat, ti, (it, o) => { o.position.set(it[0], 0, it[1]); o.rotation.set(0, it[2], 0); o.scale.set(it[3], it[4], it[3]); return tint[it[5]]; }, { cast: true, recv: true, depth: leafDepth, cell: 240 });
+  chunked(cg, leafMat, ti, (it, o) => { o.position.set(it[0], 0, it[1]); o.rotation.set(0, it[2], 0); o.scale.set(it[3], it[4], it[3]); return tint[it[5]]; }, { cast: true, recv: true, depth: leafDepth, cell: 240, lo: (() => { const g = canopyGeo(4, 5.8, false); g.translate(0, 5.6, 0); return g; })() });
   const ag = canopyGeo(7, 7.5, true); ag.translate(0, 5.4, 0);
-  chunked(ag, leafMat, ai, (it, o) => { o.position.set(it[0], 0, it[1]); o.rotation.set(0, it[2], 0); o.scale.set(it[3], it[4], it[3]); return tint[(it[5] + 2) % 4]; }, { cast: true, recv: true, depth: leafDepth, cell: 240 });
+  chunked(ag, leafMat, ai, (it, o) => { o.position.set(it[0], 0, it[1]); o.rotation.set(0, it[2], 0); o.scale.set(it[3], it[4], it[3]); return tint[(it[5] + 2) % 4]; }, { cast: true, recv: true, depth: leafDepth, cell: 240, lo: (() => { const g = canopyGeo(3, 7.8, true); g.translate(0, 5.4, 0); return g; })() });
   const bg = canopyGeo(4, 2.2, false); bg.translate(0, 0.85, 0);
   const pink = [C(0xff7ab8), C(0xff5aa0), C(0xffffff), C(0xe8f0d8)];
   const bushMat = new T.MeshStandardMaterial({ map: TEX.leaves, alphaTest: 0.5, side: T.DoubleSide, roughness: 0.85 });
@@ -709,6 +710,7 @@ function drawFanScreen(i) {
   const c = fanScreenTex.image.getContext('2d'), w = 1024, h = 576;
   const msgs = state.done ? [['LIVE', 'Kickoff at AfconCity'], ['ASANTE MASHABIKI', 'Thank you, fans'], ['PARTNER SLOT', 'Big screen · 30-second spot']]
     : [['KARIBU MASHABIKI', 'Welcome, fans'], [`${DAYS} DAYS`, 'until AFCON 2027 kicks off'], ['COIN RUSH', 'Every 3 minutes somewhere in Fumba'], ['PARTNER SLOT', 'Big screen · 30-second spot']];
+  msgs.unshift(...eventScreenMsgs());
   const [a, b] = msgs[i % msgs.length];
   c.fillStyle = i % 2 ? '#232a63' : '#141838'; c.fillRect(0, 0, w, h); kangaEdge(c, w, h, 22);
   c.textAlign = 'center'; c.textBaseline = 'middle'; c.fillStyle = a === 'PARTNER SLOT' || a === 'COIN RUSH' ? '#f3b41b' : '#f7ead0';

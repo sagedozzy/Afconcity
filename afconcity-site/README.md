@@ -65,3 +65,29 @@ The loader in `v3/web_loader.js` shows real download progress in the Play button
 - A look travels to other players as a short code (`lookCode`/`lookFrom`), so older copies of the game still see a jersey.
 - The welcome questions (`v3/js/48-onboard.js`) add TSh 15,000 per answer to a new player's starting cash, plus TSh 30,000 for answering all eight. Answers stay on the player's device and go anonymously into their play stats. The owner sees the totals under Advertise → Tester insights.
 - `tools/onboard.py` tests both.
+
+## Daily play, leaderboards, match days and Kiswahili
+
+- `v3/js/62-daily.js`: a daily login reward that grows with a streak (TSh 5,000 up to TSh 50,000 on day 7) and three daily challenges, each paying TSh 8,000–15,000, plus TSh 15,000 for all three.
+- `v3/js/61-online.js`: analytics events, cloud save codes, the weekly Passport Race and other leaderboards, and invites. A friend who starts playing through your link earns you both TSh 25,000, for up to 10 friends a week.
+- `v3/js/63-events.js`: match days. AFCON 2027 dates are built in, and the owner adds more under Advertise. During a match day, cheering in the Fan Zone pays TSh 2,000 a minute, for up to 30 minutes.
+- `v3/js/64-owner.js`: the owner's brand bookings (approve or decline) and player analytics.
+- `v3/js/05-i18n.js`: the Kiswahili switch, under Settings. It covers menus, panels, questions, wardrobe, challenges and leaderboards. Most character dialogue is still in English. Add a translation to `SW`, or add a pattern to `SW_RE` for text that contains numbers.
+- Players under 18 can chat only with the quick phrases in `chat_phrases`, and the server checks this.
+- Brands book at `/brands` (`web/brands.html`, `web/brands.js`) and pay through Bachs. The Edge Function `supabase/functions/bachs` sets the price from the owner's rates, opens the Bachs checkout and marks a booking paid when Bachs's signed webhook arrives. The owner then approves it in the game.
+- `tools/online.py` tests all of the above against the in-browser Supabase stand-in.
+
+## Owner setup (one time)
+
+1. **Database.** Paste `supabase/setup.sql` into the Supabase SQL Editor and click Run. Then, under **Database → Extensions**, turn on **pg_cron** and run the file again: this schedules the nightly clean-up (chat after 30 days, events after 90, saves and scores after 12 months idle).
+2. **Payments (Bachs).**
+   - In Supabase, under **Edge Functions → Deploy a new function → Via editor**, name it `bachs`, paste in `supabase/functions/bachs/index.ts` and deploy. Then open its settings and turn **Verify JWT** off, because Bachs cannot send a Supabase token.
+   - Under **Edge Functions → Secrets**, add `BACHS_SECRET_KEY` and `BACHS_WEBHOOK_SECRET` from your Bachs dashboard. To test first, also add `BACHS_API` = `https://sandbox-api.bachs.io` with your sandbox keys, and delete it when you go live. If Bachs cannot charge in TZS, set `BACHS_CURRENCY` (for example `USD`) and `BACHS_FX`, the number of shillings per unit of that currency (for example `2600`).
+   - In Bachs, add the webhook `https://duwxnxvrrzqiaeortusg.supabase.co/functions/v1/bachs/webhook` for `collection.succeeded`, `collection.failed` and `collection.underpaid`.
+   - In the game, sign in as the owner and set **Prices per month** under Advertise. Opening that panel also publishes the list of slots that `/brands` shows.
+3. **Sign-in emails (Resend).** In Resend, add and verify the domain `afconcity.com` (Resend shows the DNS records to add in Cloudflare), then create an API key with **Sending access**. In Supabase, under **Authentication → Emails → SMTP Settings**, turn on custom SMTP and enter:
+   - Host `smtp.resend.com`, port `465`, username `resend`.
+   - Password: the Resend API key. Paste it only here.
+   - Sender `no-reply@afconcity.com`, name `AfconCity`.
+   
+   Then raise the email rate limit under **Authentication → Rate Limits**.

@@ -459,7 +459,7 @@ charMat.onBeforeCompile = (sh) => {
   sh.vertexShader = sh.vertexShader.replace('#include <common>', '#include <common>\nattribute float aRough;\nvarying float vRough;\nattribute float aPat;\nattribute vec4 aPuv;\nvarying float vPat;\nvarying vec4 vPuv;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvRough = aRough; vPat = aPat; vPuv = aPuv;');
   // printed cloth: the print's own colours over the garment colour, shaded like the cloth under it
   sh.fragmentShader = sh.fragmentShader.replace('#include <common>', '#include <common>\nvarying float vRough;\nvarying float vPat;\nvarying vec4 vPuv;\nuniform sampler2D uPat;').replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor = vRough;')
-    .replace('#include <color_fragment>', '#include <color_fragment>\nif (vPat > 0.5) { float pid = floor(vPat + 0.5) - 1.0; vec2 tl = vec2(mod(pid, 4.0), floor(pid / 4.0)); vec4 pc = texture2D(uPat, (tl + 0.006 + fract(vPuv.xy) * 0.988) * 0.25); diffuseColor.rgb = mix(diffuseColor.rgb, pow(pc.rgb, vec3(2.2)) * vPuv.z, pc.a * vPuv.w); }');
+    .replace('#include <color_fragment>', '#include <color_fragment>\nif (vPat > 0.5) { float pid = floor(vPat + 0.5) - 1.0; vec2 tl = vec2(mod(pid, 6.0), floor(pid / 6.0)); vec4 pc = texture2D(uPat, (tl + 0.006 + fract(vPuv.xy) * 0.988) / 6.0); diffuseColor.rgb = mix(diffuseColor.rgb, pow(pc.rgb, vec3(2.2)) * vPuv.z, pc.a * vPuv.w); }');
 };
 const numberTexCache = new Map();
 function numberTex(n, col) {

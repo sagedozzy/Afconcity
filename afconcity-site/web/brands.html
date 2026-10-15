@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Advertise · AfconCity</title>
+<meta name="description" content="Put your brand on the streets of Fumba, Zanzibar, in AfconCity: billboards, daladalas, shopfronts, phone ads and beach-bar radio, in front of football fans on the road to AFCON 2027.">
+<meta name="theme-color" content="#0a0c1c">
+<meta property="og:title" content="Advertise in AfconCity">
+<meta property="og:description" content="Billboards, daladalas, shopfronts, phone ads and radio in a 3D Zanzibar that football fans play every day. Book and pay online.">
+<meta property="og:image" content="https://afconcity.com/og.jpg">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@800;900&family=Figtree:wght@400;600;700;800&display=swap">
+<link rel="stylesheet" href="/site.css">
+<style>
+.hero{display:grid;gap:18px;padding:12px 0 8px}
+.hero .lede{font-size:19px}
+.why{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:22px}
+.why .card b{display:block;font:800 22px/1.1 var(--f-display);letter-spacing:.02em;margin-bottom:6px}
+.why .card p{margin:0;font-size:15px}
+.slots td:nth-child(3),.slots th:nth-child(3){text-align:right;white-space:nowrap}
+.slots td small{display:block;color:var(--muted);font-size:13px}
+.av{font:700 12px/1 var(--f-body);letter-spacing:.06em;text-transform:uppercase;padding:5px 8px;border-radius:999px;background:rgba(127,227,154,.15);color:var(--cash);white-space:nowrap}
+.av.busy{background:rgba(243,180,27,.15);color:var(--turmeric)}
+form.book{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px 16px}
+form.book .full{grid-column:1/-1}
+form.book label{display:grid;gap:6px;font:700 12px/1.2 var(--f-body);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+form.book input,form.book select{font:600 16px/1.2 var(--f-body);color:var(--sand);background:rgba(255,255,255,.06);border:0;border-radius:10px;padding:12px 14px;box-shadow:inset 0 0 0 1.5px var(--line);letter-spacing:0;text-transform:none;width:100%}
+form.book input[type=color]{padding:4px;height:46px}
+form.book .cols{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+form.book .check{display:flex;gap:10px;align-items:flex-start;text-transform:none;letter-spacing:0;font:500 15px/1.4 var(--f-body);color:#e8e2d4}
+form.book .check input{width:20px;height:20px;margin-top:2px;flex:none}
+.preview{display:grid;gap:8px}
+.preview canvas{width:100%;height:auto;border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.4)}
+.total{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;padding:14px 16px;border-radius:12px;background:rgba(127,227,154,.08);box-shadow:inset 0 0 0 1px var(--line)}
+.total b{font:900 32px/1 var(--f-display);color:var(--cash)}
+.msg{min-height:1.4em;margin:0;color:var(--turmeric)}
+.msg.bad{color:#ff9c86}
+.state{border-left:4px solid var(--cash)}
+.state.warn{border-left-color:var(--turmeric)}
+.faq h3{margin-top:18px}
+@media (max-width:700px){form.book{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header class="top">
+  <a class="brand" href="/"><i aria-hidden="true"></i>AfconCity</a>
+  <nav aria-label="Site"><a href="/brands" aria-current="page">Brands</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a><a class="play" href="/">Play</a></nav>
+</header>
+<main>
+  <div id="state" hidden></div>
+  <section class="hero">
+    <p class="eyebrow">For brands · Fumba, Zanzibar · Road to AFCON 2027</p>
+    <h1>Put your brand on the streets of Fumba</h1>
+    <p class="lede">AfconCity is a free 3D game of real Fumba, Zanzibar. Football fans ride bodas past your billboard, see your ad on their in-game phone and hear it on the beach-bar radio. Book a slot, design it here and pay online in minutes.</p>
+    <p><a class="btn" href="#book">Book a slot</a> <a class="btn ghost" href="/">See the game</a></p>
+  </section>
+  <section class="why" aria-label="Why advertise">
+    <div class="card"><b>A real place</b><p>Real streets of Fumba Town and AfconCity, with daladalas, bodas, a beach bar and the stadium plaza.</p></div>
+    <div class="card"><b>Football fans</b><p>Players are building up to AFCON 2027 in Kenya, Uganda and Tanzania, and match days fill the Fan Zone.</p></div>
+    <div class="card"><b>Every format</b><p>Roadside billboards, daladala backs, shopfronts you can walk into, phone ads and radio spots.</p></div>
+    <div class="card"><b>Measured</b><p>Your booking report shows how many minutes your ad was on screen and how often players opened it.</p></div>
+  </section>
+
+  <h2 id="slots">Slots and prices</h2>
+  <div class="tablewrap card"><table class="slots"><thead><tr><th>Slot</th><th>Status</th><th>Per month</th></tr></thead><tbody id="slotRows"><tr><td colspan="3" class="muted">Loading the slots…</td></tr></tbody></table></div>
+
+  <h2 id="book">Book and design</h2>
+  <form class="book card" id="bookForm" novalidate>
+    <label class="full">Slot<select name="slot" id="fSlot" required></select></label>
+    <label>Start date<input name="start" type="date" id="fStart" required></label>
+    <label>Months<select name="months" id="fMonths"><option>1</option><option>2</option><option>3</option><option>6</option><option>12</option></select></label>
+    <label>Brand name<input name="brand" maxlength="40" required placeholder="Kibo Coffee"></label>
+    <label>Headline<input name="headline" maxlength="40" required placeholder="FRESH FROM KILIMANJARO"></label>
+    <label class="full">Small print (optional)<input name="sub" maxlength="60" placeholder="Now at the Fumba Uptown market"></label>
+    <div class="full cols"><label>Background<input name="c1" type="color" value="#141838"></label><label>Second colour<input name="c2" type="color" value="#1e9b57"></label><label>Text<input name="fg" type="color" value="#ffffff"></label></div>
+    <div class="full preview"><span class="eyebrow">Preview</span><canvas id="preview" width="1024" height="512" aria-label="Preview of your billboard"></canvas></div>
+    <label>Your name<input name="name" maxlength="80" required autocomplete="name"></label>
+    <label>Email<input name="email" type="email" maxlength="120" required autocomplete="email"></label>
+    <label class="full">Company (optional)<input name="company" maxlength="80" autocomplete="organization"></label>
+    <label class="full check"><input name="terms" type="checkbox" required> <span>I accept the <a href="/terms" target="_blank" rel="noopener">advertising terms</a>: ads are suitable for all ages, and we review every design before it goes live.</span></label>
+    <div class="full total"><span>Total <span class="muted" id="totalNote"></span></span><b id="total">–</b></div>
+    <div class="full"><button class="btn" type="submit" id="pay">Continue to payment</button></div>
+    <p class="full msg" id="msg" role="status"></p>
+  </form>
+
+  <section class="faq">
+    <h2>Questions</h2>
+    <h3>What happens after I pay?</h3>
+    <p>We check your design within one working day. Once approved it goes live on your start date for every player, and you get an email from us.</p>
+    <h3>How do I pay?</h3>
+    <p>Payment is handled by Bachs, which takes cards and mobile money in many African countries. We never see your card or wallet details.</p>
+    <h3>Can I use my own artwork or logo?</h3>
+    <p>Yes. After you book, email your artwork to <a href="mailto:support@afconcity.com">support@afconcity.com</a> with your booking reference and we will swap it in.</p>
+    <h3>Refunds</h3>
+    <p>If we decline your design, you get a full refund. See the <a href="/terms">terms</a> for the rest.</p>
+  </section>
+</main>
+<footer><span>© 2026 AfconCity · Fumba, Zanzibar · <a href="mailto:support@afconcity.com">support@afconcity.com</a></span><span><a href="/privacy">Privacy</a> · <a href="/terms">Terms</a> · <a href="/">Play</a></span></footer>
+<script src="/brands.js" defer></script>
+</body>
+</html>

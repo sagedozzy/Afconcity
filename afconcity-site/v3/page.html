@@ -140,6 +140,10 @@ b.hr{color:var(--loss);font-weight:700}
 .chat.open .chatlog li.old{opacity:1}
 .chat.open .chatlog{max-height:320px;overflow:auto}
 .chatbox{display:flex;gap:6px}
+.chat-phrases{display:flex;flex-wrap:wrap;gap:6px;padding:8px;border-radius:12px;background:rgba(10,12,30,.86);box-shadow:inset 0 0 0 1px var(--line)}
+.chat-phrases button{border:0;border-radius:999px;padding:8px 12px;background:rgba(255,255,255,.1);color:var(--sand);font:700 13px/1 var(--f-body);cursor:pointer}
+.chat-phrases button:hover,.chat-phrases button:focus-visible{background:var(--turmeric);color:var(--ink);outline:none}
+.chat-phrases small{flex-basis:100%;font:600 11.5px/1.3 var(--f-body);color:var(--muted)}
 .chatbox input{flex:1;min-width:0;padding:11px 14px;border-radius:10px;border:0;background:var(--glass-2);color:var(--sand);box-shadow:inset 0 0 0 1.5px var(--turmeric);font-size:15px;user-select:text;-webkit-user-select:text}
 .chatbox input:focus{outline:none}
 .chat-hint{font:600 12px/1 var(--f-body);color:var(--muted);text-shadow:0 1px 4px #000}
@@ -302,6 +306,18 @@ b.hr{color:var(--loss);font-weight:700}
 .looks .kit span{padding:7px 11px;font-size:12.5px}
 .swatches .kit span{padding:5px}
 .swatches .kit span i{width:22px;height:22px}
+/* tablets and small laptops: the menu column must not run under the panel */
+@media (min-width:821px) and (max-width:1180px){
+  .start-grid{grid-template-columns:minmax(0,1fr) minmax(320px,440px);gap:24px;padding-left:28px;padding-right:28px}
+  .title{font-size:clamp(48px,6.2vw,80px)}
+  .subtitle{font-size:clamp(18px,2.4vw,26px);white-space:nowrap}
+  .eyebrow{white-space:normal}
+  .mm{max-width:100%}
+  .mm-item{padding:11px 14px 11px 18px}
+  .mm-item span{font-size:clamp(17px,2.2vw,24px)}
+  .mm-item small{display:none}
+  .start-panel{padding:20px 20px}
+}
 /* welcome questions */
 .ob{position:fixed;inset:0;z-index:60;display:grid;place-items:center;padding:calc(env(safe-area-inset-top,0px) + 16px) 16px calc(env(safe-area-inset-bottom,0px) + 16px);background:rgba(6,8,20,.72);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);overflow:auto}
 .ob-card{position:relative;width:min(640px,100%);display:grid;gap:14px;padding:24px 26px 20px;border-radius:18px;background:rgba(12,14,34,.96);box-shadow:0 30px 80px rgba(0,0,0,.55),inset 0 0 0 1px var(--line);animation:obIn .35s cubic-bezier(.2,.9,.3,1.2);overflow:hidden}
@@ -334,11 +350,67 @@ b.hr{color:var(--loss);font-weight:700}
 .ob-foot{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
 .ob-foot .btn:last-child{margin-left:auto}
 .ob-note{font-size:12px;line-height:1.45;color:var(--muted);margin:0}
+.ob-note a{color:var(--sand)}
 .ob-confetti{position:absolute;inset:0;pointer-events:none}
 .ob-confetti i{position:absolute;top:-10px;width:8px;height:12px;border-radius:2px;animation:obFall 2.2s ease-in forwards}
 @keyframes obFall{to{transform:translate(var(--dx),640px) rotate(540deg);opacity:0}}
 @media (max-width:560px){.ob-card{padding:18px 16px 16px}.ob-top{flex-direction:column;gap:8px}.ob-purse{justify-items:start;text-align:left}.ob-pop{left:0;right:auto}.ob-opts.many{grid-template-columns:repeat(2,minmax(0,1fr))}.ob-opt kbd{display:none}.ob-foot .btn{flex:1}}
 @media (prefers-reduced-motion:reduce){.ob-card,.ob-pop{animation:none}}
+.legal{font:600 12.5px/1.4 var(--f-body);color:var(--muted);margin:2px 0 0}
+.legal a{color:var(--muted)}
+.legal a:hover{color:var(--sand)}
+.code-load summary{cursor:pointer;font:600 13px/1.3 var(--f-body);color:var(--muted)}
+.code-load summary:hover{color:var(--sand)}
+.code-load form{display:flex;gap:8px;margin-top:8px}
+.code-load input{flex:1;max-width:220px;padding:10px 12px;border-radius:10px;border:0;background:rgba(255,255,255,.06);box-shadow:inset 0 0 0 1.5px var(--line-2);font:700 16px/1 var(--f-body);letter-spacing:.08em;text-transform:uppercase;color:var(--sand);user-select:text;-webkit-user-select:text}
+.code-load .bad,.opt-block .bad{color:#ff9c86}
+.opt-block{display:grid;gap:8px;padding:12px 0;border-top:1px solid var(--line)}
+.opt-block>span{font-weight:700}
+.cloud-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.cloud-code{font:900 26px/1 var(--f-display);letter-spacing:.1em;color:var(--turmeric);user-select:all;-webkit-user-select:all;word-break:break-all}
+.lb{display:grid;gap:6px;padding:14px 16px;border-radius:12px;background:rgba(255,255,255,.04);box-shadow:inset 0 0 0 1px var(--line);margin-bottom:12px}
+.lb h3{margin:0;font:800 22px/1 var(--f-display);letter-spacing:.03em}
+.lb.invite{background:rgba(243,180,27,.08)}
+.lb.invite .cloud-code{font-size:18px;letter-spacing:.02em}
+.lb-list{list-style:none;counter-reset:lb;margin:4px 0 0;padding:0;display:grid;gap:4px}
+.lb-list li{counter-increment:lb;display:grid;grid-template-columns:28px 1fr auto;gap:8px;align-items:baseline;padding:6px 8px;border-radius:8px}
+.lb-list li::before{content:counter(lb);font:900 16px/1 var(--f-display);color:var(--muted)}
+.lb-list li:nth-child(1)::before{color:var(--turmeric)}
+.lb-list li.me{background:rgba(127,227,154,.12)}
+.lb-list li span{font-variant-numeric:tabular-nums;color:var(--muted)}
+.lb-list li.lb-empty{grid-template-columns:1fr;color:var(--muted)}
+.lb-list li.lb-empty::before{content:none}
+.daily-row{list-style:none;margin:4px 0 6px;padding:0;display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+.daily-row li{display:grid;justify-items:center;gap:4px;padding:8px 2px;border-radius:10px;background:rgba(255,255,255,.05);box-shadow:inset 0 0 0 1px var(--line)}
+.daily-row small{font:700 10.5px/1 var(--f-body);color:var(--muted);letter-spacing:.04em}
+.daily-row b{font:900 18px/1 var(--f-display)}
+.daily-row li.past{opacity:.55}
+.daily-row li.now{background:rgba(127,227,154,.16);box-shadow:inset 0 0 0 2px var(--cash);color:var(--cash)}
+.daily-box{display:grid;gap:8px;padding:14px 16px;border-radius:12px;background:rgba(127,227,154,.07);box-shadow:inset 0 0 0 1px var(--line);margin-bottom:14px}
+.daily-box h3{margin:0;font:800 20px/1 var(--f-display);letter-spacing:.03em}
+.daily-list{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.daily-list li{display:grid;grid-template-columns:1fr auto;gap:2px 10px;align-items:baseline}
+.daily-list li span{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums}
+.daily-list li i{grid-column:1/-1;height:6px;border-radius:3px;background:linear-gradient(90deg,var(--cash) var(--p,0%),rgba(255,255,255,.1) var(--p,0%))}
+.daily-list li.done b{text-decoration:line-through;color:var(--muted)}
+.event-banner{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap;margin:0;padding:10px 14px;border-radius:10px;background:rgba(243,180,27,.12);box-shadow:inset 0 0 0 1px rgba(243,180,27,.4);font-size:14px}
+.event-banner b{font:800 12px/1 var(--f-body);letter-spacing:.12em;text-transform:uppercase;color:var(--turmeric)}
+.event-banner.live{background:rgba(224,85,58,.18);box-shadow:inset 0 0 0 1px var(--clove)}
+.event-banner.live b{color:#ff9c86}
+.an-tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;margin:6px 0 10px}
+.an-tiles div{display:grid;gap:4px;padding:10px;border-radius:10px;background:rgba(255,255,255,.05);box-shadow:inset 0 0 0 1px var(--line)}
+.an-tiles b{font:900 24px/1 var(--f-display);color:var(--cash)}
+.an-tiles span{font-size:12px;color:var(--muted)}
+.an h4{margin:12px 0 6px;font:700 12px/1 var(--f-body);letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.an-bars{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:3px;height:120px;align-items:end}
+.an-bars div{display:grid;grid-template-rows:1fr auto;height:100%;align-items:end;gap:3px}
+.an-bars i{display:block;background:var(--cash);border-radius:3px 3px 0 0;min-height:2px}
+.an-bars small{font-size:10px;color:var(--muted);text-align:center}
+.an-funnel{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.an-funnel li{display:grid;grid-template-columns:1fr auto;gap:2px 10px;font-size:13px}
+.an-funnel li i{grid-column:1/-1;height:8px;border-radius:4px;background:var(--turmeric)}
+.an-two{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.bookings li.bk-paid{background:rgba(127,227,154,.08)}
 /* wardrobe */
 .look-sum{display:grid;grid-template-columns:44px 1fr auto;gap:12px;align-items:center;padding:12px;border-radius:12px;background:rgba(255,255,255,.05);box-shadow:inset 0 0 0 1px var(--line)}
 .look-sum>i{width:44px;height:44px;border-radius:10px;box-shadow:inset 0 0 0 2px rgba(0,0,0,.25)}
@@ -354,6 +426,10 @@ b.hr{color:var(--loss);font-weight:700}
 .st-preset[aria-pressed="true"]{box-shadow:inset 0 0 0 2px var(--turmeric);color:var(--turmeric)}
 .st-preset:focus-visible{outline:3px solid var(--turmeric);outline-offset:2px}
 .st-art{display:grid;justify-items:center;gap:2px}
+.st-preset.ltd{background:linear-gradient(160deg,rgba(243,180,27,.16),rgba(255,255,255,.04))}
+.st-tag{font:800 10px/1.1 var(--f-body);letter-spacing:.06em;text-transform:uppercase;color:var(--turmeric)}
+.kit.locked span{box-shadow:inset 0 0 0 1.5px rgba(243,180,27,.55)}
+.st-buy{color:var(--turmeric)}
 .st-art i{display:block;box-shadow:inset 0 0 0 1px rgba(0,0,0,.25)}
 .st-art .t{width:40px;height:22px;border-radius:8px 8px 3px 3px}
 .st-art .b{width:30px;height:20px;border-radius:2px 2px 4px 4px}
@@ -861,6 +937,7 @@ input[type=range]{accent-color:var(--turmeric);width:200px}
       <input id="chatInput" maxlength="90" placeholder="Message everyone in Fumba…" aria-label="Chat message">
       <button class="btn btn-sm" type="submit">Send</button>
     </form>
+    <div class="chat-phrases" id="chatPhrases" hidden role="group" aria-label="Quick phrases"></div>
     <p class="chat-hint" id="chatHint">Press <kbd>T</kbd> to chat</p>
   </div>
 
@@ -943,11 +1020,13 @@ input[type=range]{accent-color:var(--turmeric);width:200px}
         <button class="mm-item" type="button" data-p="about"><span>About the map</span><small>Real Fumba data</small></button>
         <button class="mm-item" type="button" data-p="install" id="mmInstall" hidden><span>Install the app</span><small>Play from your home screen</small></button>
       </nav>
+      <p class="legal"><a href="https://afconcity.com/brands" target="_blank" rel="noopener">Advertise with us</a> · <a href="https://afconcity.com/privacy" target="_blank" rel="noopener">Privacy</a> · <a href="https://afconcity.com/terms" target="_blank" rel="noopener">Terms</a></p>
       <p class="load-note" id="loadNote" hidden></p>
     </div>
 
     <section class="start-panel" id="startPanel" aria-live="polite">
       <div class="sp" data-p="play">
+        <p class="event-banner" id="eventBanner" hidden></p>
         <div class="sp-head"><span class="eyebrow">Road to AFCON 2027</span><h2>VIP or bust</h2></div>
         <p class="lede" id="playLede">You step off the daladala on Fumba Road with TSh 100,000. A VIP seat for the AFCON 2027 match at AfconCity costs TSh 1,000,000, and only fans with a full Fan Passport of Zanzibar experiences can buy one. Work, explore and haggle at real Zanzibar prices.</p>
         <div class="facts">
@@ -964,6 +1043,11 @@ input[type=range]{accent-color:var(--turmeric);width:200px}
           <div><span class="eyebrow">Your look</span><b id="lookName">Nungwi Sunset</b><small id="lookDesc"></small></div>
           <button class="btn btn-ghost" id="btnStyle" type="button">Wardrobe</button>
         </div>
+        <details class="code-load" id="codeLoad">
+          <summary>Have a save code? Carry on from another phone</summary>
+          <form id="codeForm" autocomplete="off"><input id="codeInput" maxlength="12" placeholder="ABCDE-23456" aria-label="Save code" spellcheck="false" autocapitalize="characters"><button class="btn btn-sm" type="submit">Load</button></form>
+          <p class="fine" id="codeOut" aria-live="polite"></p>
+        </details>
         <div class="start-actions">
           <button class="btn btn-xl" id="btnPlay" type="button" disabled>Loading Fumba…</button>
           <button class="btn btn-ghost" id="btnNew" type="button" hidden>New game</button>
@@ -1017,11 +1101,13 @@ input[type=range]{accent-color:var(--turmeric);width:200px}
 
       <div class="sp" data-p="settings" hidden>
         <div class="sp-head"><span class="eyebrow">Settings</span><h2>Your setup</h2></div>
+        <div class="opt-row" data-notr><span>Language · Lugha</span><div class="seg" data-seg="lang"><button type="button" data-v="en">English</button><button type="button" data-v="sw">Kiswahili</button></div></div>
         <div class="opt-row"><span>Graphics</span><div class="seg" data-seg="gfx"><button type="button" data-v="high">High</button><button type="button" data-v="low">Fast</button></div></div>
         <div class="opt-row"><span>Sound</span><div class="seg" data-seg="sound"><button type="button" data-v="on">On</button><button type="button" data-v="off">Off</button></div></div>
         <div class="opt-row"><span>Camera follow</span><div class="seg" data-seg="follow"><button type="button" data-v="on">On</button><button type="button" data-v="off">Off</button></div></div>
         <div class="opt-row"><span>On-screen display</span><div class="seg" data-seg="hud"><button type="button" data-v="full">Full</button><button type="button" data-v="min">Minimal</button><button type="button" data-v="off">Off</button></div></div>
         <p class="fine">Fast graphics turns off soft shadows and lowers the resolution for phones and older laptops.</p>
+        <p class="fine lang-note" data-lang-note hidden>Menyu, maswali, kabati la nguo, changamoto na orodha za viongozi ziko kwa Kiswahili. Mazungumzo mengi ya wahusika bado ni ya Kiingereza.</p>
       </div>
 
       <div class="sp" data-p="ads" hidden>
@@ -1108,6 +1194,7 @@ input[type=range]{accent-color:var(--turmeric);width:200px}
     <button type="button" role="tab" data-t="goals">Passport</button>
     <button type="button" role="tab" data-t="stats">Stats</button>
     <button type="button" role="tab" data-t="friends">Friends</button>
+    <button type="button" role="tab" data-t="leaders">Leaders</button>
     <button type="button" role="tab" data-t="ads">Billboards</button>
     <button type="button" role="tab" data-t="feedback">Feedback</button>
     <button type="button" role="tab" data-t="settings">Settings</button>
@@ -1134,10 +1221,12 @@ input[type=range]{accent-color:var(--turmeric);width:200px}
         </ol>
       </div>
     </section>
+    <section class="pm-pane" data-t="leaders" hidden><div class="pm-col" id="pmLeaders"></div></section>
     <section class="pm-pane" data-t="ads" hidden><div class="pm-col wide" id="pmAds"></div></section>
     <section class="pm-pane" data-t="feedback" hidden><div class="pm-col" id="pmFeedback"></div></section>
     <section class="pm-pane" data-t="settings" hidden>
       <div class="pm-col">
+        <div class="opt-row" data-notr><span>Language · Lugha</span><div class="seg" data-seg="lang"><button type="button" data-v="en">English</button><button type="button" data-v="sw">Kiswahili</button></div></div>
         <div class="opt-row"><span>Graphics</span><div class="seg" id="segGfx" data-seg="gfx"><button type="button" data-v="high">High</button><button type="button" data-v="low">Fast</button></div></div>
         <div class="opt-row"><span>Time of day</span><div class="seg" id="segTime"><button type="button" data-v="live">Live clock</button><button type="button" data-v="day">Day</button><button type="button" data-v="night">Night</button></div></div>
         <div class="opt-row"><span>On-screen display</span><div class="seg" data-seg="hud"><button type="button" data-v="full">Full</button><button type="button" data-v="min">Minimal</button><button type="button" data-v="off">Off</button></div></div>
@@ -1145,7 +1234,9 @@ input[type=range]{accent-color:var(--turmeric);width:200px}
         <div class="opt-row"><span>Sound</span><div class="seg" id="segSound" data-seg="sound"><button type="button" data-v="on">On</button><button type="button" data-v="off">Off</button></div></div>
         <div class="opt-row"><span>Camera follow</span><div class="seg" data-seg="follow"><button type="button" data-v="on">On</button><button type="button" data-v="off">Off</button></div></div>
         <div class="opt-row"><span>Mouse sensitivity</span><input type="range" id="sens" min="0.4" max="2" step="0.1" value="1" aria-label="Mouse sensitivity"></div>
-        <p class="fine">Press <kbd>H</kbd> in the game to cycle Full, Minimal and Off. The live clock runs a day in about 19 minutes. Progress saves in this browser. A new game starts you again on Fumba Road with TSh 100,000.</p>
+        <p class="fine lang-note" data-lang-note hidden>Menyu, maswali, kabati la nguo, changamoto na orodha za viongozi ziko kwa Kiswahili. Mazungumzo mengi ya wahusika bado ni ya Kiingereza.</p>
+        <div class="opt-block"><span>Cloud save</span><div id="cloudBox"></div></div>
+        <p class="fine">Press <kbd>H</kbd> in the game to cycle Full, Minimal and Off. The live clock runs a day in about 19 minutes. Progress saves in this browser, and on afconcity.com it is also backed up online with your save code.</p>
       </div>
     </section>
     <section class="pm-pane" data-t="controls" hidden>

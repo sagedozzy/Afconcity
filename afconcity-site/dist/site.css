@@ -1,0 +1,35 @@
+/* AfconCity info pages (privacy, terms, brands): same palette and type as the game */
+:root{--ink:#141838;--night:#0a0c1c;--panel:#10132a;--line:rgba(247,234,208,.16);--sand:#f7ead0;--muted:#c3bdd3;--turmeric:#f3b41b;--clove:#e0553a;--cash:#7fe39a;--sea:#19b5b1;
+  --kanga:repeating-linear-gradient(135deg,var(--turmeric) 0 12px,var(--clove) 12px 24px,var(--ink) 24px 36px);
+  --f-display:"Big Shoulders Display","Arial Narrow","Roboto Condensed",Impact,sans-serif;--f-body:"Figtree","Segoe UI",system-ui,-apple-system,sans-serif}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--night);color:var(--sand);font:400 16px/1.6 var(--f-body);-webkit-font-smoothing:antialiased}
+a{color:var(--turmeric)}
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:3px solid var(--turmeric);outline-offset:2px}
+.top{position:sticky;top:0;z-index:5;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px max(16px,calc(50% - 460px));background:rgba(10,12,28,.92);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:10px;color:var(--sand);text-decoration:none;font:900 26px/1 var(--f-display);letter-spacing:.01em}
+.brand i{width:42px;height:8px;border-radius:999px;background:var(--kanga)}
+.top nav{display:flex;gap:6px;flex-wrap:wrap}
+.top nav a{color:var(--muted);text-decoration:none;font:700 13px/1 var(--f-body);letter-spacing:.06em;text-transform:uppercase;padding:9px 10px;border-radius:8px}
+.top nav a[aria-current="page"],.top nav a:hover{color:var(--sand);background:rgba(255,255,255,.07)}
+.top .play{background:var(--turmeric);color:var(--ink)!important}
+main{max-width:920px;margin:0 auto;padding:32px 16px 72px}
+.eyebrow{font:700 12px/1.2 var(--f-body);letter-spacing:.16em;text-transform:uppercase;color:var(--turmeric)}
+h1{font:900 clamp(40px,8vw,72px)/.92 var(--f-display);margin:8px 0 14px;letter-spacing:.005em}
+h2{font:800 clamp(24px,4vw,32px)/1.05 var(--f-display);letter-spacing:.02em;margin:40px 0 10px}
+h3{font:800 20px/1.15 var(--f-display);letter-spacing:.03em;margin:22px 0 6px}
+p,li{color:#e8e2d4}
+.lede{font-size:18px;color:var(--sand);max-width:62ch}
+.muted{color:var(--muted)}
+.card{background:var(--panel);border-radius:14px;box-shadow:inset 0 0 0 1px var(--line);padding:18px 20px}
+table{width:100%;border-collapse:collapse;font-size:15px}
+th,td{text-align:left;padding:10px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font:700 12px/1.2 var(--f-body);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.tablewrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+footer{max-width:920px;margin:0 auto;padding:22px 16px 40px;border-top:1px solid var(--line);color:var(--muted);font-size:14px;display:flex;gap:16px;flex-wrap:wrap;justify-content:space-between}
+footer a{color:var(--muted)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:0;border-radius:999px;background:var(--turmeric);color:var(--ink);font:800 16px/1 var(--f-body);letter-spacing:.06em;text-transform:uppercase;padding:15px 24px;cursor:pointer;text-decoration:none;box-shadow:0 4px 0 var(--clove)}
+.btn:disabled{opacity:.5;cursor:default}
+.btn.ghost{background:transparent;color:var(--sand);box-shadow:inset 0 0 0 2px var(--line)}
+@media (max-width:620px){.top nav a:not(.play){display:none}.brand{font-size:22px}}
