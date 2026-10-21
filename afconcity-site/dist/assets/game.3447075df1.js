@@ -5912,8 +5912,19 @@ function webRoom() {
     ch.send({ type: 'broadcast', event: 'mv', payload: Object.assign({ p: myPeer }, pendingMove) }).catch(() => {});
     pendingMove = null;
   };
+  /* a stalled or dropped connection is retried with growing gaps (4 s up to a minute), and at once when the phone comes back online */
+  let retryT = 0, watchT = 0, tries = 0;
+  const retryLater = () => { clearTimeout(retryT); retryT = setTimeout(rejoin, Math.min(60000, 4000 * 2 ** Math.min(tries++, 4))); };
+  const rejoin = () => {
+    clearTimeout(retryT); retryT = 0;
+    if (ch) { const old = ch; ch = null; try { WEB.sb.removeChannel(old); } catch (e) {} }
+    setLive(false); join();
+  };
+  const kick = () => { if (!live && WEB.sb) { tries = 0; rejoin(); } };
+  addEventListener('online', kick);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') kick(); });
   const join = () => {
-    ch = WEB.sb.channel(SB_CFG.room, { config: { presence: { key: myPeer }, broadcast: { self: false, ack: false } } });
+    const mine = ch = WEB.sb.channel(SB_CFG.room, { config: { presence: { key: myPeer }, broadcast: { self: false, ack: false } } });
     ch.on('presence', { event: 'sync' }, emitPeers);
     /* a newcomer only gets each player's last presence, so re-send where we are right now */
     ch.on('presence', { event: 'join' }, (ev) => {
@@ -5932,14 +5943,18 @@ function webRoom() {
       const r = p && p.new; if (!r) return;
       for (const f of chatCbs) { try { f({ id: r.id, by: r.owner, nick: r.nick, body: r.body, at: Date.parse(r.created_at) || Date.now() }); } catch (e) {} }
     });
-    ch.subscribe((status) => {
-      if (status === 'SUBSCRIBED') { setLive(true); track(); emitPeers(); }
-      else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') setLive(false);
+    mine.subscribe((status) => {
+      if (ch !== mine) return; // an old channel closing after a retry
+      if (status === 'SUBSCRIBED') { tries = 0; clearTimeout(watchT); clearTimeout(retryT); setLive(true); track(); emitPeers(); }
+      else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') { setLive(false); retryLater(); }
     });
+    // no answer at all within 15 seconds: start again
+    clearTimeout(watchT); watchT = setTimeout(() => { if (ch === mine && !live) rejoin(); }, 15000);
   };
   WEB.room = {
     web: true,
     connected: () => live,
+    retry: kick,
     onConnection(cb) { conn.push(cb); if (!ch) join(); else cb(live); },
     onPeers(cb) { peersCbs.push(cb); if (!ch) join(); else cb({ peers: peersNow() }); },
     /* the game sends small patches; movement goes out as a light broadcast (up to 5 a second), everything else as presence */
@@ -6006,9 +6021,9 @@ const NET_WHY = {
   signedout: 'Solo. You are not signed in to Claude here. Sign in, then open the link again.',
   noaccess: 'Solo. You opened a shared link, but the host has not added your Claude email to this game yet. Ask them to add you in Share, then reload.',
   revoked: 'Solo. Your access to this game changed. Reload the page to rejoin.',
-  timeout: 'Solo for now. The live room did not answer. Reload the page, or check your connection.',
+  timeout: 'Solo for now: the live room did not answer. The game keeps trying in the background, and you join the others as soon as it connects.',
   error: 'Solo for now. The live room is unavailable. Reload the page to try again.',
-  webdown: 'Solo for now. The live server did not answer. Check your connection and reload the page.',
+  webdown: 'Solo for now: the live server did not answer. Check your connection; the game keeps trying.',
 };
 function setNet(status, why) {
   MP.status = status; if (why !== undefined) MP.why = why;
@@ -6185,6 +6200,8 @@ async function initMultiplayer() {
     document.querySelectorAll('.mp-claude').forEach(e => { e.hidden = true; });
     document.querySelectorAll('.mp-web').forEach(e => { e.hidden = false; e.textContent = 'Everyone at afconcity.com shares the same Fumba: chat, high-fives, races and dropped cash. Send friends the link and meet up at the Uptown Gate.'; });
   }
+  const slow = () => { clearTimeout(MP.slowT); MP.slowT = setTimeout(() => { if (!MP.terminal && MP.status === 'connecting' && !(MP.room && MP.room.connected())) setNet('solo', 'timeout'); }, 15000); };
+  slow();
   try {
     const [room, user] = await Promise.all([cl.use('room'), cl.use('user')]);
     MP.user = user;
@@ -6194,10 +6211,8 @@ async function initMultiplayer() {
     MP.room = room;
     if (room.onChat) room.onChat(onServerChat);
     const dead = (e) => { MP.terminal = true; const c = e && e.code; setNet('solo', c === 'not_granted' ? (uid ? 'noaccess' : 'signedout') : c === 'revoked' ? 'revoked' : 'error'); };
-    room.onConnection((c) => { if (MP.terminal) return; setNet(c ? 'live' : (MP.status === 'live' ? 'connecting' : MP.status), c ? '' : undefined); if (c) { MP.last = {}; sendPresence(true); } }, dead);
+    room.onConnection((c) => { if (MP.terminal) return; if (c) { clearTimeout(MP.slowT); setNet('live', ''); MP.last = {}; sendPresence(true); } else if (MP.status === 'live') { setNet('connecting'); slow(); } }, dead);
     room.onPeers(onPeers, dead);
-    // a slow first connection reads as Solo, and lights up as soon as it arrives
-    setTimeout(() => { if (!MP.terminal && MP.status === 'connecting' && !room.connected()) setNet('solo', 'timeout'); }, 12000);
   } catch (e) { setNet('solo', 'error'); }
 }
 function mpEvent(text, kind) {
@@ -9849,7 +9864,7 @@ function wireUI() {
   $('#btnRoam').addEventListener('click', () => { ui.end.hidden = true; ui.hud.hidden = false; ui.tags.hidden = false; mode = 'play'; cam.yaw = Math.PI; canvas.focus(); });
   $('#btnReplay').addEventListener('click', () => { ui.end.hidden = true; mode = 'play'; newGame(); renderKits(); enterPlay(); });
   $('#btnShoot').addEventListener('click', () => { penaltyShoot(); canvas.focus(); });
-  ui.online.addEventListener('click', () => { ui.players.hidden = !ui.players.hidden; ui.online.setAttribute('aria-expanded', String(!ui.players.hidden)); renderPlayers(); });
+  ui.online.addEventListener('click', () => { if (MP.status !== 'live' && MP.room && MP.room.retry) MP.room.retry(); ui.players.hidden = !ui.players.hidden; ui.online.setAttribute('aria-expanded', String(!ui.players.hidden)); renderPlayers(); });
   document.querySelectorAll('[data-seg="gfx"] button').forEach(b => b.addEventListener('click', () => { gfx = b.dataset.v; try { localStorage.setItem(GFX_KEY, gfx); } catch (e) {} segSet('[data-seg="gfx"]', gfx); setShadowRes(); resizeAll(); applyNight(smooth(night)); armWatch(); }));
   document.querySelectorAll('[data-seg="follow"] button').forEach(b => b.addEventListener('click', () => { SETTINGS.follow = b.dataset.v === 'on'; try { localStorage.setItem('afconcity-follow', b.dataset.v); } catch (e) {} segSet('[data-seg="follow"]', b.dataset.v); }));
   document.querySelectorAll('#segTime button').forEach(b => b.addEventListener('click', () => setTimeMode(b.dataset.v)));

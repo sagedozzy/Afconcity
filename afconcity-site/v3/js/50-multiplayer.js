@@ -9,9 +9,9 @@ const NET_WHY = {
   signedout: 'Solo. You are not signed in to Claude here. Sign in, then open the link again.',
   noaccess: 'Solo. You opened a shared link, but the host has not added your Claude email to this game yet. Ask them to add you in Share, then reload.',
   revoked: 'Solo. Your access to this game changed. Reload the page to rejoin.',
-  timeout: 'Solo for now. The live room did not answer. Reload the page, or check your connection.',
+  timeout: 'Solo for now: the live room did not answer. The game keeps trying in the background, and you join the others as soon as it connects.',
   error: 'Solo for now. The live room is unavailable. Reload the page to try again.',
-  webdown: 'Solo for now. The live server did not answer. Check your connection and reload the page.',
+  webdown: 'Solo for now: the live server did not answer. Check your connection; the game keeps trying.',
 };
 function setNet(status, why) {
   MP.status = status; if (why !== undefined) MP.why = why;
@@ -188,6 +188,8 @@ async function initMultiplayer() {
     document.querySelectorAll('.mp-claude').forEach(e => { e.hidden = true; });
     document.querySelectorAll('.mp-web').forEach(e => { e.hidden = false; e.textContent = 'Everyone at afconcity.com shares the same Fumba: chat, high-fives, races and dropped cash. Send friends the link and meet up at the Uptown Gate.'; });
   }
+  const slow = () => { clearTimeout(MP.slowT); MP.slowT = setTimeout(() => { if (!MP.terminal && MP.status === 'connecting' && !(MP.room && MP.room.connected())) setNet('solo', 'timeout'); }, 15000); };
+  slow();
   try {
     const [room, user] = await Promise.all([cl.use('room'), cl.use('user')]);
     MP.user = user;
@@ -197,10 +199,8 @@ async function initMultiplayer() {
     MP.room = room;
     if (room.onChat) room.onChat(onServerChat);
     const dead = (e) => { MP.terminal = true; const c = e && e.code; setNet('solo', c === 'not_granted' ? (uid ? 'noaccess' : 'signedout') : c === 'revoked' ? 'revoked' : 'error'); };
-    room.onConnection((c) => { if (MP.terminal) return; setNet(c ? 'live' : (MP.status === 'live' ? 'connecting' : MP.status), c ? '' : undefined); if (c) { MP.last = {}; sendPresence(true); } }, dead);
+    room.onConnection((c) => { if (MP.terminal) return; if (c) { clearTimeout(MP.slowT); setNet('live', ''); MP.last = {}; sendPresence(true); } else if (MP.status === 'live') { setNet('connecting'); slow(); } }, dead);
     room.onPeers(onPeers, dead);
-    // a slow first connection reads as Solo, and lights up as soon as it arrives
-    setTimeout(() => { if (!MP.terminal && MP.status === 'connecting' && !room.connected()) setNet('solo', 'timeout'); }, 12000);
   } catch (e) { setNet('solo', 'error'); }
 }
 function mpEvent(text, kind) {

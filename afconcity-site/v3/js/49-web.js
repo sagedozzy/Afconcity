@@ -163,8 +163,19 @@ function webRoom() {
     ch.send({ type: 'broadcast', event: 'mv', payload: Object.assign({ p: myPeer }, pendingMove) }).catch(() => {});
     pendingMove = null;
   };
+  /* a stalled or dropped connection is retried with growing gaps (4 s up to a minute), and at once when the phone comes back online */
+  let retryT = 0, watchT = 0, tries = 0;
+  const retryLater = () => { clearTimeout(retryT); retryT = setTimeout(rejoin, Math.min(60000, 4000 * 2 ** Math.min(tries++, 4))); };
+  const rejoin = () => {
+    clearTimeout(retryT); retryT = 0;
+    if (ch) { const old = ch; ch = null; try { WEB.sb.removeChannel(old); } catch (e) {} }
+    setLive(false); join();
+  };
+  const kick = () => { if (!live && WEB.sb) { tries = 0; rejoin(); } };
+  addEventListener('online', kick);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') kick(); });
   const join = () => {
-    ch = WEB.sb.channel(SB_CFG.room, { config: { presence: { key: myPeer }, broadcast: { self: false, ack: false } } });
+    const mine = ch = WEB.sb.channel(SB_CFG.room, { config: { presence: { key: myPeer }, broadcast: { self: false, ack: false } } });
     ch.on('presence', { event: 'sync' }, emitPeers);
     /* a newcomer only gets each player's last presence, so re-send where we are right now */
     ch.on('presence', { event: 'join' }, (ev) => {
@@ -183,14 +194,18 @@ function webRoom() {
       const r = p && p.new; if (!r) return;
       for (const f of chatCbs) { try { f({ id: r.id, by: r.owner, nick: r.nick, body: r.body, at: Date.parse(r.created_at) || Date.now() }); } catch (e) {} }
     });
-    ch.subscribe((status) => {
-      if (status === 'SUBSCRIBED') { setLive(true); track(); emitPeers(); }
-      else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') setLive(false);
+    mine.subscribe((status) => {
+      if (ch !== mine) return; // an old channel closing after a retry
+      if (status === 'SUBSCRIBED') { tries = 0; clearTimeout(watchT); clearTimeout(retryT); setLive(true); track(); emitPeers(); }
+      else if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') { setLive(false); retryLater(); }
     });
+    // no answer at all within 15 seconds: start again
+    clearTimeout(watchT); watchT = setTimeout(() => { if (ch === mine && !live) rejoin(); }, 15000);
   };
   WEB.room = {
     web: true,
     connected: () => live,
+    retry: kick,
     onConnection(cb) { conn.push(cb); if (!ch) join(); else cb(live); },
     onPeers(cb) { peersCbs.push(cb); if (!ch) join(); else cb({ peers: peersNow() }); },
     /* the game sends small patches; movement goes out as a light broadcast (up to 5 a second), everything else as presence */

@@ -484,7 +484,7 @@ function wireUI() {
   $('#btnRoam').addEventListener('click', () => { ui.end.hidden = true; ui.hud.hidden = false; ui.tags.hidden = false; mode = 'play'; cam.yaw = Math.PI; canvas.focus(); });
   $('#btnReplay').addEventListener('click', () => { ui.end.hidden = true; mode = 'play'; newGame(); renderKits(); enterPlay(); });
   $('#btnShoot').addEventListener('click', () => { penaltyShoot(); canvas.focus(); });
-  ui.online.addEventListener('click', () => { ui.players.hidden = !ui.players.hidden; ui.online.setAttribute('aria-expanded', String(!ui.players.hidden)); renderPlayers(); });
+  ui.online.addEventListener('click', () => { if (MP.status !== 'live' && MP.room && MP.room.retry) MP.room.retry(); ui.players.hidden = !ui.players.hidden; ui.online.setAttribute('aria-expanded', String(!ui.players.hidden)); renderPlayers(); });
   document.querySelectorAll('[data-seg="gfx"] button').forEach(b => b.addEventListener('click', () => { gfx = b.dataset.v; try { localStorage.setItem(GFX_KEY, gfx); } catch (e) {} segSet('[data-seg="gfx"]', gfx); setShadowRes(); resizeAll(); applyNight(smooth(night)); armWatch(); }));
   document.querySelectorAll('[data-seg="follow"] button').forEach(b => b.addEventListener('click', () => { SETTINGS.follow = b.dataset.v === 'on'; try { localStorage.setItem('afconcity-follow', b.dataset.v); } catch (e) {} segSet('[data-seg="follow"]', b.dataset.v); }));
   document.querySelectorAll('#segTime button').forEach(b => b.addEventListener('click', () => setTimeMode(b.dataset.v)));
