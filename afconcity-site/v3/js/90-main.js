@@ -499,12 +499,19 @@ function wireUI() {
   ui.chatInput.addEventListener('blur', () => setTimeout(() => { if (document.activeElement !== ui.chatInput && !ui.chatbox.hidden) closeChat(); }, 150));
   /* touch buttons act on pointerdown so they work while another finger holds the joystick; a click after a tap is ignored */
   const tap = (el, fn) => {
-    el.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); el._tapT = performance.now(); el.classList.add('act'); fn(); });
+    el.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); el._tapT = performance.now(); el._fromTap = true; el.classList.add('act'); fn(); });
     const up = () => { if (el !== tJump) el.classList.remove('act'); }; el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up); el.addEventListener('pointerleave', up);
-    el.addEventListener('click', (e) => { e.preventDefault(); if (performance.now() - (el._tapT || 0) < 700) return; fn(); });
+    // the click that follows a tap is an echo, however late it arrives (iPads delay it while the keyboard closes); keyboard clicks still work
+    el.addEventListener('click', (e) => { e.preventDefault(); if (el._fromTap || performance.now() - (el._tapT || 0) < 700) { el._fromTap = false; return; } fn(); });
   };
   const tJump = $('#tJump');
-  tap($('#tChat'), () => { if (!ui.chat.classList.contains('open')) openChat(); else closeChat(); });
+  // Chat opens the chat; pressed again it sends what you typed (if anything) and closes. Two toggles within 350 ms are one press.
+  tap($('#tChat'), () => {
+    const t = performance.now(); if (t - (ui.chat._tg || 0) < 350) return; ui.chat._tg = t;
+    if (!ui.chat.classList.contains('open')) { openChat(); return; }
+    const v = ui.chatInput.value.trim(); if (v && !ui.chatbox.hidden) { sendChat(v); ui.chatInput.value = ''; }
+    closeChat();
+  });
   $('#chatPhrases').addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Escape') { e.preventDefault(); closeChat(); } });
   tap($('#tAct'), () => { if (curSec && !curInter) curSec.act(); else if (curInter) curInter.act(); });
   for (const el of document.querySelectorAll('#touch, #touch *')) el.addEventListener('touchstart', (e) => { if (e.cancelable) e.preventDefault(); }, { passive: false });

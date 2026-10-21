@@ -2574,7 +2574,7 @@ const SKINS = [0x5a3620, 0x3d2416, 0x7a4a2a, 0x4f2f1c, 0x6b4226, 0x8a5a36, 0x462
 const HIPS_Y = 0.93, LEG1 = 0.41, LEG2 = 0.395, ANKLE_Y = 0.085;
 const EYE = { x: 0.034, y: 1.664, z: 0.086, r: 0.0135 };
 function rigPoints(f) {
-  const sh = f ? 0.172 : 0.19, hx = f ? 0.098 : 0.095, P = {
+  const sh = f ? 0.16 : 0.2, hx = f ? 0.1 : 0.094, P = {
     root: [0, 0, 0], hips: [0, HIPS_Y, 0], spine: [0, 1.03, 0], chest: [0, 1.24, 0], neck: [0, 1.45, -0.005], head: [0, 1.55, -0.002],
     lidL: [EYE.x, EYE.y, EYE.z], lidR: [-EYE.x, EYE.y, EYE.z],
   };
@@ -2687,8 +2687,10 @@ function wBlend(y, bands) { // bands: [[y, weights], ...] ascending: linear blen
 }
 
 /* ---------- head ---------- */
-function sculptPoint(X, Y, Z) {
-  if (Y < 0.1) { const k = smooth(clamp((0.1 - Y) / 1.0, 0, 1)); X *= 1 - 0.24 * k; if (Z < 0) Z *= 1 - 0.28 * k; }
+function sculptPoint(X, Y, Z, f) {
+  // the jaw: softer and narrower for women, squarer for men
+  if (Y < 0.1) { const k = smooth(clamp((0.1 - Y) / 1.0, 0, 1)); X *= 1 - (f ? 0.2 : 0.12) * k; if (Z < 0) Z *= 1 - 0.28 * k; }
+  if (!f && Y < -0.4 && Y > -0.95 && Z > -0.2) X *= 1 + 0.06 * Math.exp(-(((Y + 0.66) / 0.18) ** 2)) * smooth(clamp(Math.abs(X) / 0.5, 0, 1));
   if (Y < -0.5 && Z > 0.15) Z += 0.07 * smooth(clamp((-0.5 - Y) / 0.4, 0, 1)) * smooth(clamp((Z - 0.15) / 0.6, 0, 1));
   if (Z < 0 && Y > -0.25) Z *= 1.07;
   if (Z > 0.55) { const by = Math.exp(-((Y - 0.26) ** 2) / 0.008); Z += 0.04 * by * (1 - Math.abs(X)); }
@@ -2697,11 +2699,11 @@ function sculptPoint(X, Y, Z) {
   if (Z > 0.82) Z = 0.82 + (Z - 0.82) * 0.55;
   return [X * 0.97, Y, Z];
 }
-const HEAD = { x: 0, y: 1.655, z: 0.005, rx: 0.088, ry: 0.116, rz: 0.103 };
+const HEAD = { x: 0, y: 1.655, z: 0.005, rx: 0.092, ry: 0.115, rz: 0.103 };
 function headShell(ws, hs, sc, f, dy, dz) {
   const g = new T.SphereGeometry(1, ws, hs), P = g.attributes.position, k = f ? 0.955 : 1;
   for (let i = 0; i < P.count; i++) {
-    const [X, Y, Z] = sculptPoint(P.getX(i), P.getY(i), P.getZ(i));
+    const [X, Y, Z] = sculptPoint(P.getX(i), P.getY(i), P.getZ(i), f);
     P.setXYZ(i, HEAD.x + X * HEAD.rx * sc * k, HEAD.y + (dy || 0) + Y * HEAD.ry * sc, HEAD.z + (dz || 0) + Z * HEAD.rz * sc * (f ? 0.97 : 1));
   }
   g.computeVertexNormals();
@@ -2714,7 +2716,35 @@ function unitMask(sc, fn, dy, dz) {
     return fn(X, Y, Z);
   };
 }
-const hairLine = (X, Y, Z, front) => Y > lerp(front, -0.52, smooth(clamp((0.55 - Z) / 1.45, 0, 1))) && !(Math.abs(X) > 0.74 && Y < 0.12 && Z > -0.4);
+/* a point on the sculpted head (unit direction X, Y, Z), pushed out to scale sc */
+function headPoint(X, Y, Z, sc, f) {
+  const [sx, sy, sz] = sculptPoint(X, Y, Z, f);
+  return new T.Vector3(HEAD.x + sx * HEAD.rx * sc * (f ? 0.955 : 1), HEAD.y + sy * HEAD.ry * sc, HEAD.z + sz * HEAD.rz * sc * (f ? 0.97 : 1));
+}
+/* a smooth-edged shell over the head, for hair caps and headscarves. Rows run in polar angle from p0(az) to p1(az) about a pole:
+   'y' (the crown; az 0 is the face) or 'z' (the face; az 0 is up). The last rows ease down to `edge` x the head, so a hairline
+   sits on the scalp instead of floating (te: where the easing starts, 2 = never). disp(X, Y, Z, t, az) scales each point. */
+function headCap(o) {
+  const M = o.cols || 32, N = o.rows || 10, sc = o.sc || 1.03, f = o.f, edge = o.edge || 1.006, te = o.te === undefined ? 0.84 : o.te;
+  const pos = [], idx = [];
+  for (let i = 0; i <= N; i++) for (let j = 0; j <= M; j++) {
+    const az = j / M * TAU - Math.PI, t = i / N, p = lerp(o.p0(az), o.p1(az), t), sp = Math.sin(p), cp = Math.cos(p);
+    let X, Y, Z;
+    if (o.pole === 'z') { Z = cp; X = sp * Math.sin(az); Y = sp * Math.cos(az); } else { Y = cp; X = sp * Math.sin(az); Z = sp * Math.cos(az); }
+    let d = (o.disp ? o.disp(X, Y, Z, t, az) : 1) * sc;
+    if (t > te) d = lerp(d, edge, smooth((t - te) / (1 - te)));
+    const [sx, sy, sz] = sculptPoint(X, Y, Z, f);
+    pos.push(HEAD.x + sx * HEAD.rx * d * (f ? 0.955 : 1), HEAD.y + (o.dy || 0) + sy * HEAD.ry * d, HEAD.z + (o.dz || 0) + sz * HEAD.rz * d * (f ? 0.97 : 1));
+  }
+  for (let i = 0; i < N; i++) for (let j = 0; j < M; j++) { const a = i * (M + 1) + j, b = a + 1, c = a + M + 1, d = c + 1; idx.push(a, b, c, b, d, c); }
+  const g = new T.BufferGeometry(); g.setAttribute('position', new T.Float32BufferAttribute(pos, 3)); g.setIndex(idx);
+  // face outward whichever way the rows ran
+  const P = g.attributes.position, k = Math.floor(N / 2) * (M + 1) + Math.floor(M / 2), A = new T.Vector3().fromBufferAttribute(P, k), B = new T.Vector3().fromBufferAttribute(P, k + 1), Cc = new T.Vector3().fromBufferAttribute(P, k + M + 1);
+  const nrm = B.clone().sub(A).cross(Cc.clone().sub(A)), out = A.clone().sub(new T.Vector3(HEAD.x, HEAD.y, HEAD.z));
+  if (nrm.dot(out) < 0) { for (let q = 0; q < idx.length; q += 3) { const tmp = idx[q + 1]; idx[q + 1] = idx[q + 2]; idx[q + 2] = tmp; } g.setIndex(idx); }
+  g.computeVertexNormals();
+  return g;
+}
 
 /* ---------- the look of a person ---------- */
 function hairColorJitter(base) { return (v) => { const k = 0.82 + 0.3 * hash2(v.x * 400, v.y * 400 + v.z * 300); return base.clone().multiplyScalar(k); }; }
@@ -2723,7 +2753,7 @@ function buildBody(look, hi) {
   const rb = (w, h, d, r) => hi ? roundedBox(w, h, d, r, 1) : box(w, h, d);
   const skin = C(L.skin || 0x5a3620), shirt = C(L.shirt || 0xf6f1e7), lower = C(L.lower || 0x232a63), trim = C(L.trim || 0xf6f1e7);
   const shoeC = C(L.shoes || 0x1d1d22), soleC = C(L.sole || (L.shoes === 0xf4f4f0 ? 0xd8d4cc : 0xf2f0ea)), hairC = C(L.hairCol || 0x141010);
-  const palm = skin.clone().lerp(C(0xc8957a), 0.38), lip = skin.clone().multiplyScalar(0.7).lerp(C(0x5a2424), 0.25);
+  const palm = skin.clone().lerp(C(0xc8957a), 0.38), lip = skin.clone().multiplyScalar(0.8).lerp(C(f ? 0x8a3a3a : 0x5a3030), f ? 0.3 : 0.14);
   const kit = !!L.kit, kitLow = L.kitLow === undefined ? kit : !!L.kitLow, robe = !!L.robe, dress = L.dress ? C(L.dress) : null;
   const R_SKIN = 0.52, R_CLOTH = 0.86, SEG = hi ? 22 : 10, LSEG = hi ? 14 : 7;
   // printed cloth: near people carry the print id for the shader; far people get the print's average colour
@@ -2736,9 +2766,9 @@ function buildBody(look, hi) {
   const neck = L.neck || (kit ? 'crew' : L.style === 'button' ? 'collar' : '');
 
   /* torso */
-  const TP = f ? [[0.855, 0.140, 0.090, -0.004], [0.90, 0.172, 0.108, -0.014], [0.96, 0.170, 0.105, -0.010], [1.03, 0.140, 0.090, 0.0], [1.09, 0.128, 0.084, 0.002], [1.16, 0.140, 0.092, 0.010], [1.24, 0.152, 0.098, 0.014], [1.31, 0.158, 0.094, 0.010], [1.37, 0.163, 0.087, 0.002], [1.415, 0.150, 0.078, -0.006], [1.445, 0.105, 0.064, -0.008], [1.465, 0.06, 0.05, -0.006]]
-    : [[0.855, 0.145, 0.092, -0.004], [0.90, 0.166, 0.104, -0.012], [0.96, 0.163, 0.100, -0.008], [1.03, 0.150, 0.094, 0.0], [1.10, 0.152, 0.096, 0.004], [1.18, 0.164, 0.103, 0.010], [1.26, 0.176, 0.108, 0.013], [1.33, 0.184, 0.104, 0.008], [1.385, 0.182, 0.092, 0.0], [1.425, 0.150, 0.078, -0.006], [1.45, 0.10, 0.064, -0.008], [1.465, 0.06, 0.052, -0.006]];
-  const bustF = (y) => f ? 0.05 * Math.exp(-(((y - 1.262) / 0.052) ** 2)) : 0.012 * Math.exp(-(((y - 1.3) / 0.05) ** 2));
+  const TP = f ? [[0.855, 0.146, 0.094, -0.006], [0.90, 0.186, 0.114, -0.016], [0.96, 0.182, 0.110, -0.012], [1.03, 0.146, 0.092, 0.0], [1.09, 0.120, 0.082, 0.002], [1.16, 0.132, 0.090, 0.010], [1.24, 0.148, 0.098, 0.014], [1.31, 0.152, 0.094, 0.010], [1.37, 0.150, 0.085, 0.002], [1.415, 0.138, 0.076, -0.006], [1.445, 0.098, 0.062, -0.008], [1.465, 0.056, 0.048, -0.006]]
+    : [[0.855, 0.142, 0.092, -0.004], [0.90, 0.158, 0.102, -0.012], [0.96, 0.156, 0.099, -0.008], [1.03, 0.150, 0.095, 0.0], [1.10, 0.156, 0.098, 0.004], [1.18, 0.172, 0.106, 0.010], [1.26, 0.188, 0.112, 0.013], [1.33, 0.198, 0.108, 0.008], [1.385, 0.196, 0.095, 0.0], [1.425, 0.162, 0.080, -0.006], [1.45, 0.108, 0.066, -0.008], [1.465, 0.064, 0.054, -0.006]];
+  const bustF = (y) => f ? 0.066 * Math.exp(-(((y - 1.272) / 0.058) ** 2)) : 0.014 * Math.exp(-(((y - 1.31) / 0.05) ** 2));
   const TW = [[0.95, W('hips', 1)], [1.07, W('spine', 1)], [1.19, W('spine', 1)], [1.29, W('chest', 1)]];
   // an untucked shirt hangs over the waistband
   const untuck = !!L.untuck && !dress, hemY = untuck ? 0.89 : 0.985;
@@ -2768,13 +2798,13 @@ function buildBody(look, hi) {
     // an untucked shirt hangs clear of the hips and the tops of the trouser legs
     const hang = untuck && !below && y < 1.03 ? 1 - smooth(clamp((y - hemY) / (1.03 - hemY), 0, 1)) : 0;
     const fb = bustF(y);
-    rings.push({ y, x: 0, z: z + 0.004 * hang, rx: Math.max(rx * inflate, lerp(rx * inflate, 0.218, hang)), rz: Math.max(rz * inflate, lerp(rz * inflate, 0.152, hang)), fb, w: wBlend(y, TW), col: robe ? shirtP : below ? lowerCol : shirtCol, r: R_CLOTH, sq: y > 1.15 && y < 1.43 ? 2.5 : hang > 0.05 ? 2.15 + 0.7 * hang : 2.15 });
+    rings.push({ y, x: 0, z: z + 0.004 * hang, rx: Math.max(rx * inflate, lerp(rx * inflate, f ? 0.198 : 0.212, hang)), rz: Math.max(rz * inflate, lerp(rz * inflate, f ? 0.13 : 0.148, hang)), fb, w: wBlend(y, TW), col: robe ? shirtP : below ? lowerCol : shirtCol, r: R_CLOTH, sq: y > 1.15 && y < 1.43 ? 2.5 : hang > 0.05 ? 2.15 + 0.7 * hang : 2.15 });
   }
   addLoft(sg, rings, SEG * 2 - 4, { capB: 0.03 });
   /* neck */
   {
     const nr = [[1.40, 0.056, 0.058, -0.004, W('chest', 1)], [1.46, 0.052, 0.055, -0.002, W('chest', 0.45, 'neck', 0.55)], [1.515, 0.048, 0.051, 0.004, W('neck', 0.75, 'head', 0.25)], [1.575, 0.047, 0.05, 0.012, W('head', 1)]];
-    addLoft(sg, nr.map(([y, rx, rz, z, w]) => ({ y, x: 0, z, rx: rx * (f ? 0.92 : 1), rz: rz * (f ? 0.92 : 1), w, col: skin, r: R_SKIN })), LSEG + 2);
+    addLoft(sg, nr.map(([y, rx, rz, z, w]) => ({ y, x: 0, z, rx: rx * (f ? 0.86 : 1.05), rz: rz * (f ? 0.88 : 1.04), w, col: skin, r: R_SKIN })), LSEG + 2);
     if (neck === 'collar' || kit) {
       // a collar stands up round the back of the neck and falls open at the front
       sg.add(new T.TorusGeometry(0.06, hi ? 0.01 : 0.013, 6, hi ? 20 : 10, kit ? TAU : TAU * 0.78), mat4(0, 1.452, -0.004, 0, 1, 1, kit ? 1.05 : 1.8, Math.PI / 2 - 0.2, kit ? 0 : Math.PI / 2 - TAU * 0.89), kit ? trim : shirt.clone().multiplyScalar(1.06), W('chest', 0.7, 'neck', 0.3), R_CLOTH);
@@ -2795,7 +2825,7 @@ function buildBody(look, hi) {
     const push = (y, k, col, r) => { const [rx, rz, z] = prof(LP, y); rl.push({ y, x: hx - s * 0.006 * (1 - y), z, rx: rx * k, rz: rz * k, w: wBlend(y, LW), col, r }); };
     const legCol = (y) => {
       if (y >= hemAt && !dress) return { c: robe ? lowerP : lowerCol, k: pantsLike ? Math.max(1.08, minR / prof(LP, y)[0] * (1 + (0.5 - Math.min(y, 0.5)) * (L.wide ? 0.25 : 0))) : 1.08, r: R_CLOTH };
-      if (dress && y > (L.long ? 0.12 : 0.34)) return { c: skin, k: 0.8, r: R_SKIN };
+      if (dress && y > (L.long ? 0.12 : L.midi ? 0.4 : 0.34)) return { c: skin, k: 0.8, r: R_SKIN };
       if (sockC && y < 0.4) return { c: y > 0.375 ? kitTrim : sockC, k: 1.06, r: R_CLOTH };
       return { c: skin, k: 1, r: R_SKIN };
     };
@@ -2809,9 +2839,9 @@ function buildBody(look, hi) {
   }
   /* skirt / dress or kanzu: weights follow each thigh on its own side so hems swing with the legs */
   if (dress || robe) {
-    const top = robe ? 1.38 : 1.0, bottom = robe ? 0.08 : (L.long ? 0.12 : L.midi ? 0.3 : 0.34), col = robe ? shirtP : dressP, band = C(L.trim2 || (robe ? 0xf6f1e7 : 0x141838));
+    const top = robe ? 1.38 : 1.0, bottom = robe ? 0.08 : (L.long ? 0.1 : L.midi ? 0.4 : 0.34), col = robe ? shirtP : dressP, band = C(L.trim2 || (robe ? 0xf6f1e7 : 0x141838));
     const sys = hi ? [bottom, bottom + 0.03, bottom + 0.06, 0.3, 0.45, 0.6, 0.72, 0.82, 0.9, 0.96, 1.0, 1.1, 1.2, 1.3, 1.38].filter((y, i, a) => y >= bottom && y <= top && (i === 0 || y > a[i - 1])) : [bottom, 0.5, 0.75, 0.9, 1.0, 1.2, 1.38].filter(y => y >= bottom && y <= top);
-    const sk = [], flare = L.long ? 1 : 0.9;
+    const sk = [], flare = L.long ? 1.04 : L.midi ? 0.84 : 0.9;
     for (const y of sys) {
       const [rx0, rz0, z0] = prof(TP, clamp(y, 0.9, 1.465)), k = y < 0.9 ? smooth((0.9 - y) / (0.9 - bottom + 1e-3)) : 0;
       const legW = y < 0.86 ? smooth(clamp((0.86 - y) / 0.45, 0, 1)) * 0.72 : 0;
@@ -2837,7 +2867,7 @@ function buildBody(look, hi) {
     const cx = (y) => y > el[1] ? lerp(el[0], sh[0], (y - el[1]) / (sh[1] - el[1])) : lerp(wr[0], el[0], (y - wr[1]) / (el[1] - wr[1]));
     const cz = (y) => y > el[1] ? lerp(el[2], sh[2], (y - el[1]) / (sh[1] - el[1])) : lerp(wr[2], el[2], (y - wr[1]) / (el[1] - wr[1]));
     const ys = hi ? AP.map(r => r[0]) : [0.875, 0.93, 1.05, 1.13, 1.2, 1.34, 1.44, 1.47];
-    const ar = [], fm = f ? 0.9 : 1;
+    const ar = [], fm = f ? 0.84 : 1.07;
     const armCol = (y) => y >= sleeveY ? { c: (kit && y < sleeveY + 0.02) ? trim : shirtP, k: sleeveK, r: R_CLOTH } : { c: skin, k: 1, r: R_SKIN };
     const push = (y, k, c, r) => { const [rx, rz] = prof(AP, y); ar.push({ y, x: cx(y), z: cz(y), rx: rx * k * fm, rz: rz * k * fm, w: wBlend(y, AW), col: c, r }); };
     for (const y of ys) {
@@ -2887,56 +2917,91 @@ function buildBody(look, hi) {
   }
   /* head and face */
   const hw = W('head', 1), hk = f ? 0.955 : 1;
-  sg.add(headShell(hi ? 26 : 12, hi ? 20 : 9, 1, f), null, skin, hw, R_SKIN);
-  sg.add(new T.SphereGeometry(1, hi ? 10 : 5, hi ? 8 : 4), mat4(0.087 * hk, 1.652, -0.004, 0.25, 0.012, 0.027, 0.019), skin.clone().multiplyScalar(0.94), hw, R_SKIN);
-  sg.add(new T.SphereGeometry(1, hi ? 10 : 5, hi ? 8 : 4), mat4(-0.087 * hk, 1.652, -0.004, -0.25, 0.012, 0.027, 0.019), skin.clone().multiplyScalar(0.94), hw, R_SKIN);
+  sg.add(headShell(hi ? 28 : 12, hi ? 22 : 9, 1, f), null, skin, hw, R_SKIN);
+  // ears lie close to the head
+  for (const s of [1, -1]) sg.add(new T.SphereGeometry(1, hi ? 10 : 5, hi ? 8 : 4), mat4(0.0875 * s * hk, 1.651, -0.006, s * 0.42, 0.0085, 0.025, 0.017), skin.clone().multiplyScalar(0.93), hw, R_SKIN);
   if (hi) {
-    const nose = skin.clone().multiplyScalar(0.93);
-    sg.add(capsule(0.0085, 0.04, 3, 8), mat4(0, 1.662, 0.105, 0, 1, 1, 1, 0.3), nose, hw, R_SKIN);
-    sg.add(new T.SphereGeometry(1, 10, 8), mat4(0, 1.633, 0.112, 0, 0.0155, 0.013, 0.014), nose, hw, 0.45);
-    for (const s of [1, -1]) sg.add(new T.SphereGeometry(1, 8, 6), mat4(0.0175 * s, 1.629, 0.103, 0, 0.0125, 0.0105, 0.012), nose, hw, R_SKIN);
-    sg.add(new T.SphereGeometry(1, 12, 6), mat4(0, 1.6035, 0.1, 0, 0.025 * hk, 0.0078, 0.011), lip, hw, 0.38);
-    sg.add(new T.SphereGeometry(1, 12, 6), mat4(0, 1.5895, 0.098, 0, 0.023 * hk, 0.0088, 0.0115), lip, hw, 0.38);
-    sg.add(box(0.04 * hk, 0.0025, 0.004), mat4(0, 1.5967, 0.1055, 0), C(0x24120c), hw, 0.6);
-    const eyeW = C(0xeee8dd), iris = C(L.iris || 0x2b190d);
+    const nose = skin.clone().multiplyScalar(0.95);
+    // a slim bridge, a soft tip and small nostril wings, all set into the face
+    sg.add(new T.SphereGeometry(1, 10, 8), mat4(0, 1.653, 0.1, 0, 0.0082, 0.026, 0.0105, 0.22), nose, hw, R_SKIN);
+    sg.add(new T.SphereGeometry(1, 12, 8), mat4(0, 1.6325, 0.1065, 0, 0.0108, 0.0096, 0.0098), nose, hw, 0.5);
+    for (const s of [1, -1]) sg.add(new T.SphereGeometry(1, 8, 6), mat4(0.0128 * s, 1.629, 0.0985, 0, 0.0082, 0.0066, 0.0076), nose, hw, R_SKIN);
+    // lips: one soft shape each, close to the face, a little fuller for women
+    const lf = f ? 1.15 : 1;
+    sg.add(new T.SphereGeometry(1, 14, 6), mat4(0, 1.6032, 0.0975, 0, 0.0205 * hk, 0.0058 * lf, 0.0072), lip, hw, 0.42);
+    sg.add(new T.SphereGeometry(1, 14, 6), mat4(0, 1.5918, 0.0968, 0, 0.0188 * hk, 0.007 * lf, 0.0076), lip, hw, 0.42);
+    sg.add(box(0.032 * hk, 0.0016, 0.003), mat4(0, 1.5978, 0.1033, 0), C(0x2a140e), hw, 0.6);
+    const eyeW = C(0xeee8dd), iris = C(L.iris || 0x2b190d), lash = C(0x0e0806);
     for (const s of [1, -1]) {
-      const ex = EYE.x * s * hk;
+      const ex = EYE.x * s * hk, lid = W(s > 0 ? 'lidL' : 'lidR', 1);
       sg.add(new T.SphereGeometry(EYE.r, 12, 10), mat4(ex, EYE.y, EYE.z, 0), eyeW, hw, 0.12);
-      sg.add(new T.SphereGeometry(1, 10, 6), mat4(ex, EYE.y, EYE.z + 0.0118, 0, 0.0084, 0.0084, 0.003), iris, hw, 0.08);
-      sg.add(new T.SphereGeometry(1, 8, 4), mat4(ex, EYE.y, EYE.z + 0.0133, 0, 0.0041, 0.0041, 0.0012), C(0x050505), hw, 0.05);
-      // eyelids: the upper lid rides its own bone for blinks; the lower one is fixed
-      sg.add(new T.SphereGeometry(EYE.r * 1.12, 12, 6, 0, TAU, 0, 0.95), mat4(ex, EYE.y, EYE.z, 0, 1, 1, 1, 0.42), skin.clone().multiplyScalar(0.9), W(s > 0 ? 'lidL' : 'lidR', 1), R_SKIN);
+      sg.add(new T.SphereGeometry(1, 10, 6), mat4(ex, EYE.y, EYE.z + 0.0116, 0, 0.0089, 0.0089, 0.003), iris, hw, 0.08);
+      sg.add(new T.SphereGeometry(1, 8, 4), mat4(ex, EYE.y, EYE.z + 0.0132, 0, 0.0042, 0.0042, 0.0012), C(0x050505), hw, 0.05);
+      // eyelids: the upper lid rides its own bone for blinks; the lower one is fixed. Women get a lash line.
+      sg.add(new T.SphereGeometry(EYE.r * 1.12, 12, 6, 0, TAU, 0, 0.95), mat4(ex, EYE.y, EYE.z, 0, 1, 1, 1, 0.42), skin.clone().multiplyScalar(0.9), lid, R_SKIN);
+      if (f) sg.add(new T.TorusGeometry(EYE.r * 1.1, 0.0014, 3, 12, Math.PI), mat4(ex, EYE.y + 0.001, EYE.z + 0.004, 0, 1, 0.8, 1, -0.32, s * 0.1), lash, lid, 0.5);
       sg.add(new T.SphereGeometry(EYE.r * 1.1, 12, 4, 0, TAU, Math.PI - 0.62, 0.62), mat4(ex, EYE.y, EYE.z, 0, 1, 1, 1, -0.25), skin.clone().multiplyScalar(0.92), hw, R_SKIN);
-      sg.add(rb(0.032, 0.0055, 0.009, 0.0025), mat4(0.037 * s * hk, 1.6915, 0.0975, 0, 1, 1, 1, 0.15, -s * 0.13), L.brow ? C(L.brow) : hairC, hw, 0.8);
+      // brows: straighter and heavier for men, finer and arched for women
+      sg.add(rb(f ? 0.03 : 0.034, f ? 0.0042 : 0.0062, 0.008, 0.002), mat4(0.037 * s * hk, f ? 1.6935 : 1.6905, 0.0975, 0, 1, 1, 1, 0.15, -s * (f ? 0.2 : 0.08)), L.brow ? C(L.brow) : hairC, hw, 0.8);
     }
   } else {
     for (const s of [1, -1]) sg.add(new T.SphereGeometry(0.009, 5, 4), mat4(EYE.x * s, EYE.y, EYE.z + 0.006, 0), C(0x1a0f08), hw, 0.3);
-    sg.add(new T.SphereGeometry(1, 6, 4), mat4(0, 1.633, 0.108, 0, 0.016, 0.014, 0.016), skin.clone().multiplyScalar(0.93), hw, R_SKIN);
+    sg.add(new T.SphereGeometry(1, 6, 4), mat4(0, 1.633, 0.106, 0, 0.013, 0.012, 0.012), skin.clone().multiplyScalar(0.93), hw, R_SKIN);
   }
-  /* hair and headwear */
-  const hair = L.hair || 'short', hs = hi ? [24, 18] : [11, 8], jit = hairColorJitter(hairC);
-  const shell = (sc, mask, col, rough, dy, dz) => sg.add(headShell(hs[0], hs[1], sc, f, dy, dz), null, col, hw, rough, unitMask(sc * (f ? 0.955 : 1), mask, dy, dz));
-  if (hair === 'short' || hair === 'kofia' || hair === 'cap' || hair === 'police') shell(1.032, (X, Y, Z) => hairLine(X, Y, Z, hair === 'short' ? 0.42 : 0.3), jit, 0.85);
-  if (hair === 'afro') {
-    const g = headShell(hs[0], hs[1], 1.0, f), P = g.attributes.position;
-    for (let i = 0; i < P.count; i++) { const x = P.getX(i) - HEAD.x, y = P.getY(i) - HEAD.y, z = P.getZ(i) - HEAD.z; const n = 1.24 + 0.05 * Math.sin(x * 160) * Math.sin(y * 140 + z * 120); P.setXYZ(i, HEAD.x + x * n, HEAD.y + 0.02 + y * n * 1.02, HEAD.z - 0.012 + z * n); }
-    g.computeVertexNormals();
-    sg.add(g, null, jit, hw, 0.95, (P2, a, b, c) => { const Y = ((P2.getY(a) + P2.getY(b) + P2.getY(c)) / 3 - HEAD.y - 0.02) / (HEAD.ry * 1.24), Z = ((P2.getZ(a) + P2.getZ(b) + P2.getZ(c)) / 3 - HEAD.z + 0.012) / (HEAD.rz * 1.24), X = ((P2.getX(a) + P2.getX(b) + P2.getX(c)) / 3) / (HEAD.rx * 1.24); return hairLine(X, Y, Z, 0.36); });
+  /* hair: smooth caps with a clean hairline. Each cap runs from the crown down to a hairline set per direction round the head
+     (front, over the ears, nape), so its edge is a smooth curve instead of a cut through the mesh. */
+  const hair = L.hair || 'short', jit = hairColorJitter(hairC), CS = hi ? [40, 14] : [14, 5];
+  const hl = (front, side, back) => (az) => { const u = Math.abs(az) / Math.PI; return u < 0.5 ? lerp(front, side, smooth(u / 0.5)) : lerp(side, back, smooth((u - 0.5) / 0.5)); };
+  const cap = (o, col, rough) => sg.add(headCap(Object.assign({ f, cols: CS[0], rows: CS[1], p0: () => 0 }, o)), null, col, hw, rough);
+  const shell = (sc, mask, col, rough, dy, dz) => sg.add(headShell(hi ? 24 : 11, hi ? 18 : 8, sc, f, dy, dz), null, col, hw, rough, unitMask(sc * hk, mask, dy, dz));
+  const SHORT = hl(0.98, 1.36, 2.02), LONG = hl(0.92, 1.34, 2.08);
+  if (hair === 'short' || hair === 'kofia' || hair === 'cap' || hair === 'police') cap({ p1: SHORT, sc: 1.026, disp: (X, Y) => 1 + 0.014 * smooth(clamp(Y, 0, 1)) }, jit, 0.85);
+  if (hair === 'afro') cap({ p1: hl(0.95, 1.32, 1.98), sc: 1, edge: 1.02, te: 0.86, disp: (X, Y, Z) => 1.3 + 0.13 * Math.max(0, Y) + 0.035 * Math.max(0, -Z) + 0.028 * (Math.sin(X * 47 + Y * 13) * Math.sin(Y * 43 + Z * 29) + 0.5 * Math.sin(Z * 61 - X * 23)) }, (v) => jit(v).multiplyScalar(0.9 + 0.2 * hash2(v.x * 900, v.y * 700 + v.z * 800)), 0.98);
+  if (hair === 'bun') {
+    cap({ p1: LONG, sc: 1.03, disp: (X, Y) => 1 + 0.01 * smooth(clamp(Y, 0, 1)) }, jit, 0.7);
+    if (!L.hat) sg.add(new T.SphereGeometry(0.05, hi ? 16 : 7, hi ? 12 : 5), mat4(0, 1.79, -0.052, 0, 1, 0.88, 1), jit, hw, 0.75);
+    if (hi && !L.hat) sg.add(new T.TorusGeometry(0.03, 0.007, 5, 16), mat4(0, 1.762, -0.045, 0, 1, 1, 1, Math.PI / 2 - 0.55), hairC.clone().multiplyScalar(0.7), hw, 0.8);
   }
-  if (hair === 'braids') {
-    shell(1.028, (X, Y, Z) => hairLine(X, Y, Z, 0.44), jit, 0.8);
-    // cornrows: rows of plaits running from the hairline over the crown to the nape
-    if (hi) for (let row = -3; row <= 3; row++) for (let k = 0; k < 10; k++) {
-      const th = lerp(-1.15, 1.9, k / 9), X = row * 0.14 * Math.cos(th * 0.35), Y = Math.cos(th) * Math.sqrt(1 - X * X), Z = -Math.sin(th) * Math.sqrt(1 - X * X);
-      const [sx, sy, sz] = sculptPoint(X, Y, Z);
-      sg.add(new T.SphereGeometry(0.0105, 6, 4), mat4(HEAD.x + sx * HEAD.rx * 1.05 * hk, HEAD.y + sy * HEAD.ry * 1.05, HEAD.z + sz * HEAD.rz * 1.05, 0, 1, 0.75, 1.7, -th), hairC.clone().multiplyScalar(0.75), hw, 0.8);
+  // braids and locs: a fitted cap (with cornrow ridges for braids), then strands that fall from the hairline behind the ears
+  if (hair === 'braids' || hair === 'locs') {
+    const braids = hair === 'braids', edge = braids ? LONG : hl(0.95, 1.34, 2.05);
+    cap({ p1: edge, sc: 1.03, disp: braids ? (X) => 1.004 + 0.016 * Math.pow(Math.abs(Math.sin(X * 19)), 0.7) : (X, Y, Z) => 1.02 + 0.012 * Math.sin(X * 40) * Math.sin(Z * 37) }, jit, 0.85);
+    const n = hi ? (braids ? 30 : 22) : 8, rad = braids ? 0.0085 : 0.012, geo = capsule(hi ? rad : rad * 1.6, 1, hi ? 3 : 2, hi ? 6 : 4), up = new T.Vector3(0, 1, 0);
+    for (let i = 0; i < n; i++) {
+      const az = (i % 2 ? 1 : -1) * lerp(1.25, Math.PI, Math.floor(i / 2) / Math.max(1, Math.ceil(n / 2) - 1)), pp = edge(az) - 0.06;
+      const a = headPoint(Math.sin(pp) * Math.sin(az), Math.cos(pp), Math.sin(pp) * Math.cos(az), 1.05, f);
+      const back = smooth(clamp((Math.abs(az) - 1.25) / 1.6, 0, 1)), endY = braids ? lerp(1.4, 1.3, back) : lerp(1.5, 1.43, back);
+      const b2 = new T.Vector3(a.x * (1.55 - 0.25 * back), endY, a.z * 1.45 - 0.035 * back), d = b2.clone().sub(a), len = d.length();
+      const m = new T.Matrix4().compose(a.clone().add(b2).multiplyScalar(0.5), new T.Quaternion().setFromUnitVectors(up, d.normalize()), new T.Vector3(1, len, 1));
+      sg.add(geo, m, hairC.clone().multiplyScalar(0.8 + 0.3 * hash2(i, 7)), hw, 0.85);
     }
-    sg.add(new T.SphereGeometry(0.052, hi ? 12 : 6, hi ? 10 : 5), mat4(0, 1.735, -0.085, 0, 1, 0.9, 1), jit, hw, 0.85);
+  }
+  /* hats sit on whatever hair is under them */
+  const hat = L.hat || (hair === 'hat' ? 'panama' : '');
+  if (hat) {
+    const big = hair === 'afro' ? 1.32 : hair === 'scarf' ? 1.1 : (hair === 'locs' || hair === 'bun' || hair === 'braids') ? 1.05 : 1, up = hair === 'afro' ? 0.062 : hair === 'scarf' ? 0.014 : hair === 'bun' ? 0.012 : 0;
+    const hc = C(L.hatCol || (hat === 'panama' || hat === 'sunhat' ? 0xe8d8b0 : 0x141838)), cy = 1.76 + up, hseg = hi ? 28 : 10;
+    if (hat === 'panama' || hat === 'sunhat') {
+      const brim = hat === 'sunhat' ? 0.2 : 0.155, straw = (v) => hc.clone().multiplyScalar(0.92 + 0.08 * Math.sin(Math.atan2(v.z, v.x) * 40 + Math.hypot(v.x, v.z) * 300));
+      sg.add(new T.CylinderGeometry(0.08 * big, 0.1 * big, 0.08, hseg), mat4(0, cy, -0.004, 0), hi ? straw : hc, hw, 0.92);
+      sg.add(new T.CylinderGeometry(brim * big * 0.97, brim * big, 0.008, hi ? 36 : 12), mat4(0, cy - 0.038, -0.004, 0), hi ? straw : hc, hw, 0.92);
+      sg.add(new T.CylinderGeometry(0.101 * big, 0.101 * big, 0.02, hseg), mat4(0, cy - 0.025, -0.004, 0), C(hat === 'sunhat' ? 0xf6f3ec : 0x2a1d14), hw, 0.8);
+    } else if (hat === 'bucket') {
+      sg.add(new T.CylinderGeometry(0.084 * big, 0.1 * big, 0.072, hseg), mat4(0, cy - 0.004, -0.004, 0), hc, hw, 0.92);
+      sg.add(new T.CylinderGeometry(0.102 * big, 0.15 * big, 0.04, hseg), mat4(0, cy - 0.058, -0.004, 0), hc.clone().multiplyScalar(0.94), hw, 0.92);
+    } else if (hat === 'cap') {
+      const cc = C(L.cap || L.hatCol || 0x141838);
+      shell(1.065 * big, (X, Y, Z) => Y > 0.22 - Math.max(0, -Z) * 0.18, cc, 0.8, up);
+      sg.add(rb(0.17, 0.012, 0.095, 0.006), mat4(0, 1.708 + up, 0.108 * big, 0, 1, 1, 1, 0.16), cc.clone().multiplyScalar(0.85), hw, 0.8);
+      if (hi) { sg.add(new T.SphereGeometry(0.008, 6, 4), mat4(0, 1.785 + up * 1.4, -0.002, 0), cc, hw, 0.8); sg.add(rb(0.04, 0.025, 0.004, 0.002), mat4(0, 1.75 + up, 0.1 * big, 0, 1, 1, 1, -0.4), C(L.capLogo || 0xf6f1e7), hw, 0.7); }
+    } else if (hat === 'kofia') {
+      const kc = C(0xf6f1e7), ac = C(L.kofiaCol || L.hatCol || 0x1e9b57);
+      sg.add(new T.CylinderGeometry(0.095 * hk * big, 0.099 * hk * big, 0.066, hi ? 32 : 12, hi ? 4 : 1, false), mat4(0, 1.752 + up, -0.004, 0), (v) => { const a = Math.atan2(v.z + 0.004, v.x), band = v.y < 1.768 + up && v.y > 1.732 + up; return band && (Math.floor((a + Math.PI) / TAU * 16) % 2 === 0) ? ac : kc; }, hw, 0.9);
+    }
   }
   if (hair === 'kofia') {
     const kc = C(0xf6f1e7), ac = C(L.kofiaCol || 0x1e9b57);
-    const g = new T.CylinderGeometry(0.093 * hk, 0.097 * hk, 0.075, hi ? 32 : 12, hi ? 4 : 1, false);
-    sg.add(g, mat4(0, 1.757, -0.004, 0), (v) => { const a = Math.atan2(v.z + 0.004, v.x), band = v.y < 1.775 && v.y > 1.735; return band && (Math.floor((a + Math.PI) / TAU * 16) % 2 === 0) ? ac : kc; }, hw, 0.9);
+    sg.add(new T.CylinderGeometry(0.095 * hk, 0.099 * hk, 0.066, hi ? 32 : 12, hi ? 4 : 1, false), mat4(0, 1.752, -0.004, 0), (v) => { const a = Math.atan2(v.z + 0.004, v.x), band = v.y < 1.768 && v.y > 1.732; return band && (Math.floor((a + Math.PI) / TAU * 16) % 2 === 0) ? ac : kc; }, hw, 0.9);
   }
   if (hair === 'cap') {
     const cc = C(L.cap || 0x141838);
@@ -2948,42 +3013,6 @@ function buildBody(look, hi) {
     sg.add(new T.CylinderGeometry(0.118, 0.098, 0.075, hi ? 24 : 10), mat4(0, 1.775, -0.004, 0), C(0xf4f4f0), hw, 0.6);
     sg.add(new T.CylinderGeometry(0.1, 0.1, 0.022, hi ? 24 : 10), mat4(0, 1.748, -0.004, 0), C(0x111111), hw, 0.5);
     sg.add(rb(0.18, 0.01, 0.075, 0.005), mat4(0, 1.735, 0.098, 0, 1, 1, 1, 0.22), C(0x0d0d0d), hw, 0.3);
-  }
-  if (hair === 'bun' || hair === 'locs') shell(1.034, (X, Y, Z) => hairLine(X, Y, Z, 0.4), jit, 0.85);
-  if (hair === 'bun') {
-    sg.add(new T.SphereGeometry(0.055, hi ? 14 : 7, hi ? 10 : 5), mat4(0, 1.792, -0.05, 0, 1, 0.85, 1), jit, hw, 0.85);
-    if (hi) sg.add(new T.TorusGeometry(0.032, 0.008, 5, 14), mat4(0, 1.76, -0.045, 0, 1, 1, 1, Math.PI / 2 - 0.5), hairC.clone().multiplyScalar(0.7), hw, 0.8);
-  }
-  if (hair === 'locs') {
-    // locs fall from the crown to the shoulders, longest at the back, clear of the face
-    const n = hi ? 26 : 10;
-    for (let i = 0; i < n; i++) {
-      const th = lerp(0.95, TAU - 0.95, i / (n - 1)), len = 0.14 + 0.1 * (0.5 - 0.5 * Math.cos(th)), y0 = 1.705, sx = Math.sin(th), sz = Math.cos(th);
-      sg.add(capsule(hi ? 0.0115 : 0.02, len, hi ? 3 : 2, hi ? 6 : 4), mat4(sx * 0.1 * hk, y0 + 0.02 - len / 2, 0.004 + sz * 0.112, th, 1, 1, 1, -0.16), hairC.clone().multiplyScalar(0.85 + 0.25 * hash2(i, 7)), hw, 0.85);
-    }
-  }
-  /* hats sit on whatever hair is under them */
-  const hat = L.hat || (hair === 'hat' ? 'panama' : '');
-  if (hat) {
-    const big = hair === 'afro' ? 1.2 : hair === 'scarf' ? 1.1 : (hair === 'locs' || hair === 'bun' || hair === 'braids') ? 1.04 : 1, up = hair === 'afro' ? 0.05 : hair === 'scarf' ? 0.014 : hair === 'bun' ? 0.01 : 0;
-    const hc = C(L.hatCol || (hat === 'panama' || hat === 'sunhat' ? 0xe8d8b0 : 0x141838)), cy = 1.772 + up, hseg = hi ? 24 : 10;
-    if (hat === 'panama' || hat === 'sunhat') {
-      const brim = hat === 'sunhat' ? 0.235 : 0.18, straw = (v) => hc.clone().multiplyScalar(0.92 + 0.08 * Math.sin(Math.atan2(v.z, v.x) * 40 + Math.hypot(v.x, v.z) * 300));
-      sg.add(new T.CylinderGeometry(0.088 * big, 0.11 * big, 0.1, hseg), mat4(0, cy, -0.004, 0), hi ? straw : hc, hw, 0.92);
-      sg.add(new T.CylinderGeometry(brim * big, brim * big, 0.01, hi ? 32 : 12), mat4(0, cy - 0.045, -0.004, 0), hi ? straw : hc, hw, 0.92);
-      sg.add(new T.CylinderGeometry(0.111 * big, 0.111 * big, 0.024, hseg), mat4(0, cy - 0.027, -0.004, 0), C(hat === 'sunhat' ? 0xf6f3ec : 0x2a1d14), hw, 0.8);
-    } else if (hat === 'bucket') {
-      sg.add(new T.CylinderGeometry(0.094 * big, 0.108 * big, 0.085, hseg), mat4(0, cy - 0.005, -0.004, 0), hc, hw, 0.92);
-      sg.add(new T.CylinderGeometry(0.11 * big, 0.168 * big, 0.05, hseg), mat4(0, cy - 0.065, -0.004, 0), hc.clone().multiplyScalar(0.94), hw, 0.92);
-    } else if (hat === 'cap') {
-      const cc = C(L.cap || L.hatCol || 0x141838);
-      shell(1.065 * big, (X, Y, Z) => Y > 0.22 - Math.max(0, -Z) * 0.18, cc, 0.8, up);
-      sg.add(rb(0.17, 0.012, 0.095, 0.006), mat4(0, 1.708 + up, 0.108 * big, 0, 1, 1, 1, 0.16), cc.clone().multiplyScalar(0.85), hw, 0.8);
-      if (hi) { sg.add(new T.SphereGeometry(0.008, 6, 4), mat4(0, 1.785 + up * 1.4, -0.002, 0), cc, hw, 0.8); sg.add(rb(0.04, 0.025, 0.004, 0.002), mat4(0, 1.75 + up, 0.1 * big, 0, 1, 1, 1, -0.4), C(L.capLogo || 0xf6f1e7), hw, 0.7); }
-    } else if (hat === 'kofia') {
-      const kc = C(0xf6f1e7), ac = C(L.kofiaCol || L.hatCol || 0x1e9b57);
-      sg.add(new T.CylinderGeometry(0.093 * hk * big, 0.097 * hk * big, 0.075, hi ? 32 : 12, hi ? 4 : 1, false), mat4(0, 1.757 + up, -0.004, 0), (v) => { const a = Math.atan2(v.z + 0.004, v.x), band = v.y < 1.775 + up && v.y > 1.735 + up; return band && (Math.floor((a + Math.PI) / TAU * 16) % 2 === 0) ? ac : kc; }, hw, 0.9);
-    }
   }
   /* sunglasses */
   if (L.eye) {
@@ -3001,7 +3030,7 @@ function buildBody(look, hi) {
   }
   if (hair === 'scarf') {
     const sc = C(L.scarf || 0xf3b41b), fold = (v) => sc.clone().multiplyScalar(0.9 + 0.1 * Math.sin(Math.atan2(v.z, v.x) * 7 + v.y * 40));
-    shell(1.1, (X, Y, Z) => !(Z > 0.2 && Math.abs(X) < 0.66 && Y > -0.74 && Y < 0.52), fold, 0.88, -0.004, -0.006);
+    sg.add(headCap({ f, pole: 'z', cols: hi ? 44 : 14, rows: hi ? 16 : 6, p0: (az) => { const u = Math.abs(az) / Math.PI; return u < 0.5 ? lerp(0.66, 0.98, smooth(u / 0.5)) : lerp(0.98, 1.16, smooth((u - 0.5) / 0.5)); }, p1: () => Math.PI - 0.001, sc: 1.1, te: 2, dy: -0.004, dz: -0.006, disp: (X, Y, Z, t) => 1 + 0.035 * (1 - smooth(clamp(t / 0.1, 0, 1))) + 0.07 * smooth(clamp(-Z, 0, 1)) * smooth(clamp(Y + 0.4, 0, 1)) }), null, fold, hw, 0.88);
     const at = (y) => { const [rx, rz, z] = prof(TP, y); return { rx: rx * 1.09, rz: rz * 1.1, z, fb: bustF(y) * 1.12 + 0.006 }; };
     const capeCol = (a) => sc.clone().multiplyScalar(0.88 + 0.12 * Math.sin(a * 7));
     const dr = [];
@@ -3498,7 +3527,7 @@ function fixLook(lk) {
   lk.s = n(lk.s, PLAYER_SKINS.length - 1);
   return lk;
 }
-function newPlayerLook(f) { return fixLook(applyPreset({ f, s: 3, h: 'short' }, PRESETS.find(p => p.f === !!f))); }
+function newPlayerLook(f) { return fixLook(applyPreset({ f, s: 3, h: 'short' }, PRESETS.find(p => p.f === !!f && !p.ht && !p.ltd))); }
 
 /* the player's look as makeHuman options: body, skin and hair from lk, the outfit from the wardrobe slots, jerseys from the kit */
 function kitLook(kitIdx, lk, number) {
@@ -6791,7 +6820,7 @@ function renderStyle(root, o) {
   root.innerHTML = '';
   // body and skin
   const s0 = sec(''); const rb = row(s0), rs = row(s0, 'swatches');
-  [[false, 'Man'], [true, 'Woman']].forEach(([f, n]) => chip(rb, 'body', n, !!lk.f === f, () => set((l) => { if (!!l.f !== f) applyPreset(l, PRESETS.find(p => p.f === f)); l.f = f; }, 'wave')));
+  [[false, 'Man'], [true, 'Woman']].forEach(([f, n]) => chip(rb, 'body', n, !!lk.f === f, () => set((l) => { if (!!l.f !== f) applyPreset(l, PRESETS.find(p => p.f === f && !p.ht && !p.ltd)); l.f = f; }, 'wave')));
   PLAYER_SKINS.forEach((c, i) => chip(rs, 'skin', '', lk.s === i, () => set((l) => { l.s = i; }), cssHex(c)).querySelector('input').setAttribute('aria-label', `Skin tone ${i + 1}`));
   // curated looks
   const s1 = sec('Island looks'); const grid = el('div', 'st-presets'); s1.append(grid);
@@ -6882,8 +6911,15 @@ function setStyling(on) {
 /* where on screen the model should stand: the free space beside the panel (wide screens) or above it (phones) */
 function styleFrame() {
   const W = innerWidth, H = innerHeight, panel = $('#startPanel'), r = panel ? panel.getBoundingClientRect() : null;
-  if (r && W > 820) return { x: r.left / 2, y: H * 0.52, h: H * 0.86 };
-  const top = r ? Math.max(120, r.top) : H * 0.45; return { x: W / 2, y: top * 0.54, h: top * 0.92 };
+  if (!r || !r.width) return { x: W / 2, y: H * 0.5, h: H * 0.86 };
+  // the free space left of, right of and above the panel; the model goes where it can stand tallest (a person is about 0.42 as wide as tall)
+  const fit = (w, h) => Math.min(h * 0.9, w / 0.42);
+  const opts = [
+    { x: r.left / 2, y: H * 0.52, h: fit(r.left, H) },
+    { x: (r.right + W) / 2, y: H * 0.52, h: fit(W - r.right, H) },
+    { x: W / 2, y: Math.max(60, r.top) * 0.53, h: fit(W, Math.max(60, r.top)) },
+  ];
+  return opts.reduce((a, b) => (b.h > a.h ? b : a));
 }
 function styleCamera(dt, t) {
   const s = styleSpot(), fr = styleFrame(), W = innerWidth, H = innerHeight;
@@ -9828,12 +9864,19 @@ function wireUI() {
   ui.chatInput.addEventListener('blur', () => setTimeout(() => { if (document.activeElement !== ui.chatInput && !ui.chatbox.hidden) closeChat(); }, 150));
   /* touch buttons act on pointerdown so they work while another finger holds the joystick; a click after a tap is ignored */
   const tap = (el, fn) => {
-    el.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); el._tapT = performance.now(); el.classList.add('act'); fn(); });
+    el.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); el._tapT = performance.now(); el._fromTap = true; el.classList.add('act'); fn(); });
     const up = () => { if (el !== tJump) el.classList.remove('act'); }; el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up); el.addEventListener('pointerleave', up);
-    el.addEventListener('click', (e) => { e.preventDefault(); if (performance.now() - (el._tapT || 0) < 700) return; fn(); });
+    // the click that follows a tap is an echo, however late it arrives (iPads delay it while the keyboard closes); keyboard clicks still work
+    el.addEventListener('click', (e) => { e.preventDefault(); if (el._fromTap || performance.now() - (el._tapT || 0) < 700) { el._fromTap = false; return; } fn(); });
   };
   const tJump = $('#tJump');
-  tap($('#tChat'), () => { if (!ui.chat.classList.contains('open')) openChat(); else closeChat(); });
+  // Chat opens the chat; pressed again it sends what you typed (if anything) and closes. Two toggles within 350 ms are one press.
+  tap($('#tChat'), () => {
+    const t = performance.now(); if (t - (ui.chat._tg || 0) < 350) return; ui.chat._tg = t;
+    if (!ui.chat.classList.contains('open')) { openChat(); return; }
+    const v = ui.chatInput.value.trim(); if (v && !ui.chatbox.hidden) { sendChat(v); ui.chatInput.value = ''; }
+    closeChat();
+  });
   $('#chatPhrases').addEventListener('keydown', (e) => { e.stopPropagation(); if (e.key === 'Escape') { e.preventDefault(); closeChat(); } });
   tap($('#tAct'), () => { if (curSec && !curInter) curSec.act(); else if (curInter) curInter.act(); });
   for (const el of document.querySelectorAll('#touch, #touch *')) el.addEventListener('touchstart', (e) => { if (e.cancelable) e.preventDefault(); }, { passive: false });

@@ -60,7 +60,7 @@ function renderStyle(root, o) {
   root.innerHTML = '';
   // body and skin
   const s0 = sec(''); const rb = row(s0), rs = row(s0, 'swatches');
-  [[false, 'Man'], [true, 'Woman']].forEach(([f, n]) => chip(rb, 'body', n, !!lk.f === f, () => set((l) => { if (!!l.f !== f) applyPreset(l, PRESETS.find(p => p.f === f)); l.f = f; }, 'wave')));
+  [[false, 'Man'], [true, 'Woman']].forEach(([f, n]) => chip(rb, 'body', n, !!lk.f === f, () => set((l) => { if (!!l.f !== f) applyPreset(l, PRESETS.find(p => p.f === f && !p.ht && !p.ltd)); l.f = f; }, 'wave')));
   PLAYER_SKINS.forEach((c, i) => chip(rs, 'skin', '', lk.s === i, () => set((l) => { l.s = i; }), cssHex(c)).querySelector('input').setAttribute('aria-label', `Skin tone ${i + 1}`));
   // curated looks
   const s1 = sec('Island looks'); const grid = el('div', 'st-presets'); s1.append(grid);
@@ -151,8 +151,15 @@ function setStyling(on) {
 /* where on screen the model should stand: the free space beside the panel (wide screens) or above it (phones) */
 function styleFrame() {
   const W = innerWidth, H = innerHeight, panel = $('#startPanel'), r = panel ? panel.getBoundingClientRect() : null;
-  if (r && W > 820) return { x: r.left / 2, y: H * 0.52, h: H * 0.86 };
-  const top = r ? Math.max(120, r.top) : H * 0.45; return { x: W / 2, y: top * 0.54, h: top * 0.92 };
+  if (!r || !r.width) return { x: W / 2, y: H * 0.5, h: H * 0.86 };
+  // the free space left of, right of and above the panel; the model goes where it can stand tallest (a person is about 0.42 as wide as tall)
+  const fit = (w, h) => Math.min(h * 0.9, w / 0.42);
+  const opts = [
+    { x: r.left / 2, y: H * 0.52, h: fit(r.left, H) },
+    { x: (r.right + W) / 2, y: H * 0.52, h: fit(W - r.right, H) },
+    { x: W / 2, y: Math.max(60, r.top) * 0.53, h: fit(W, Math.max(60, r.top)) },
+  ];
+  return opts.reduce((a, b) => (b.h > a.h ? b : a));
 }
 function styleCamera(dt, t) {
   const s = styleSpot(), fr = styleFrame(), W = innerWidth, H = innerHeight;

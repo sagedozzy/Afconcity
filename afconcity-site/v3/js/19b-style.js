@@ -205,7 +205,7 @@ function fixLook(lk) {
   lk.s = n(lk.s, PLAYER_SKINS.length - 1);
   return lk;
 }
-function newPlayerLook(f) { return fixLook(applyPreset({ f, s: 3, h: 'short' }, PRESETS.find(p => p.f === !!f))); }
+function newPlayerLook(f) { return fixLook(applyPreset({ f, s: 3, h: 'short' }, PRESETS.find(p => p.f === !!f && !p.ht && !p.ltd))); }
 
 /* the player's look as makeHuman options: body, skin and hair from lk, the outfit from the wardrobe slots, jerseys from the kit */
 function kitLook(kitIdx, lk, number) {
