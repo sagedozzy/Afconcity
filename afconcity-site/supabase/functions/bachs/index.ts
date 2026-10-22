@@ -1,7 +1,9 @@
-// AfconCity brand bookings through Bachs (https://bachs.io). One Supabase Edge Function, three routes:
-//   POST /bachs/checkout  the brands page sends a booking; we price it, save it and return a Bachs checkout link
-//   GET  /bachs/status?id= the brands page checks a booking after the brand comes back from paying
-//   POST /bachs/webhook   Bachs tells us a payment succeeded (signed with your webhook secret)
+// AfconCity payments through Bachs (https://bachs.io). One Supabase Edge Function:
+//   POST /bachs/checkout      the brands page sends a booking; we price it, save it and return a Bachs checkout link
+//   GET  /bachs/status?id=    the brands page checks a booking after the brand comes back from paying
+//   POST /bachs/topup         a signed-in player buys a Nyota pack (players who said they are under 18 are refused)
+//   GET  /bachs/topup-status  the game checks a top-up after the player comes back from paying
+//   POST /bachs/webhook       Bachs tells us a payment succeeded (signed with your webhook secret); Nyota are credited once
 // Secrets (Supabase > Edge Functions > Secrets): BACHS_SECRET_KEY, BACHS_WEBHOOK_SECRET
 // Optional: BACHS_API (default https://api.bachs.io; use https://sandbox-api.bachs.io to test), BACHS_CURRENCY (default TZS),
 //           BACHS_FX (Tanzanian shillings per unit of BACHS_CURRENCY, default 1), SITE_URL (default https://afconcity.com)
@@ -73,6 +75,64 @@ async function checkout(req: Request) {
   }
 }
 
+/* ---------- Nyota top-ups: the player must be signed in (the game sends its session token) ---------- */
+async function playerOf(req: Request) {
+  const jwt = (req.headers.get('authorization') ?? '').replace(/^Bearer\s+/i, '');
+  if (!jwt || jwt.startsWith('sb_')) return null;
+  const { data } = await db.auth.getUser(jwt);
+  return data?.user ?? null;
+}
+async function topup(req: Request) {
+  const u = await playerOf(req); if (!u) return json({ error: 'Sign in first: reload the game and try again.' }, 401);
+  const b = await req.json().catch(() => ({}));
+  const pack = str(b.pack, 20), email = str(b.email, 120).toLowerCase(), name = str(b.name, 80);
+  if (!b.adult) return json({ error: 'Top-ups are for players aged 18 and over.' }, 403);
+  // a player who told the game they are under 18 cannot top up, whatever they tick now
+  const { data: st } = await db.from('docs').select('data').eq('coll', 'stats').eq('id', u.id).maybeSingle();
+  if (st?.data?.about?.age === 'Under 18') return json({ error: 'Top-ups are for players aged 18 and over.' }, 403);
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return json({ error: 'Please check your email address: the receipt goes there.' }, 400);
+  if (!name) return json({ error: 'Please add your name for the receipt.' }, 400);
+  const { data: pk } = await db.from('nyota_packs').select('id,nyota,price').eq('id', pack).eq('active', true).maybeSingle();
+  if (!pk) return json({ error: 'That pack is not available.' }, 400);
+  const { count } = await db.from('topups').select('id', { count: 'exact', head: true }).eq('uid', u.id).gte('created_at', new Date(Date.now() - 3600000).toISOString());
+  if ((count ?? 0) >= 6) return json({ error: 'Too many top-ups in an hour. Please wait a little.' }, 429);
+  const amount = Math.max(1, Math.round((pk.price / FX) * 100) / 100);
+  const { data: row, error } = await db.from('topups').insert({ uid: u.id, pack: pk.id, nyota: pk.nyota, amount, currency: CURRENCY, email }).select('id').single();
+  if (error || !row) return json({ error: 'Could not start the top-up. Please try again.' }, 500);
+  const [first, ...rest] = name.split(/\s+/);
+  try {
+    const s = await bachs('POST', 'v1/checkout-sessions', {
+      customer: { email, first_name: first || name, last_name: rest.join(' ') || first || name },
+      pricing: { amount, currency: CURRENCY },
+      success_url: `${SITE}/?topup=${row.id}`,
+      cancel_url: `${SITE}/?topup=${row.id}&cancelled=1`,
+      reference: `topup:${row.id}`,
+      metadata: { topup_id: row.id, pack: pk.id, nyota: String(pk.nyota) },
+    });
+    const id = s.checkout_id || s.id, url = s.checkout_url || s.url;
+    if (!url) throw new Error('No checkout link came back.');
+    await db.from('topups').update({ checkout_id: id }).eq('id', row.id);
+    return json({ id: row.id, url, amount, currency: CURRENCY, nyota: pk.nyota });
+  } catch (e) {
+    await db.from('topups').update({ status: 'cancelled', note: `checkout failed: ${String((e as Error).message).slice(0, 200)}` }).eq('id', row.id);
+    return json({ error: 'The payment page could not be opened. Please try again in a moment.' }, 502);
+  }
+}
+async function topupStatus(req: Request, url: URL) {
+  const u = await playerOf(req); if (!u) return json({ error: 'Sign in first.' }, 401);
+  const id = str(url.searchParams.get('id'), 40);
+  if (!/^[0-9a-f-]{36}$/.test(id)) return json({ error: 'Unknown top-up.' }, 400);
+  const { data: t } = await db.from('topups').select('id,uid,status,nyota,checkout_id').eq('id', id).maybeSingle();
+  if (!t || t.uid !== u.id) return json({ error: 'Unknown top-up.' }, 404);
+  if (t.status === 'pending_payment' && t.checkout_id) {
+    try {
+      const s = await bachs('GET', `v1/checkout-sessions/${encodeURIComponent(t.checkout_id)}`);
+      if (PAID.has(String(s.status || s.payment_status || '').toLowerCase())) { await db.rpc('nyota_credit', { p_topup: id }); t.status = 'paid'; }
+    } catch { /* the webhook will settle it */ }
+  }
+  return json({ status: t.status, nyota: t.nyota });
+}
+
 // after paying, the brand lands back on /brands?booking=<id>; if the webhook has not arrived yet, ask Bachs directly
 async function status(url: URL) {
   const id = str(url.searchParams.get('id'), 40);
@@ -105,7 +165,21 @@ async function webhook(req: Request) {
   const { error: dup } = await db.from('bachs_events').insert({ id: String(ev.id).slice(0, 120), type: String(ev.type).slice(0, 60) });
   if (dup) return new Response('ok');
   const d = ev.data ?? {}, checkoutId = d.checkout_id ?? d.checkout?.id ?? null;
-  const ref = String(d.reference ?? d.metadata?.booking_id ?? '').replace(/^booking:/, '');
+  const rawRef = String(d.reference ?? (d.metadata?.topup_id ? 'topup:' + d.metadata.topup_id : d.metadata?.booking_id) ?? '');
+  // a Nyota top-up: credit the coins once (nyota_credit ignores repeats)
+  if (rawRef.startsWith('topup:')) {
+    const tid = rawRef.slice(6);
+    if (/^[0-9a-f-]{36}$/.test(tid)) {
+      if (ev.type === 'collection.succeeded') await db.rpc('nyota_credit', { p_topup: tid });
+      else if (ev.type === 'collection.failed' || ev.type === 'collection.underpaid') await db.from('topups').update({ note: `Bachs: ${ev.type}` }).eq('id', tid);
+    }
+    return new Response('ok');
+  }
+  if (!rawRef && checkoutId) {
+    const { data: t } = await db.from('topups').select('id').eq('checkout_id', String(checkoutId)).maybeSingle();
+    if (t) { if (ev.type === 'collection.succeeded') await db.rpc('nyota_credit', { p_topup: t.id }); return new Response('ok'); }
+  }
+  const ref = rawRef.replace(/^booking:/, '');
   const sel = /^[0-9a-f-]{36}$/.test(ref) ? { col: 'id', v: ref } : checkoutId ? { col: 'checkout_id', v: String(checkoutId) } : null;
   if (!sel) return new Response('ok');
   if (ev.type === 'collection.succeeded') await db.from('bookings').update({ status: 'paid', paid_at: new Date().toISOString() }).eq(sel.col, sel.v).eq('status', 'pending_payment');
@@ -119,6 +193,8 @@ Deno.serve(async (req) => {
   try {
     if (route === 'checkout' && req.method === 'POST') return await checkout(req);
     if (route === 'status' && req.method === 'GET') return await status(url);
+    if (route === 'topup' && req.method === 'POST') return await topup(req);
+    if (route === 'topup-status' && req.method === 'GET') return await topupStatus(req, url);
     if (route === 'webhook' && req.method === 'POST') return await webhook(req);
     return json({ error: 'Not found' }, 404);
   } catch (e) {

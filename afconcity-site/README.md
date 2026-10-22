@@ -60,7 +60,7 @@ The loader in `v3/web_loader.js` shows real download progress in the Play button
 
 ## Wardrobe and welcome questions
 
-- The island wardrobe (`v3/js/19b-style.js`) holds the tops, bottoms, shoes, hats, sunglasses, colours, fabric prints and curated looks. Add a look to `PRESETS`, or an item to `TOPS`/`BOTTOMS` with the prints it can come in. Women's choices always cover the thigh.
+- The island wardrobe (`v3/js/19b-style.js`) holds the tops, bottoms, shoes, hats, sunglasses, colours, fabric prints and curated looks. Add a look to `PRESETS`, or an item to `TOPS`/`BOTTOMS` with the prints it can come in. Women's hems stop no higher than the knee. The wardrobe covers the island as it is: Swahili kanzu, kofia and headscarves, Maasai shuka with beaded collars, kikoi wraps, kitenge, ankara and dashiki, duku head wraps, office blazers, safari and campus wear, and beach and resort clothes.
 - Prints are drawn once into a small texture atlas in the same file; `PAT_M` sets how big a print repeat is on the cloth.
 - A look travels to other players as a short code (`lookCode`/`lookFrom`), so older copies of the game still see a jersey.
 - The welcome questions (`v3/js/48-onboard.js`) add TSh 15,000 per answer to a new player's starting cash, plus TSh 30,000 for answering all eight. Answers stay on the player's device and go anonymously into their play stats. The owner sees the totals under Advertise → Tester insights.
@@ -77,6 +77,12 @@ The loader in `v3/web_loader.js` shows real download progress in the Play button
 - Brands book at `/brands` (`web/brands.html`, `web/brands.js`) and pay through Bachs. The Edge Function `supabase/functions/bachs` sets the price from the owner's rates, opens the Bachs checkout and marks a booking paid when Bachs's signed webhook arrives. The owner then approves it in the game.
 - `tools/online.py` tests all of the above against the in-browser Supabase stand-in.
 
+## Story missions, the economy and Nyota
+
+- `v3/js/65-mission.js`: the story after the VIP ticket. Buying the ticket opens **The Summit** at the Zanzibar Tech & AI Summit hall; passing it opens **Pitch Day** (vibe-coding at the Kahawa Code café, a timed ride to the Burj, then three investor questions and an offer). Cutscenes play on their own small sets with subtitles in the player's language. Voice files, when added, go in `web/voices/<en|sw>/<line id>.mp3`; without them the subtitles carry the scene. `tools/story.py` tests it.
+- `v3/js/66-economy.js`: businesses that earn while the game is closed (up to a cap), vehicles you own (fuel, repairs, weekly insurance, towing), and the startup's daily salary. On afconcity.com the clock comes from the server, so earnings cannot be fast-forwarded. `tools/economy.py` tests it.
+- `v3/js/67-nyota.js`: **Nyota**, stars bought with Bachs on afconcity.com and spent on cosmetic items and conveniences (vehicle paint, a golden name tag, fireworks, a 7-day business pass). The balance is kept on the server (`wallets`), credited only by the payment function when Bachs confirms payment, and spent only through `nyota_buy`. Game shillings can never be bought. Players who said they are under 18 see no shop, and the server refuses their top-ups. Packs and items, with their prices, are rows in `nyota_packs` and `nyota_items`: edit them in the Supabase Table Editor. To refund, refund the payment in Bachs, then run `select nyota_refund('<top-up id>')` as the owner. `tools/nyota.py` tests the client; `supabase/test_policies.sh` tests the database rules.
+
 ## Owner setup (one time)
 
 1. **Database.** Paste `supabase/setup.sql` into the Supabase SQL Editor and click Run. Then, under **Database → Extensions**, turn on **pg_cron** and run the file again: this schedules the nightly clean-up (chat after 30 days, events after 90, saves and scores after 12 months idle).
@@ -91,3 +97,4 @@ The loader in `v3/web_loader.js` shows real download progress in the Play button
    - Sender `no-reply@afconcity.com`, name `AfconCity`.
    
    Then raise the email rate limit under **Authentication → Rate Limits**.
+4. **After an update that changes `setup.sql` or the payment function**, run `setup.sql` again (it is safe to re-run) and redeploy the `bachs` function with the new `index.ts` (keep **Verify JWT** off).

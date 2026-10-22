@@ -390,6 +390,7 @@ function jobTarget() {
     if (job.x !== undefined) return { x: job.x, z: job.z };
   }
   if (ORDER.state === 'coming' || ORDER.state === 'waiting') return ORDER.pick;
+  if (state.done || MIS.id) { const mt = missionTarget(); if (mt) return mt; }
   if (RT.wp && state.intro) return RT.wp;
   if (!state.intro) return { x: NPC_BY_ID.amina.x, z: NPC_BY_ID.amina.z };
   if (state.ticket && !state.done) return { x: SC.x, z: SC.z };

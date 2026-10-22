@@ -3,7 +3,9 @@
 (() => {
   const LS = localStorage, bc = new BroadcastChannel('sbmock');
   const uuid = () => 'u' + Math.random().toString(16).slice(2, 10) + '-' + Date.now().toString(16);
-  const EMPTY = { docs: [], chat_messages: [], chat_bans: [], scores: [], events: [], bookings: [], saves: [], refs: [], invites: [] };
+  const EMPTY = { docs: [], chat_messages: [], chat_bans: [], scores: [], events: [], bookings: [], saves: [], refs: [], invites: [], wallets: [], nyota_owned: [], topups: [] };
+  const NY_ITEMS = [['pass_collect', 'Business pass', 150, 7], ['paint_pearl', 'Pearl paint', 200, null], ['paint_neon', 'Neon paint', 200, null], ['fx_fireworks', 'Fireworks', 250, null], ['paint_gold', 'Gold paint', 300, null], ['tag_gold', 'Golden name tag', 400, null]].map(([id, name, price, days]) => ({ id, name, price, days }));
+  const NY_PACKS = [['p100', 100, 2000], ['p550', 550, 10000], ['p1200', 1200, 20000], ['p3200', 3200, 50000]].map(([id, nyota, price]) => ({ id, nyota, price }));
   const db = () => Object.assign(JSON.parse(JSON.stringify(EMPTY)), JSON.parse(LS.getItem('sbmock.db') || '{}'));
   const save = (d) => LS.setItem('sbmock.db', JSON.stringify(d));
   const listeners = new Set();
@@ -145,6 +147,18 @@
       }
       if (n === 'invite_qualify') { const r = d.invites.find(x => x.invitee === me && !x.qualified); if (!r) return { data: false, error: null }; r.qualified = true; save(d); return { data: true, error: null }; }
       if (n === 'invite_collect') { const rs = d.invites.filter(x => x.inviter === me && x.qualified && !x.collected); rs.forEach(x => { x.collected = true; }); save(d); return { data: rs.length, error: null }; }
+      const nyState = (dd) => ({ nyota: (dd.wallets.find(w => w.uid === me) || { nyota: 0 }).nyota, owned: dd.nyota_owned.filter(o => o.uid === me && (!o.until || Date.parse(o.until) > Date.now())).map(o => ({ item: o.item, until: o.until })), items: NY_ITEMS, packs: NY_PACKS });
+      if (n === 'nyota_state') return { data: nyState(d), error: null };
+      if (n === 'nyota_buy') {
+        const it = NY_ITEMS.find(i => i.id === a.p_item); if (!it) return err('That item is not for sale.');
+        const o = d.nyota_owned.find(x => x.uid === me && x.item === it.id);
+        if (!it.days && o) return err('You already own this.');
+        const w = d.wallets.find(x => x.uid === me); if (!w || w.nyota < it.price) return err('Not enough Nyota.');
+        w.nyota -= it.price;
+        const until = it.days ? new Date(Math.max(o && o.until ? Date.parse(o.until) : 0, Date.now()) + it.days * 864e5).toISOString() : null;
+        if (o) o.until = until; else d.nyota_owned.push({ uid: me, item: it.id, until });
+        save(d); return { data: nyState(d), error: null };
+      }
       if (n === 'analytics_summary') {
         if (!isAdmin()) return err('Only the owner can see analytics');
         const ev = d.events, players = new Set(ev.map(e => e.uid)), by = (name) => new Set(ev.filter(e => e.name === name).map(e => e.uid)).size;
@@ -157,5 +171,33 @@
       return err('unknown function ' + n);
     }
   }
+  // the payment function (functions/v1/bachs): top-ups are paid with window.__sbmock.pay(id)
+  const realFetch = window.fetch.bind(window);
+  const tokUid = (h) => { const s = JSON.parse(sessionStorage.getItem('sbmock.session') || 'null'); return s && h === 'Bearer ' + s.access_token ? s.user.id : null; };
+  const reply = (o, status) => new Response(JSON.stringify(o), { status: status || 200, headers: { 'content-type': 'application/json' } });
+  window.fetch = async (url, init) => {
+    const u = String(url && url.url || url), m = u.match(/\/functions\/v1\/bachs\/([a-z-]+)(\?.*)?$/);
+    if (!m) return realFetch(url, init);
+    init = init || {}; const h = init.headers || {}, me = tokUid(h.authorization || h.Authorization), d = db();
+    window.__sbmock.log.push(['fn', m[1], init.body || '']);
+    if (!me) return reply({ error: 'Sign in first.' }, 401);
+    if (m[1] === 'topup') {
+      const b = JSON.parse(init.body || '{}'), pk = NY_PACKS.find(p => p.id === b.pack);
+      if (!b.adult) return reply({ error: 'Top-ups are for players aged 18 and over.' }, 403);
+      if (d.docs.some(x => x.coll === 'stats' && x.id === me && x.data && x.data.about && x.data.about.age === 'Under 18')) return reply({ error: 'Top-ups are for players aged 18 and over.' }, 403);
+      if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(b.email || '')) return reply({ error: 'Please check your email address: the receipt goes there.' }, 400);
+      if (!pk) return reply({ error: 'That pack is not available.' }, 400);
+      const id = '00000000-0000-4000-8000-' + String(Date.now()).slice(-12).padStart(12, '0');
+      d.topups.push({ id, uid: me, pack: pk.id, nyota: pk.nyota, amount: pk.price, status: 'pending_payment', email: b.email, name: b.name }); save(d);
+      return reply({ id, url: 'https://pay.bachs.test/checkout/' + id, amount: pk.price, currency: 'TZS', nyota: pk.nyota });
+    }
+    if (m[1] === 'topup-status') {
+      const id = new URLSearchParams(m[2] || '').get('id'), t = d.topups.find(x => x.id === id);
+      if (!t || t.uid !== me) return reply({ error: 'Unknown top-up.' }, 404);
+      return reply({ status: t.status, nyota: t.nyota });
+    }
+    return reply({ error: 'Not found' }, 404);
+  };
+  window.__sbmock.pay = (id) => { const d = db(), t = d.topups.find(x => x.id === id && x.status === 'pending_payment'); if (!t) return 0; t.status = 'paid'; const w = d.wallets.find(x => x.uid === t.uid); if (w) w.nyota += t.nyota; else d.wallets.push({ uid: t.uid, nyota: t.nyota }); save(d); return t.nyota; };
   window.supabase = { createClient };
 })();

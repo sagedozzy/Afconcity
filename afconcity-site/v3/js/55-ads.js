@@ -460,7 +460,7 @@ function offerCopy(root, item) {
 }
 
 /* ---------- play stats and billboard view time ---------- */
-const GAME_VER = '2026.10.15.2';
+const GAME_VER = '2026.10.22.1';
 function avgFps() { if (!AD.fps.length) return 0; return AD.fps.reduce((a, b) => a + b, 0) / AD.fps.length; }
 const _adV = new T.Vector3();
 function updateAdStats(dt) {

@@ -112,7 +112,7 @@ s = Session(claude=open('mockdb.js').read()); s.url += '?viewer'; s.load(); s.ev
 until("AD.ready")
 s.ev("() => { document.querySelector('.mm-item[data-p=ads]').click(); }"); s.wait(0.5)
 check('main menu Advertise page for brands', s.ev("() => document.querySelectorAll('#adsMain .ad-grid:not(.ad-pgrid) .ad-card').length") == 11 and s.ev("() => document.querySelectorAll('#adPhoneMain .ad-grid.ad-pgrid .ad-card').length") == 5 and s.ev("() => document.querySelectorAll('#adsMain .ad-form').length") == 0)
-check('the Advertise page shows a mock phone with the ad spaces', s.ev("() => document.querySelectorAll('#adsMain .ph-mock .ph-grid:not(.four) .ph-app').length") == 12 and s.ev("() => document.querySelectorAll('#adsMain .ph-mock .ph-banner').length") == 1)
+check('the Advertise page shows a mock phone with the ad spaces', s.ev("() => document.querySelectorAll('#adsMain .ph-mock .ph-grid:not(.four) .ph-app').length") == s.run("APPS.length") and s.ev("() => document.querySelectorAll('#adsMain .ph-mock .ph-banner').length") == 1)
 s.ev("() => { [...document.querySelectorAll('#adPhoneMain .ad-grid.ad-pgrid .ad-card')][3].querySelector('.ad-actions .btn').click(); }")
 s.page.set_input_files('#adFile', sq)
 check('a brand can preview its own app icon on the phone, locally', until("AD.phPreview && AD.phPreview.slot === 'ph3' && !!AD.phPreview.ad.icon", 8) and not s.ev("() => [...window.__store.keys()].some(k => k.endsWith('/ph3'))"))

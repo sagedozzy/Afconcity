@@ -395,6 +395,7 @@ function questMarkers() {
   if (job && job.type === 'volunteer') for (const it of job.items) list.push({ x: it.x, z: it.z, y: 1.2, s: 0.6 });
   if (state.coconuts > 0) for (const tr of TOURISTS) if (tr.want) list.push({ x: tr.x, z: tr.z, y: 1.9, s: 0.7 });
   list.push(...simMarkers());
+  if (state.done || MIS.id) list.push(...missionMarkers());
   if (!job && state.intro) for (const p of PROJECTS) if (!state.seen[p.id] && Math.hypot(p.x - P.x, p.z - P.z) < 120) list.push({ x: p.x, z: p.z, y: 7, s: 1.1 });
   return list;
 }

@@ -112,11 +112,12 @@ function renderStyle(root, o) {
   } else if (STYLE.tab === 'hat') {
     const r = row(pane); HATS.forEach((it, i) => chip(r, 'hat', it.n, lk.ht === i, () => set((l) => { const was = l.ht; l.ht = i; if (i && it.dc !== undefined && was !== i) l.hc = it.dc; })));
     if (lk.ht) colours('hc', 'Colour');
-    else if (lk.h === 'scarf') { pane.append(el('p', 'fine', 'Headscarf colour:')); colours('hc', 'Colour'); }
+    else if (lk.h === 'scarf' || lk.h === 'wrap') { pane.append(el('p', 'fine', lk.h === 'wrap' ? 'Head wrap colour:' : 'Headscarf colour:')); colours('hc', 'Colour'); }
   } else if (STYLE.tab === 'eyes') {
     const r = row(pane); EYES.forEach((it, i) => chip(r, 'eye', it.n, lk.ey === i, () => set((l) => { l.ey = i; })));
   } else {
-    const r = row(pane); HAIR_PICK.forEach((h) => chip(r, 'hair', HAIR_NAMES[h], lk.h === h, () => set((l) => { l.h = h; })));
+    const r = row(pane); HAIR_PICK.forEach((h) => chip(r, 'hair', HAIR_NAMES[h], lk.h === h, () => set((l) => { l.h = h; if ((h === 'wrap' || h === 'scarf') && !l.ht && l.hc === 0) l.hc = h === 'wrap' ? 2 : 5; })));
+    if (lk.h === 'scarf' || lk.h === 'wrap') { pane.append(el('p', 'fine', lk.h === 'wrap' ? 'Head wrap colour:' : 'Headscarf colour:')); colours('hc', 'Colour'); }
   }
   const acts = el('div', 'st-acts');
   const sh = el('button', 'btn btn-ghost', 'Shuffle'); sh.type = 'button'; sh.addEventListener('click', () => set((l) => shuffleLook(l), 'dance'));

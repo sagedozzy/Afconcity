@@ -133,6 +133,7 @@ function findInteraction() {
   if (mode !== 'play' || isDown(player)) return null;
   if (FISH.on) return lifeInteraction();
   if (playerVeh) {
+    if (playerVeh.owned && Math.abs(playerVeh.vf) < 2) { const gi = garageInteraction(); if (gi) return gi; }
     const a = NPC_BY_ID.ali;
     if (playerVeh.kind === 'bajaji' && Math.hypot(a.x - P.x, a.z - P.z) < 9) return { text: job && job.type === 'taxi' ? 'Talk to Ali' : 'Start a taxi shift', act: () => talk('ali') };
     if (!job && Math.hypot(RACE_START.x - P.x, RACE_START.z - P.z) < 11) return { text: `Start the race · ${tsh(PRICES.raceFee)}`, act: startRace };
@@ -140,6 +141,7 @@ function findInteraction() {
     return null;
   }
   for (const th of thieves) if ((th.state === 'flee' || th.state === 'rush') && Math.hypot(th.x - P.x, th.z - P.z) < 4 && !isDown(th.h)) return { text: 'Tackle the thief!', act: tackle };
+  const mi = missionInteraction() || garageInteraction() || bizInteraction(); if (mi) return mi;
   let best = null, bd = 1e9;
   for (const n of NPCS) { const ax = n.ix !== undefined ? n.ix : n.x, az = n.iz !== undefined ? n.iz : n.z, r = n.ir || 3.2, d = Math.hypot(ax - P.x, az - P.z); if (d < r && d < bd) { bd = d; best = n; } }
   if (best) return { text: VERB[best.id] || `Talk to ${best.name}`, act: () => talk(best.id), npc: best.id };
@@ -151,7 +153,7 @@ function findInteraction() {
   const tr = touristNear(); if (tr && (state.coconuts > 0 || tr.want)) return { text: state.coconuts > 0 ? (tr.want ? `Sell a madafu · ${tsh(PRICES.coconutSell)}` : 'Offer a madafu') : 'Chat with the tourist', act: () => sellCoconut(tr) };
   const st = stopNear(3.6); if (st) return { text: `Daladala · ${tsh(PRICES.daladala)}`, act: () => openStop(st) };
   const v = nearestRental(2.9);
-  if (v) return { text: v.rented ? `Ride the ${VEH[v.kind].name.toLowerCase()}` : `Hire the ${VEH[v.kind].name.toLowerCase()} for the day · ${tsh(PRICES[v.kind])}`, act: () => rentOrRide(v) };
+  if (v) return { text: v.owned ? (LANG === 'sw' ? `Panda ${VEH[v.kind].name.toLowerCase()} yako` : `Ride your ${VEH[v.kind].name.toLowerCase()}`) : v.rented ? `Ride the ${VEH[v.kind].name.toLowerCase()}` : `Hire the ${VEH[v.kind].name.toLowerCase()} for the day · ${tsh(PRICES[v.kind])}`, act: () => rentOrRide(v) };
   return walkerInteraction();
 }
 function findSecondary() {
@@ -289,9 +291,9 @@ function frame(nowMs) {
   else if (mode === 'wasted') { updateFall(player, dt); if (player.userData.fall && player.userData.fall.t > 1.9) player.userData.fall.t = 1.9; }
   else if (mode === 'penalty') updatePenalty(dt, t);
   else if (mode === 'kickoff') { updateKickoff(dt); animHuman(player, dt, t, 0, 'loco'); }
-  updateLOD(dt); updateRemotes(dt, t); eventsTick(dt);
+  updateLOD(dt); updateRemotes(dt, t); eventsTick(dt); hiWarm(raw);
   /* the pause menu freezes the world: no chases, rides, thieves or timers move behind it */
-  if (mode !== 'paused') { updateCars(dt, t); updateWalkers(dt, t); updateThieves(dt, t); updateRentals(dt); updateCoins(dt, t); updateJobs(dt, t); updateQuests(dt, t); updateLife(dt, t); updateClock(dt); updateEnergy(dt); updatePhone(dt); updateSim(dt, t); updateHomeDoors(t); updateAdStats(dt); updateCranes(t); }
+  if (mode !== 'paused') { updateCars(dt, t); updateWalkers(dt, t); updateThieves(dt, t); updateRentals(dt); updateCoins(dt, t); updateJobs(dt, t); updateQuests(dt, t); updateMissions(dt); updateEconomy(dt); updateLife(dt, t); updateClock(dt); updateEnergy(dt); updatePhone(dt); updateSim(dt, t); updateHomeDoors(t); updateAdStats(dt); updateCranes(t); }
   playerHead.set(P.x, (player ? player.position.y : 0) + 1.62, P.z);
   for (const n of NPCS) {
     const h = npcObjs[n.id], d = Math.hypot(P.x - n.x, P.z - n.z); h.visible = mode === 'intro' || Math.hypot(camera.position.x - n.x, camera.position.z - n.z) < 260; if (d > 200) continue;
@@ -337,7 +339,7 @@ function frame(nowMs) {
   canvas.style.filter = mode === 'wasted' ? 'grayscale(0.85) brightness(0.9)' : HQ() ? 'saturate(1.12) contrast(1.04)' : '';
   ui.fx.classList.toggle('low', state.hp < 25 && mode === 'play');
   if (DEV && window.__preRender) window.__preRender();
-  if (!(DEV && window.__noRender)) { if (HOME.inside) renderHome(dt, t); else renderer.render(scene, camera); }
+  if (!(DEV && window.__noRender)) { if (HOME.inside) renderHome(dt, t); else if (SET.on) renderSet(dt, t); else renderer.render(scene, camera); }
   if (watch.left > 0) checkBlack();
 }
 /* one bad frame must never freeze the game: log it and keep going */
@@ -350,7 +352,7 @@ function loop(nowMs) {
 /* ---------- UI wiring ---------- */
 function segSet(sel, v) { document.querySelectorAll(sel + ' button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === v))); }
 function enterPlay() {
-  audioInit(); AD.view = null; setStyling(false);
+  audioInit(); AD.view = null; setStyling(false); resyncOwned();
   const bonus = applyStartBonus(); if (bonus) setTimeout(writeStats, 5000);
   track('play', { fresh: !state.intro }); if (MP.web) watchMilestones();
   const nick = strOr($('#nick').value, 16).trim();
@@ -359,6 +361,7 @@ function enterPlay() {
   $('#touch').hidden = !isCoarse;
   mode = 'play';
   if (!playerTag) playerTag = makeTag(state.nick, true); else playerTag.nm.textContent = state.nick;
+  nyEffects();
   cam.yaw = playerVeh ? playerVeh.yaw + Math.PI : player.rotation.y + Math.PI; cam.pitch = 0.26;
   camTarget.set(P.x, 1.6, P.z);
   if (!state.intro) help((bonus ? `Your purse: <b class="hg">${tsh(state.cash)}</b>. ` : '') + (isCoarse ? 'You just got off the daladala on Fumba Road. Walk to <b class="hl">Amina</b> with the joystick and tap <b class="hl">E</b> to talk.' : 'You just got off the daladala on Fumba Road. Walk to <b class="hl">Amina</b> with <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>, click the game to look around, press <kbd>E</kbd> to talk.'), 8000);
@@ -610,7 +613,7 @@ async function start(data) {
   btn.disabled = false; btn.textContent = saved && saved.intro ? 'Twende · Continue' : 'Twende · Play';
   $('#mmPlayHint').textContent = saved && saved.intro ? `Continue · ${tsh(money())}` : 'Start in Fumba';
   $('#btnNew').hidden = !(saved && saved.intro);
-  initEvents();
+  initEvents(); initMissions(); initEconomy(); initNyota();
   requestAnimationFrame((n) => { last = n; requestAnimationFrame(loop); });
 }
 const hot = window.claude && window.claude.hot;

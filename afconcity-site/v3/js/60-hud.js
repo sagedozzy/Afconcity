@@ -170,7 +170,9 @@ const EARN_HINTS = [
 const goalUI = { stamps: $('#progStamps'), stampsBar: $('#progStampsBar'), cash: $('#progCash'), cashBar: $('#progCashBar'), prog: $('#prog') };
 function updateGoal(t) {
   let tag = 'Goal', title, desc, bar = null;
-  if (job && job.type !== 'bet') {
+  const mg = MIS.id || MIS.goal ? missionGoal() : null;
+  if (mg) { tag = mg.tag; title = mg.title; desc = mg.desc; }
+  else if (job && job.type !== 'bet') {
     tag = 'Job'; title = job.title;
     if (job.type === 'race') desc = `Checkpoint ${Math.min(job.cp + 1, RACE_CPS.length)} of ${RACE_CPS.length}. Gold under ${fmtTime(job.target)}.`;
     else if (job.type === 'spice') { desc = `Spices found: ${job.found.size} of ${SPICE_SPOTS.length}. Press E at each gold marker.`; bar = job.found.size / SPICE_SPOTS.length; }
@@ -185,6 +187,8 @@ function updateGoal(t) {
   else if (RT.wp && state.intro) { tag = 'GPS'; title = RT.wp.label; desc = 'Follow the yellow marker on your radar. Set a new one on your phone (P).'; }
   else if (!state.intro) { title = 'Talk to Amina'; desc = 'She is right in front of you at the Uptown Gate daladala stop.'; }
   else if (state.ticket && !state.done) { title = 'Get to kickoff'; desc = 'Walk through Gate A and stand in the centre circle.'; }
+  else if (state.ticket && missionGoal()) { const m2 = missionGoal(); tag = m2.tag; title = m2.title; desc = m2.desc; }
+  else if (state.ticket && story().pitch) { tag = 'Free roam'; title = LANG === 'sw' ? 'Jenga himaya yako' : 'Build your empire'; desc = LANG === 'sw' ? 'Nunua biashara na magari kwenye simu (Biashara, Magari). Biashara zinaingiza pesa hata ukiwa mbali.' : 'Buy businesses and vehicles on your phone (Biashara, Magari). Businesses earn while you are away.'; }
   else if (state.ticket) { tag = 'Free roam'; title = 'Matchday night'; desc = 'Keep exploring Fumba. The richest fan online wears the crown.'; }
   else if (passportFull() && money() >= PRICES.vip) { title = 'Buy your VIP ticket'; desc = 'Salim sells them at the kiosk on the AfconCity plaza (K).'; }
   else if (passportFull()) { title = `Earn ${tsh(PRICES.vip - money())} more`; desc = EARN_HINTS[Math.floor(t / 9) % EARN_HINTS.length]; }
@@ -366,13 +370,14 @@ function updateHUD(dt, t) {
   hudX.tRun = hudX.tRun || $('#tRun'); hudX.tRun.classList.toggle('tired', !!RT.tired);
   ui.st.style.width = `${RT.boost > now() ? 100 : RT.stamina}%`; ui.st.style.background = RT.boost > now() ? 'var(--turmeric)' : RT.tired ? 'var(--muted)' : '';
   ui.speedo.hidden = !playerVeh;
-  if (playerVeh) { ui.kmh.textContent = Math.round(Math.abs(playerVeh.vf) * 3.6); ui.vehName.textContent = `KM/H · ${VEH[playerVeh.kind].name.toUpperCase()}`; ui.vhp.style.width = `${playerVeh.hp}%`; ui.kmh.style.color = Math.abs(playerVeh.vf) > 13.9 && Math.hypot(P.x - TRAFIKI.x, P.z - TRAFIKI.z) < 120 ? 'var(--loss)' : ''; }
+  if (playerVeh) { ui.kmh.textContent = Math.round(Math.abs(playerVeh.vf) * 3.6); ui.vehName.textContent = `KM/H · ${VEH[playerVeh.kind].name.toUpperCase()}${playerVeh.owned ? ` · ${playerVeh.g.fuel.toFixed(1)} L` : ''}`; ui.vhp.style.width = `${playerVeh.hp}%`; ui.kmh.style.color = Math.abs(playerVeh.vf) > 13.9 && Math.hypot(P.x - TRAFIKI.x, P.z - TRAFIKI.z) < 120 ? 'var(--loss)' : ''; }
   let timer = null, label = 'TIME';
   if (job && job.type === 'pizza') timer = job.limit - (now() - job.t0);
   else if (job && job.type === 'taxi' && job.phase === 'drop') timer = job.limit - (now() - job.t0);
   else if (job && job.type === 'race') { timer = Math.max(0, now() - job.t0); label = 'RACE'; }
   else if (job && (job.type === 'site' || job.type === 'volunteer' || job.type === 'match')) timer = job.limit - (now() - job.t0);
   else if (simTimer() !== null) timer = simTimer();
+  else if (misTimer() !== null) timer = misTimer();
   ui.timer.hidden = timer === null;
   if (timer !== null) { ui.timerLabel.textContent = label; ui.timerVal.textContent = label === 'RACE' ? fmtTime(timer) : fmtClock(timer); ui.timer.classList.toggle('low', label !== 'RACE' && timer < 10); }
   const ri = rushInfo();

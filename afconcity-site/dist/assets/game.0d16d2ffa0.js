@@ -2766,8 +2766,8 @@ function buildBody(look, hi) {
   const neck = L.neck || (kit ? 'crew' : L.style === 'button' ? 'collar' : '');
 
   /* torso */
-  const TP = f ? [[0.855, 0.146, 0.094, -0.006], [0.90, 0.186, 0.114, -0.016], [0.96, 0.182, 0.110, -0.012], [1.03, 0.146, 0.092, 0.0], [1.09, 0.120, 0.082, 0.002], [1.16, 0.132, 0.090, 0.010], [1.24, 0.148, 0.098, 0.014], [1.31, 0.152, 0.094, 0.010], [1.37, 0.150, 0.085, 0.002], [1.415, 0.138, 0.076, -0.006], [1.445, 0.098, 0.062, -0.008], [1.465, 0.056, 0.048, -0.006]]
-    : [[0.855, 0.142, 0.092, -0.004], [0.90, 0.158, 0.102, -0.012], [0.96, 0.156, 0.099, -0.008], [1.03, 0.150, 0.095, 0.0], [1.10, 0.156, 0.098, 0.004], [1.18, 0.172, 0.106, 0.010], [1.26, 0.188, 0.112, 0.013], [1.33, 0.198, 0.108, 0.008], [1.385, 0.196, 0.095, 0.0], [1.425, 0.162, 0.080, -0.006], [1.45, 0.108, 0.066, -0.008], [1.465, 0.064, 0.054, -0.006]];
+  const TP = f ? [[0.855, 0.146, 0.094, -0.006], [0.90, 0.186, 0.114, -0.016], [0.96, 0.182, 0.110, -0.012], [1.03, 0.146, 0.092, 0.0], [1.09, 0.120, 0.082, 0.002], [1.16, 0.132, 0.090, 0.010], [1.24, 0.148, 0.098, 0.014], [1.31, 0.152, 0.094, 0.010], [1.37, 0.152, 0.085, 0.002], [1.415, 0.143, 0.077, -0.006], [1.445, 0.098, 0.062, -0.008], [1.465, 0.056, 0.048, -0.006]]
+    : [[0.855, 0.142, 0.092, -0.004], [0.90, 0.158, 0.102, -0.012], [0.96, 0.156, 0.099, -0.008], [1.03, 0.150, 0.095, 0.0], [1.10, 0.156, 0.098, 0.004], [1.18, 0.172, 0.106, 0.010], [1.26, 0.188, 0.112, 0.013], [1.33, 0.198, 0.108, 0.008], [1.385, 0.198, 0.095, 0.0], [1.425, 0.172, 0.082, -0.006], [1.45, 0.108, 0.066, -0.008], [1.465, 0.064, 0.054, -0.006]];
   const bustF = (y) => f ? 0.066 * Math.exp(-(((y - 1.272) / 0.058) ** 2)) : 0.014 * Math.exp(-(((y - 1.31) / 0.05) ** 2));
   const TW = [[0.95, W('hips', 1)], [1.07, W('spine', 1)], [1.19, W('spine', 1)], [1.29, W('chest', 1)]];
   // an untucked shirt hangs over the waistband
@@ -2781,6 +2781,10 @@ function buildBody(look, hi) {
     }
     // necklines: a V, a wide boat neck, an open collar, tank-top straps
     if (neck === 'v' && sa > 0.3 && y > 1.33 + Math.abs(ca) * 0.55) return skin;
+    // a jacket open over a shirt (and a tie for men); the lapel edge is a shade darker
+    if (neck === 'jacket' && sa > 0.2) { const v = 1.12 + Math.abs(ca) * 1.05; if (y > v + 0.022) return L.tie && Math.abs(ca) < 0.05 && y < 1.43 ? C(L.tie) : C(L.inner || 0xf6f3ec); if (y > v) return shade(shirtP, 0.78); }
+    // a dashiki: an embroidered band round a V neck
+    if (neck === 'dashiki' && sa > 0.25) { const v = 1.36 + Math.abs(ca) * 0.5; if (y > v + 0.035) return skin; if (y > v) return trim; }
     if (neck === 'boat' && y > 1.437 && Math.abs(ca) < 0.75) return skin;
     if (neck === 'collar' && L.style === 'button' && sa > 0.55 && y > 1.395 + Math.abs(ca) * 0.5) return skin;
     if (neck === 'tank' && ((y > 1.38 && Math.abs(ca) > 0.62) || (Math.abs(sa) > 0.5 && y > 1.405 + Math.abs(ca) * 0.3))) return skin;
@@ -2805,6 +2809,7 @@ function buildBody(look, hi) {
   {
     const nr = [[1.40, 0.056, 0.058, -0.004, W('chest', 1)], [1.46, 0.052, 0.055, -0.002, W('chest', 0.45, 'neck', 0.55)], [1.515, 0.048, 0.051, 0.004, W('neck', 0.75, 'head', 0.25)], [1.575, 0.047, 0.05, 0.012, W('head', 1)]];
     addLoft(sg, nr.map(([y, rx, rz, z, w]) => ({ y, x: 0, z, rx: rx * (f ? 0.86 : 1.05), rz: rz * (f ? 0.88 : 1.04), w, col: skin, r: R_SKIN })), LSEG + 2);
+    if (neck === 'jacket') sg.add(new T.TorusGeometry(0.06, hi ? 0.01 : 0.013, 6, hi ? 20 : 10, TAU * 0.78), mat4(0, 1.452, -0.004, 0, 1, 1, 1.8, Math.PI / 2 - 0.2, Math.PI / 2 - TAU * 0.89), C(L.inner || 0xf6f3ec), W('chest', 0.7, 'neck', 0.3), R_CLOTH);
     if (neck === 'collar' || kit) {
       // a collar stands up round the back of the neck and falls open at the front
       sg.add(new T.TorusGeometry(0.06, hi ? 0.01 : 0.013, 6, hi ? 20 : 10, kit ? TAU : TAU * 0.78), mat4(0, 1.452, -0.004, 0, 1, 1, kit ? 1.05 : 1.8, Math.PI / 2 - 0.2, kit ? 0 : Math.PI / 2 - TAU * 0.89), kit ? trim : shirt.clone().multiplyScalar(1.06), W('chest', 0.7, 'neck', 0.3), R_CLOTH);
@@ -2821,11 +2826,12 @@ function buildBody(look, hi) {
     const th = 'thigh' + side, sh = 'shin' + side, ft = 'foot' + side, hx = RP[th][0];
     const LW = [[0.085, W(ft, 0.35, sh, 0.65)], [0.12, W(sh, 1)], [0.44, W(sh, 1)], [0.52, W(th, 1)], [0.9, W(th, 1)], [0.975, W('hips', 0.55, th, 0.45)]];
     const ys = hi ? [0.075, 0.1, 0.14, 0.2, 0.27, 0.34, 0.4, 0.45, 0.48, 0.51, 0.57, 0.66, 0.76, 0.86, 0.93, 0.975] : [0.075, 0.14, 0.27, 0.4, 0.48, 0.57, 0.76, 0.93, 0.975];
-    const hemAt = robe ? 0.1 : shortsY, rl = [];
+    const hemAt = robe ? (L.robeHem > 0.1 ? 9 : 0.1) : shortsY, rl = [];
     const push = (y, k, col, r) => { const [rx, rz, z] = prof(LP, y); rl.push({ y, x: hx - s * 0.006 * (1 - y), z, rx: rx * k, rz: rz * k, w: wBlend(y, LW), col, r }); };
     const legCol = (y) => {
       if (y >= hemAt && !dress) return { c: robe ? lowerP : lowerCol, k: pantsLike ? Math.max(1.08, minR / prof(LP, y)[0] * (1 + (0.5 - Math.min(y, 0.5)) * (L.wide ? 0.25 : 0))) : 1.08, r: R_CLOTH };
       if (dress && y > (L.long ? 0.12 : L.midi ? 0.4 : 0.34)) return { c: skin, k: 0.8, r: R_SKIN };
+      if (robe && L.robeHem > 0.1 && y > L.robeHem + 0.02) return { c: skin, k: 0.8, r: R_SKIN };
       if (sockC && y < 0.4) return { c: y > 0.375 ? kitTrim : sockC, k: 1.06, r: R_CLOTH };
       return { c: skin, k: 1, r: R_SKIN };
     };
@@ -2839,9 +2845,9 @@ function buildBody(look, hi) {
   }
   /* skirt / dress or kanzu: weights follow each thigh on its own side so hems swing with the legs */
   if (dress || robe) {
-    const top = robe ? 1.38 : 1.0, bottom = robe ? 0.08 : (L.long ? 0.1 : L.midi ? 0.4 : 0.34), col = robe ? shirtP : dressP, band = C(L.trim2 || (robe ? 0xf6f1e7 : 0x141838));
+    const top = robe ? 1.38 : 1.0, bottom = robe ? (L.robeHem || 0.08) : (L.long ? 0.1 : L.midi ? 0.4 : 0.34), col = robe ? shirtP : dressP, band = C(L.trim2 || (robe ? 0xf6f1e7 : 0x141838));
     const sys = hi ? [bottom, bottom + 0.03, bottom + 0.06, 0.3, 0.45, 0.6, 0.72, 0.82, 0.9, 0.96, 1.0, 1.1, 1.2, 1.3, 1.38].filter((y, i, a) => y >= bottom && y <= top && (i === 0 || y > a[i - 1])) : [bottom, 0.5, 0.75, 0.9, 1.0, 1.2, 1.38].filter(y => y >= bottom && y <= top);
-    const sk = [], flare = L.long ? 1.04 : L.midi ? 0.84 : 0.9;
+    const sk = [], flare = L.robeHem > 0.1 ? 0.8 : L.long ? 1.04 : L.midi ? 0.84 : 0.9;
     for (const y of sys) {
       const [rx0, rz0, z0] = prof(TP, clamp(y, 0.9, 1.465)), k = y < 0.9 ? smooth((0.9 - y) / (0.9 - bottom + 1e-3)) : 0;
       const legW = y < 0.86 ? smooth(clamp((0.86 - y) / 0.45, 0, 1)) * 0.72 : 0;
@@ -2858,15 +2864,21 @@ function buildBody(look, hi) {
     for (const y of (hi ? [1.0, 1.003, 1.06, 1.12, 1.135, 1.15, 1.2, 1.25, 1.265, 1.28, 1.33, 1.38, 1.41] : [1.0, 1.003, 1.13, 1.2, 1.27, 1.33, 1.41])) { const [rx, rz, z] = prof(TP, y), lipK = y < 1.002 ? 1.03 : 1.075; vr.push({ y, x: 0, z, rx: rx * lipK, rz: rz * lipK, w: wBlend(y, TW), col: (Math.abs(y - 1.135) < 0.018 || Math.abs(y - 1.265) < 0.018) ? refl : vc, r: (Math.abs(y - 1.135) < 0.018 || Math.abs(y - 1.265) < 0.018) ? 0.3 : R_CLOTH, sq: 2.4 }); }
     addLoft(sg, vr, SEG * 2 - 4);
   }
+  /* a Maasai beaded collar: flat rings of colour round the neck */
+  if (L.beads) {
+    const bc = [0xc8342c, 0xf6f3ec, 0x1f4fa0, 0xf3b41b, 0x1e9b57, 0xc8342c];
+    (hi ? bc : bc.slice(0, 2)).forEach((c, k) => sg.add(new T.TorusGeometry(0.1 + k * 0.012, hi ? 0.0068 : 0.012, 4, hi ? 30 : 10), mat4(0, 1.452 - k * 0.009, 0.006 + k * 0.003, 0, f ? 0.86 : 1, 0.8, 1, Math.PI / 2 - 0.3), C(c), W('chest', 0.8, 'neck', 0.2), 0.35));
+  }
+  if (L.pockets && hi && !robe) for (const q of [1, -1]) { const [rx, rz, z] = prof(TP, 1.32); sg.add(rb(0.052, 0.058, 0.008, 0.003), mat4(q * rx * 0.42, 1.32, z + rz * 1.02 - 0.006, 0), shade(shirtP, 0.9), W('chest', 1), R_CLOTH); sg.add(rb(0.056, 0.018, 0.01, 0.003), mat4(q * rx * 0.42, 1.352, z + rz * 1.03 - 0.004, 0), shade(shirtP, 0.84), W('chest', 1), R_CLOTH); }
   /* arms */
-  const AP = [[0.875, 0.026, 0.027], [0.895, 0.027, 0.028], [0.93, 0.030, 0.031], [0.98, 0.036, 0.037], [1.05, 0.040, 0.042], [1.10, 0.037, 0.041], [1.13, 0.036, 0.040], [1.16, 0.038, 0.042], [1.20, 0.041, 0.045], [1.27, 0.045, 0.049], [1.34, 0.050, 0.054], [1.40, 0.056, 0.060], [1.44, 0.058, 0.062], [1.47, 0.050, 0.055]];
+  const AP = [[0.875, 0.026, 0.027], [0.895, 0.027, 0.028], [0.93, 0.030, 0.031], [0.98, 0.036, 0.037], [1.05, 0.040, 0.042], [1.10, 0.037, 0.041], [1.13, 0.036, 0.040], [1.16, 0.038, 0.042], [1.20, 0.041, 0.045], [1.27, 0.045, 0.049], [1.34, 0.050, 0.054], [1.38, 0.054, 0.058], [1.405, 0.051, 0.055], [1.425, 0.040, 0.044], [1.438, 0.016, 0.018]];
   const sleeveK = longArm ? 1.12 : sleeveY < 1.2 ? 1.1 : 1.06;
   for (const [s, side] of [[1, 'L'], [-1, 'R']]) {
     const sh = RP['uArm' + side], el = RP['fArm' + side], wr = RP['hand' + side], ua = 'uArm' + side, fa = 'fArm' + side, hd = 'hand' + side, cl = 'clav' + side;
-    const AW = [[0.885, W(fa, 0.5, hd, 0.5)], [0.91, W(fa, 1)], [1.105, W(fa, 1)], [1.165, W(ua, 1)], [1.40, W(ua, 1)], [1.445, W(ua, 0.7, cl, 0.3)], [1.47, W('chest', 0.5, ua, 0.5)]];
+    const AW = [[0.885, W(fa, 0.5, hd, 0.5)], [0.91, W(fa, 1)], [1.105, W(fa, 1)], [1.165, W(ua, 1)], [1.38, W(ua, 1)], [1.41, W(ua, 0.7, cl, 0.3)], [1.438, W('chest', 0.5, ua, 0.5)]];
     const cx = (y) => y > el[1] ? lerp(el[0], sh[0], (y - el[1]) / (sh[1] - el[1])) : lerp(wr[0], el[0], (y - wr[1]) / (el[1] - wr[1]));
     const cz = (y) => y > el[1] ? lerp(el[2], sh[2], (y - el[1]) / (sh[1] - el[1])) : lerp(wr[2], el[2], (y - wr[1]) / (el[1] - wr[1]));
-    const ys = hi ? AP.map(r => r[0]) : [0.875, 0.93, 1.05, 1.13, 1.2, 1.34, 1.44, 1.47];
+    const ys = hi ? AP.map(r => r[0]) : [0.875, 0.93, 1.05, 1.13, 1.2, 1.34, 1.405, 1.438];
     const ar = [], fm = f ? 0.84 : 1.07;
     const armCol = (y) => y >= sleeveY ? { c: (kit && y < sleeveY + 0.02) ? trim : shirtP, k: sleeveK, r: R_CLOTH } : { c: skin, k: 1, r: R_SKIN };
     const push = (y, k, c, r) => { const [rx, rz] = prof(AP, y); ar.push({ y, x: cx(y), z: cz(y), rx: rx * k * fm, rz: rz * k * fm, w: wBlend(y, AW), col: c, r }); };
@@ -2877,7 +2889,7 @@ function buildBody(look, hi) {
     }
     addLoft(sg, ar, LSEG, { capB: 0.004 });
     // deltoid cap under the sleeve
-    sg.add(new T.SphereGeometry(1, hi ? 14 : 8, hi ? 10 : 6), mat4(sh[0] - s * 0.016, 1.41, sh[2], 0, 0.05 * fm, 0.06, 0.055 * fm), sleeveY < 1.43 ? shirt : skin, W(ua, 0.75, cl, 0.25), sleeveY < 1.43 ? R_CLOTH : R_SKIN);
+    sg.add(new T.SphereGeometry(1, hi ? 14 : 8, hi ? 10 : 6), mat4(sh[0] - s * 0.022, 1.392, sh[2], 0, 0.052 * fm, 0.045, 0.056 * fm), sleeveY < 1.43 ? shirt : skin, W(ua, 0.75, cl, 0.25), sleeveY < 1.43 ? R_CLOTH : R_SKIN);
     /* hand */
     const hx = wr[0], hz = wr[2], hk = f ? 0.9 : 1, handCol = (v, n) => (n.x * -s > 0.35 ? palm : skin);
     if (hi) {
@@ -2976,16 +2988,36 @@ function buildBody(look, hi) {
       sg.add(geo, m, hairC.clone().multiplyScalar(0.8 + 0.3 * hash2(i, 7)), hw, 0.85);
     }
   }
+  // a duku head wrap: a tall fabric crown over the hairline, tied in a knot at the front, neck left uncovered
+  if (hair === 'wrap') {
+    const sc = C(L.scarf || 0xe86a1f), fold = (v) => sc.clone().multiplyScalar(0.84 + 0.16 * Math.sin(v.y * 160 + Math.atan2(v.z, v.x) * 3));
+    cap({ p1: hl(0.82, 1.22, 1.78), sc: 1.05, edge: 1.02, disp: (X, Y, Z) => 1.04 + 0.52 * smooth(clamp(Y - 0.1, 0, 1)) + 0.16 * smooth(clamp(-Z, 0, 1)) * smooth(clamp(Y + 0.3, 0, 1)) }, fold, 0.88);
+    sg.add(new T.SphereGeometry(1, hi ? 14 : 6, hi ? 10 : 4), mat4(0, 1.79, 0.075, 0, 0.034, 0.03, 0.026, 0.3), sc.clone().multiplyScalar(0.92), hw, 0.88);
+    if (hi) for (const s of [1, -1]) sg.add(new T.SphereGeometry(1, 10, 6), mat4(s * 0.032, 1.815, 0.06, 0, 0.03, 0.016, 0.022, 0.2, 0, s * 0.6), sc, hw, 0.88);
+  }
+  if (hair === 'ponytail') {
+    cap({ p1: LONG, sc: 1.03, disp: (X, Y) => 1 + 0.01 * smooth(clamp(Y, 0, 1)) }, jit, 0.7);
+    const a = new T.Vector3(0, 1.735, -0.112), b2 = new T.Vector3(0, 1.5, -0.15), d = b2.clone().sub(a), len = d.length();
+    sg.add(capsule(0.026, 1, hi ? 4 : 2, hi ? 8 : 5), new T.Matrix4().compose(a.clone().add(b2).multiplyScalar(0.5), new T.Quaternion().setFromUnitVectors(new T.Vector3(0, 1, 0), d.normalize()), new T.Vector3(1, len, 0.85)), jit, hw, 0.75);
+    if (hi) sg.add(new T.TorusGeometry(0.024, 0.006, 5, 14), mat4(a.x, a.y - 0.012, a.z - 0.004, 0, 1, 1, 1, Math.PI / 2 + 0.2), hairC.clone().multiplyScalar(0.6), hw, 0.6);
+  }
+  if (hair === 'twists') cap({ p1: hl(0.96, 1.34, 2.0), sc: 1.01, edge: 1.02, te: 0.9, disp: (X, Y, Z) => 1.1 + 0.06 * Math.max(0, Y) + 0.03 * Math.pow(Math.abs(Math.sin(X * 31 + Z * 7) * Math.sin(Y * 29 + X * 5)), 0.5) }, (v) => jit(v).multiplyScalar(0.88 + 0.22 * hash2(v.x * 600, v.y * 500 + v.z * 700)), 0.95);
   /* hats sit on whatever hair is under them */
   const hat = L.hat || (hair === 'hat' ? 'panama' : '');
   if (hat) {
-    const big = hair === 'afro' ? 1.32 : hair === 'scarf' ? 1.1 : (hair === 'locs' || hair === 'bun' || hair === 'braids') ? 1.05 : 1, up = hair === 'afro' ? 0.062 : hair === 'scarf' ? 0.014 : hair === 'bun' ? 0.012 : 0;
+    const big = hair === 'afro' ? 1.32 : hair === 'wrap' ? 1.3 : hair === 'twists' ? 1.1 : hair === 'scarf' ? 1.1 : (hair === 'locs' || hair === 'bun' || hair === 'braids') ? 1.05 : 1, up = hair === 'afro' ? 0.062 : hair === 'wrap' ? 0.07 : hair === 'scarf' ? 0.014 : hair === 'bun' ? 0.012 : 0;
     const hc = C(L.hatCol || (hat === 'panama' || hat === 'sunhat' ? 0xe8d8b0 : 0x141838)), cy = 1.76 + up, hseg = hi ? 28 : 10;
     if (hat === 'panama' || hat === 'sunhat') {
       const brim = hat === 'sunhat' ? 0.2 : 0.155, straw = (v) => hc.clone().multiplyScalar(0.92 + 0.08 * Math.sin(Math.atan2(v.z, v.x) * 40 + Math.hypot(v.x, v.z) * 300));
       sg.add(new T.CylinderGeometry(0.08 * big, 0.1 * big, 0.08, hseg), mat4(0, cy, -0.004, 0), hi ? straw : hc, hw, 0.92);
       sg.add(new T.CylinderGeometry(brim * big * 0.97, brim * big, 0.008, hi ? 36 : 12), mat4(0, cy - 0.038, -0.004, 0), hi ? straw : hc, hw, 0.92);
       sg.add(new T.CylinderGeometry(0.101 * big, 0.101 * big, 0.02, hseg), mat4(0, cy - 0.025, -0.004, 0), C(hat === 'sunhat' ? 0xf6f3ec : 0x2a1d14), hw, 0.8);
+    } else if (hat === 'fedora') {
+      const band = C(0x1d1d22);
+      sg.add(new T.CylinderGeometry(0.078 * big, 0.096 * big, 0.09, hseg), mat4(0, cy + 0.004, -0.004, 0, 1, 1, 0.92), hc, hw, 0.85);
+      if (hi) sg.add(rb(0.02, 0.01, 0.13 * big, 0.004), mat4(0, cy + 0.048, -0.004, 0), hc.clone().multiplyScalar(0.8), hw, 0.85);
+      sg.add(new T.CylinderGeometry(0.097 * big, 0.097 * big, 0.022, hseg), mat4(0, cy - 0.026, -0.004, 0, 1, 1, 0.92), band, hw, 0.7);
+      sg.add(new T.CylinderGeometry(0.14 * big, 0.145 * big, 0.008, hi ? 32 : 12), mat4(0, cy - 0.038, -0.004, 0.06, 1, 1, 0.94), hc.clone().multiplyScalar(0.95), hw, 0.85);
     } else if (hat === 'bucket') {
       sg.add(new T.CylinderGeometry(0.084 * big, 0.1 * big, 0.072, hseg), mat4(0, cy - 0.004, -0.004, 0), hc, hw, 0.92);
       sg.add(new T.CylinderGeometry(0.102 * big, 0.15 * big, 0.04, hseg), mat4(0, cy - 0.058, -0.004, 0), hc.clone().multiplyScalar(0.94), hw, 0.92);
@@ -3064,8 +3096,8 @@ function numberTex(n, col) {
 function makeHuman(look) {
   look = Object.assign({}, look || {});
   if (look.f === undefined) look.f = look.hair === 'scarf' || look.hair === 'braids' || !!look.dress;
-  /* modest dress for women: dresses reach the ankle; with no dress or robe, full-length trousers (also under a football kit) */
-  if (look.f) { if (look.dress) { if (!look.midi) look.long = true; } else if (!look.robe) { look.pants = true; if (look.plen !== undefined) look.plen = Math.min(look.plen, 0.3); } }
+  /* women's hems stop no higher than the knee: dresses reach the ankle unless midi; trousers, knee shorts or a skirt otherwise */
+  if (look.f) { if (look.dress) { if (!look.midi) look.long = true; } else if (!look.robe) { look.pants = true; if (look.plen !== undefined) look.plen = Math.min(look.plen, 0.47); } }
   const RP = rigPoints(look.f), bones = [];
   for (const name of BONES) {
     const bn = new T.Bone(); bn.name = name; const p = RP[name], par = BONE_PARENT[name];
@@ -3107,11 +3139,18 @@ function legIK(b, side, tx, ty, tz, pitch) {
 }
 function setR(bn, x, y, z) { bn.rotation.set(x, y, z); }
 function blendR(bn, x, y, z, w) { const r = bn.rotation; r.x += (x - r.x) * w; r.y += (y - r.y) * w; r.z += (z - r.z) * w; }
-const hiBudget = { f: -1, n: 2 };
+/* detailed meshes cost a few milliseconds each to build: at most one a frame, and people walking towards the camera
+   are built ahead of time on smooth frames (hiWarm) so the switch never lands on a busy frame */
+const hiBudget = { f: -1, n: 1 }, hiQ = new Set();
+function hiTake() { const fr = renderer.info.render.frame; if (fr !== hiBudget.f) { hiBudget.f = fr; hiBudget.n = 1; } if (hiBudget.n <= 0) return false; hiBudget.n--; return true; }
+function hiWarm(raw) {
+  if (!hiQ.size || raw > 0.03 || !hiTake()) return;
+  for (const h of hiQ) { hiQ.delete(h); const u = h.userData; if (!u.hiM && h.parent) { u.hiM = u.mk(true); u.hiM.visible = false; return; } }
+}
 function humanLOD(h) {
   const u = h.userData, e = h.matrixWorld.elements, dx = e[12] - camera.position.x, dy = e[13] - camera.position.y, dz = e[14] - camera.position.z, d2 = dx * dx + dy * dy + dz * dz;
-  let near = d2 < (u.lodFar || 30) * (u.lodFar || 30);
-  if (near && !u.hiM) { const fr = renderer.info.render.frame; if (fr !== hiBudget.f) { hiBudget.f = fr; hiBudget.n = 2; } if (hiBudget.n > 0) { hiBudget.n--; u.hiM = u.mk(true); } else near = false; }
+  const lf = u.lodFar || 30; let near = d2 < lf * lf;
+  if (!u.hiM) { if (near) { if (hiTake()) { u.hiM = u.mk(true); hiQ.delete(h); } else { near = false; hiQ.add(h); } } else if (d2 < lf * lf * 4) hiQ.add(h); }
   if (u.hiM) u.hiM.visible = near; u.loM.visible = !near;
   return d2;
 }
@@ -3136,7 +3175,7 @@ function headLook(h, u, b, dt, t, idle) {
   b.lidL.rotation.x = b.lidR.rotation.x = lid * 0.95 - Math.max(0, u.lp) * 0.25;
 }
 function poseSeat(u, b, mode, t, dt) {
-  const ride = mode === 'ride', pass = mode === 'pass';
+  const ride = mode === 'ride', pass = mode === 'pass', type = mode === 'type';
   b.hips.position.set(0, HIPS_Y, 0);
   setR(b.spine, ride ? 0.22 : 0.06, 0, 0); setR(b.chest, ride ? 0.1 : 0.02, -u.steer * 0.2, 0);
   for (const s of [1, -1]) {
@@ -3145,12 +3184,14 @@ function poseSeat(u, b, mode, t, dt) {
     setR(b['shin' + L], ride ? 1.35 : 1.5, 0, 0);
     setR(b['foot' + L], ride ? -0.15 : 0.02, 0, -0.1 * s);
     if (pass) { setR(b['clav' + L], 0, 0, 0); setR(b['uArm' + L], -0.4, 0, 0.12 * s); setR(b['fArm' + L], -1.15, 0, 0); setR(b['hand' + L], 0, 0, -0.2 * s); }
+    // typing: forearms on the table, hands over the keys, fingers busy
+    else if (type) { setR(b['clav' + L], 0, 0, 0); setR(b['uArm' + L], -0.32, 0, 0.16 * s); setR(b['fArm' + L], -1.32 + Math.sin(t * 13 + s * 1.7 + u.phase) * 0.05, 0, -0.12 * s); setR(b['hand' + L], 0.1 + Math.max(0, Math.sin(t * 17 + s * 2.3)) * 0.12, 0, -0.1 * s); }
     else {
       const st = u.steer * s * 0.18;
       setR(b['clav' + L], 0, 0, 0.04 * s); setR(b['uArm' + L], (ride ? -1.0 : -0.95) - st, 0, (ride ? 0.3 : 0.18) * s); setR(b['fArm' + L], ride ? -0.35 : -0.55, 0, 0); setR(b['hand' + L], -0.15, 0, -0.35 * s);
     }
   }
-  setR(b.neck, ride ? -0.15 : -0.04, 0, 0); setR(b.head, ride ? -0.12 : -0.02, Math.sin(t * 0.4 + u.phase) * 0.12, 0);
+  setR(b.neck, ride ? -0.15 : type ? 0.12 : -0.04, 0, 0); setR(b.head, ride ? -0.12 : type ? 0.18 : -0.02, Math.sin(t * 0.4 + u.phase) * (type ? 0.04 : 0.12), 0);
 }
 /* animation level of detail: people far away or behind the camera are posed less often (with the time they missed) */
 const CAMF = { x: 0, z: 1 };
@@ -3175,7 +3216,7 @@ function animHuman(h, dt, t, speed, mode) {
     u.ly = 0; headLook(h, u, b, dt, t, true); applyEmote(h, dt);
     return;
   }
-  if (mode === 'sit' || mode === 'ride' || mode === 'pass') { poseSeat(u, b, mode, t, dt); headLook(h, u, b, dt, t, false); applyEmote(h, dt); return; }
+  if (mode === 'sit' || mode === 'ride' || mode === 'pass' || mode === 'type') { poseSeat(u, b, mode, t, dt); headLook(h, u, b, dt, t, false); applyEmote(h, dt); return; }
 
   /* ---- locomotion: smoothed speed, yaw rate, acceleration ---- */
   const yaw = h.rotation.y, fem = !!(u.look && u.look.f);
@@ -3323,8 +3364,8 @@ const isDown = h => !!(h && h.userData.fall);
 /* ===================== 19b style: fabric prints, the island wardrobe, curated looks and the 15-character look code ===================== */
 /* Prints live in one 6 x 6 atlas (768 px). Clothes carry a print id and cloth coordinates in metres, and the character
    shader lays the print over the garment colour. Far-away people use each print's average colour instead. */
-const PATS = ['', 'breton', 'pinstripe', 'palms', 'hibiscus', 'kitenge', 'kanga', 'gingham', 'polka', 'waves', 'tiedye', 'madras', 'denim', 'shells', 'cabana', 'mosaic', 'linen', 'kente', 'doors', 'dhow', 'spice', 'ombre', 'marble', 'shuka'];
-const PAT_NAMES = { '': 'Plain', breton: 'Breton stripe', pinstripe: 'Pinstripe', palms: 'Palm leaves', hibiscus: 'Hibiscus', kitenge: 'Kitenge', kanga: 'Kanga spots', gingham: 'Gingham', polka: 'Polka dots', waves: 'Waves', tiedye: 'Tie-dye', madras: 'Madras check', denim: 'Denim', shells: 'Shells', cabana: 'Cabana stripe', mosaic: 'Stone Town tile', linen: 'Linen weave', kente: 'Gold kente', doors: 'Zanzibar doors', dhow: 'Dhow regatta', spice: 'Spice route', ombre: 'Sunset fade', marble: 'Ocean marble', shuka: 'Maasai shuka' };
+const PATS = ['', 'breton', 'pinstripe', 'palms', 'hibiscus', 'kitenge', 'kanga', 'gingham', 'polka', 'waves', 'tiedye', 'madras', 'denim', 'shells', 'cabana', 'mosaic', 'linen', 'kente', 'doors', 'dhow', 'spice', 'ombre', 'marble', 'shuka', 'kikoi', 'ankara', 'dashiki'];
+const PAT_NAMES = { '': 'Plain', breton: 'Breton stripe', pinstripe: 'Pinstripe', palms: 'Palm leaves', hibiscus: 'Hibiscus', kitenge: 'Kitenge', kanga: 'Kanga spots', gingham: 'Gingham', polka: 'Polka dots', waves: 'Waves', tiedye: 'Tie-dye', madras: 'Madras check', denim: 'Denim', shells: 'Shells', cabana: 'Cabana stripe', mosaic: 'Stone Town tile', linen: 'Linen weave', kente: 'Gold kente', doors: 'Zanzibar doors', dhow: 'Dhow regatta', spice: 'Spice route', ombre: 'Sunset fade', marble: 'Ocean marble', shuka: 'Maasai shuka', kikoi: 'Kikoi stripe', ankara: 'Ankara wax', dashiki: 'Dashiki panel' };
 /* limited-edition prints: bought once with game shillings, then free on any garment that takes them */
 const PAT_PRICE = { kente: 40000, doors: 35000, dhow: 30000, spice: 30000, ombre: 25000, marble: 35000, shuka: 30000 };
 const ownsPrint = (p) => !PAT_PRICE[p] || ((state && state.prints) || []).includes(p);
@@ -3410,6 +3451,24 @@ const PAT_AVG = [];
   tile(22, (g) => { g.lineCap = 'round'; for (let k = 0; k < 9; k++) { g.strokeStyle = ['rgba(43,181,176,.75)', 'rgba(31,111,139,.7)', 'rgba(255,255,255,.65)'][k % 3]; g.lineWidth = 3 + (k % 3) * 2; g.beginPath(); for (let x0 = -8; x0 <= S + 8; x0 += 4) { const y = (k * 15 + 8) + Math.sin(x0 / S * TAU * 2 + k) * 10 + Math.sin(x0 / S * TAU + k * 2) * 6; if (x0 < -4) g.moveTo(x0, y); else g.lineTo(x0, y); } g.stroke(); } });
   // 23 Maasai shuka: red and blue check
   tile(23, (g) => { g.fillStyle = 'rgba(200,52,44,.9)'; g.fillRect(0, 0, S, S); for (const [p, w, c] of [[0, 10, 'rgba(31,45,85,.85)'], [24, 4, 'rgba(20,20,20,.8)'], [40, 18, 'rgba(31,45,85,.8)'], [70, 4, 'rgba(243,180,27,.8)'], [96, 12, 'rgba(20,20,20,.75)']]) { g.fillStyle = c; g.fillRect(p, 0, w, S); g.fillRect(0, p, S, w); } });
+  // 24 kikoi: coastal stripes, broad bands of colour with fine pinlines
+  tile(24, (g) => { for (const [p, w, c] of [[0, 18, 'rgba(31,79,160,.75)'], [20, 3, 'rgba(255,255,255,.8)'], [26, 3, 'rgba(243,180,27,.85)'], [34, 22, 'rgba(30,155,87,.7)'], [58, 3, 'rgba(255,255,255,.8)'], [64, 18, 'rgba(216,52,44,.7)'], [84, 3, 'rgba(20,20,20,.7)'], [90, 3, 'rgba(243,180,27,.85)'], [96, 26, 'rgba(31,79,160,.6)'], [124, 2, 'rgba(255,255,255,.8)']]) { g.fillStyle = c; g.fillRect(0, p, S, w); } });
+  // 25 ankara: wax-print swirls, leaves and dots in bold colours
+  tile(25, (g) => {
+    g.fillStyle = 'rgba(232,106,31,.9)'; g.fillRect(0, 0, S, S);
+    for (const [cx, cy] of [[32, 32], [96, 96]]) { for (const [r, c] of [[30, '#141414'], [24, '#f3b41b'], [17, '#1f4fa0'], [10, '#f6f3ec'], [5, '#c8342c']]) { g.fillStyle = c; g.beginPath(); g.arc(cx, cy, r, 0, TAU); g.fill(); } }
+    for (const [cx, cy, rot] of [[96, 30, 0.6], [32, 98, -0.8]]) { g.save(); g.translate(cx, cy); g.rotate(rot); g.fillStyle = '#1e7a3e'; for (let k = 0; k < 4; k++) { g.rotate(TAU / 4); g.beginPath(); g.ellipse(0, -13, 7, 14, 0, 0, TAU); g.fill(); } g.fillStyle = '#141414'; g.beginPath(); g.arc(0, 0, 5, 0, TAU); g.fill(); g.restore(); }
+    g.fillStyle = '#f6f3ec'; for (const [cx, cy] of [[64, 4], [4, 64], [64, 64], [124, 64], [64, 124]]) { g.beginPath(); g.arc(cx, cy, 3.5, 0, TAU); g.fill(); }
+  });
+  // 26 dashiki: the classic embroidered angelina panel, symmetric gold and black on the cloth colour
+  tile(26, (g) => {
+    g.strokeStyle = 'rgba(20,20,20,.85)'; g.lineWidth = 3; g.fillStyle = 'rgba(243,180,27,.9)';
+    for (const [cx, cy] of [[32, 32], [96, 96], [96, 32], [32, 96]]) {
+      g.beginPath(); g.moveTo(cx, cy - 26); g.bezierCurveTo(cx + 22, cy - 18, cx + 22, cy + 18, cx, cy + 26); g.bezierCurveTo(cx - 22, cy + 18, cx - 22, cy - 18, cx, cy - 26); g.fill(); g.stroke();
+      g.fillStyle = 'rgba(200,52,44,.9)'; g.beginPath(); g.moveTo(cx, cy - 12); g.lineTo(cx + 9, cy); g.lineTo(cx, cy + 12); g.lineTo(cx - 9, cy); g.closePath(); g.fill(); g.stroke(); g.fillStyle = 'rgba(243,180,27,.9)';
+    }
+    g.fillStyle = 'rgba(20,20,20,.85)'; for (let i = 0; i < S; i += 8) { g.fillRect(i, 62, 4, 4); g.fillRect(62, i, 4, 4); }
+  });
   // average colour and coverage of each print, in linear light, for far-away people
   const data = x.getImageData(0, 0, S * G, S * G).data, lin = (v) => Math.pow(v / 255, 2.2);
   PAT_AVG[0] = { c: new T.Color(0, 0, 0), a: 0 };
@@ -3442,33 +3501,43 @@ const TOPS = [
   { id: 'tee', n: 'T-shirt', sl: 'short', neck: 'crew', tuck: true, pats: ['', 'tiedye', 'cabana', 'polka', 'ombre'], dc: 8, dp: '' },
   { id: 'polo', n: 'Polo', sl: 'short', neck: 'collar', tuck: true, polo: true, pats: ['', 'pinstripe'], dc: 10, dp: '' },
   { id: 'kitenge', n: 'Kitenge shirt', sl: 'short', neck: 'collar', btn: true, pats: ['kitenge', 'kanga', 'mosaic', 'kente', 'shuka'], dc: 5, dp: 'kitenge' },
-  { id: 'tank', n: 'Tank top', sl: 'none', neck: 'tank', only: 'm', pats: ['', 'cabana', 'tiedye'], dc: 0, dp: '' },
+  { id: 'tank', n: 'Tank top', sl: 'none', neck: 'tank', pats: ['', 'cabana', 'tiedye'], dc: 0, dp: '' },
   { id: 'blouse', n: 'Peasant blouse', sl: 'elbow', neck: 'boat', only: 'f', pats: ['', 'linen', 'gingham', 'polka'], dc: 0, dp: 'linen' },
   { id: 'kaftan', n: 'Kaftan', nm: 'Kanzu', robe: true, sl: 'long', pats: ['', 'mosaic', 'kitenge', 'tiedye', 'kente', 'marble', 'doors'], dc: 0, dp: '' },
   { id: 'maxi', n: 'Maxi dress', dress: 'maxi', sl: 'short', neck: 'v', only: 'f', pats: ['hibiscus', 'palms', '', 'polka', 'tiedye', 'cabana', 'spice', 'marble', 'ombre'], dc: 3, dp: 'hibiscus' },
   { id: 'midi', n: 'Midi dress', dress: 'midi', sl: 'short', neck: 'crew', only: 'f', pats: ['gingham', '', 'mosaic', 'linen', 'polka', 'doors'], dc: 9, dp: 'gingham' },
-  { id: 'gown', n: 'Kitenge gown', dress: 'maxi', sl: 'elbow', neck: 'boat', only: 'f', pats: ['kitenge', 'kanga', 'mosaic', 'kente', 'shuka'], dc: 9, dp: 'kitenge' },
+  { id: 'gown', n: 'Kitenge gown', dress: 'maxi', sl: 'elbow', neck: 'boat', only: 'f', pats: ['kitenge', 'kanga', 'mosaic', 'kente', 'shuka', 'ankara'], dc: 9, dp: 'kitenge' },
+  // from the wider island and the mainland: Maasai, the coast, the office, the safari crowd
+  { id: 'shuka', n: 'Maasai shuka', robe: 'knee', sl: 'none', beads: true, pats: ['shuka', 'kikoi', 'madras', ''], dc: 15, dp: 'shuka' },
+  { id: 'dashiki', n: 'Dashiki', sl: 'short', neck: 'dashiki', pats: ['dashiki', 'ankara', 'kitenge', ''], dc: 12, dp: 'dashiki' },
+  { id: 'blazer', n: 'Blazer', sl: 'long', neck: 'jacket', pats: ['', 'pinstripe', 'linen', 'ankara', 'kente'], dc: 10, dp: '' },
+  { id: 'safari', n: 'Safari shirt', sl: 'short', neck: 'collar', btn: true, pockets: true, pats: ['', 'linen'], dc: 17, dp: '' },
+  { id: 'sundress', n: 'Sundress', dress: 'midi', sl: 'none', neck: 'tank', only: 'f', pats: ['', 'hibiscus', 'gingham', 'ankara', 'polka', 'tiedye'], dc: 4, dp: '' },
+  { id: 'ankara', n: 'Ankara dress', dress: 'maxi', sl: 'short', neck: 'v', only: 'f', pats: ['ankara', 'kitenge', 'dashiki', 'kanga'], dc: 15, dp: 'ankara' },
 ];
 // len: shorts | knee | crop | full; women's choices all cover the thigh
 const BOTTOMS = [
   { id: 'kit', n: 'Kit shorts', nf: 'Kit track pants', kit: true, len: 'kit', lenF: 'full', pats: [''] },
   { id: 'chinoS', n: 'Chino shorts', len: 'shorts', only: 'm', pats: ['', 'madras', 'gingham'], dc: 1, dp: '' },
   { id: 'swim', n: 'Swim shorts', len: 'shorts', only: 'm', pats: ['waves', 'palms', 'hibiscus', 'shells', 'cabana', 'dhow'], dc: 9, dp: 'waves' },
-  { id: 'bermuda', n: 'Bermudas', len: 'knee', only: 'm', pats: ['', 'madras', 'linen'], dc: 7, dp: '' },
+  { id: 'bermuda', n: 'Bermudas', len: 'knee', pats: ['', 'madras', 'linen', 'denim'], dc: 7, dp: '' },
   { id: 'linenT', n: 'Linen trousers', len: 'full', wide: 1, pats: ['linen', 'pinstripe', ''], dc: 1, dp: 'linen' },
   { id: 'chinos', n: 'Chinos', len: 'full', pats: ['', 'pinstripe'], dc: 10, dp: '' },
   { id: 'jeans', n: 'Jeans', len: 'full', pats: ['denim'], dc: 13, dp: 'denim' },
   { id: 'cropped', n: 'Cropped trousers', len: 'crop', pats: ['', 'linen', 'gingham'], dc: 0, dp: '' },
   { id: 'palazzo', n: 'Palazzo pants', len: 'full', wide: 2, only: 'f', pats: ['', 'linen', 'kitenge', 'cabana', 'marble'], dc: 0, dp: 'linen' },
   { id: 'maxiS', n: 'Maxi skirt', skirt: 'maxi', only: 'f', pats: ['kitenge', '', 'hibiscus', 'palms', 'mosaic', 'tiedye', 'polka', 'kente', 'spice', 'shuka'], dc: 2, dp: 'kitenge' },
-  { id: 'midiS', n: 'Midi skirt', skirt: 'midi', only: 'f', pats: ['', 'gingham', 'polka', 'linen', 'kanga'], dc: 6, dp: '' },
+  { id: 'midiS', n: 'Midi skirt', skirt: 'midi', only: 'f', pats: ['', 'gingham', 'polka', 'linen', 'kanga', 'ankara'], dc: 6, dp: '' },
+  { id: 'kikoi', n: 'Kikoi wrap', skirt: 'midi', pats: ['kikoi', 'shuka', 'kanga', 'madras'], dc: 1, dp: 'kikoi' },
+  { id: 'joggers', n: 'Joggers', len: 'full', pats: ['', 'cabana'], dc: 12, dp: '' },
+  { id: 'cargo', n: 'Cargo shorts', len: 'knee', only: 'm', pats: ['', 'madras'], dc: 7, dp: '' },
 ];
 const SHOES = [{ id: 'sneaker', n: 'Sneakers', dc: 0 }, { id: 'espadrille', n: 'Espadrilles', dc: 10 }, { id: 'sandal', n: 'Sandals', dc: 16 }, { id: 'slide', n: 'Slides', dc: 12 }, { id: 'loafer', n: 'Loafers', dc: 16 }];
-const HATS = [{ id: '', n: 'No hat' }, { id: 'cap', n: 'Cap', dc: 10 }, { id: 'panama', n: 'Panama', dc: 1 }, { id: 'sunhat', n: 'Sun hat', dc: 1 }, { id: 'bucket', n: 'Bucket hat', dc: 0 }, { id: 'kofia', n: 'Kofia', dc: 8 }];
+const HATS = [{ id: '', n: 'No hat' }, { id: 'cap', n: 'Cap', dc: 10 }, { id: 'panama', n: 'Panama', dc: 1 }, { id: 'sunhat', n: 'Sun hat', dc: 1 }, { id: 'bucket', n: 'Bucket hat', dc: 0 }, { id: 'kofia', n: 'Kofia', dc: 8 }, { id: 'fedora', n: 'Fedora', dc: 1 }];
 const EYES = [{ id: '', n: 'None' }, { id: 'shades', n: 'Shades' }, { id: 'round', n: 'Round shades' }, { id: 'aviator', n: 'Aviators' }];
-const HAIRS = ['short', 'afro', 'braids', 'scarf', 'cap', 'kofia', 'bald', 'bun', 'locs'];
-const HAIR_NAMES = { short: 'Short', afro: 'Afro', braids: 'Braids', scarf: 'Headscarf', cap: 'Cap', kofia: 'Kofia', bald: 'Bald', bun: 'Top bun', locs: 'Locs' };
-const HAIR_PICK = ['short', 'afro', 'braids', 'locs', 'bun', 'scarf', 'bald'];
+const HAIRS = ['short', 'afro', 'braids', 'scarf', 'cap', 'kofia', 'bald', 'bun', 'locs', 'wrap', 'ponytail', 'twists'];
+const HAIR_NAMES = { short: 'Short', afro: 'Afro', braids: 'Braids', scarf: 'Headscarf', cap: 'Cap', kofia: 'Kofia', bald: 'Bald', bun: 'Top bun', locs: 'Locs', wrap: 'Head wrap', ponytail: 'Ponytail', twists: 'Twists' };
+const HAIR_PICK = ['short', 'twists', 'afro', 'braids', 'locs', 'bun', 'ponytail', 'wrap', 'scarf', 'bald'];
 const PLAYER_SKINS = [0x9a6a44, 0x7a4a2a, 0x6b4226, 0x5d3a22, 0x4a2c1a, 0x3a2216];
 const fitsBody = (it, f) => !it.only || it.only === (f ? 'f' : 'm');
 const itemIx = (list, id) => Math.max(0, list.findIndex(it => it.id === id));
@@ -3491,6 +3560,19 @@ const PRESETS = [
   { n: 'Market Day', f: true, t: 'tee', tc: 5, tp: '', b: 'maxiS', bc: 2, bp: 'kitenge', sh: 'sneaker', shc: 0, ht: '', ey: '', h: 'afro' },
   { n: 'Beach Day', f: true, t: 'blouse', tc: 0, tp: 'gingham', b: 'cropped', bc: 9, bp: '', sh: 'slide', shc: 3, ht: 'bucket', hc: 4, ey: 'shades', h: 'locs' },
   { n: 'Matchday', f: true, t: 'jersey', b: 'kit', sh: 'sneaker', shc: 0, ht: '', ey: '', h: 'braids' },
+  // the wider island: Maasai, the coast, the office, campus, safari
+  { n: 'Maasai Red', f: false, t: 'shuka', tc: 15, tp: 'shuka', b: 'chinos', sh: 'sandal', shc: 16, ht: '', ey: '', h: 'short' },
+  { n: 'Boardroom', f: false, t: 'blazer', tc: 10, tp: '', b: 'chinos', bc: 10, sh: 'loafer', shc: 16, ht: '', ey: '', h: 'short' },
+  { n: 'Kikoi Coast', f: false, t: 'tee', tc: 0, tp: '', b: 'kikoi', bc: 1, bp: 'kikoi', sh: 'slide', shc: 12, ht: '', ey: 'shades', h: 'locs' },
+  { n: 'Dashiki Friday', f: false, t: 'dashiki', tc: 12, tp: 'dashiki', b: 'jeans', sh: 'sneaker', shc: 0, ht: '', ey: '', h: 'twists' },
+  { n: 'Safari Guide', f: false, t: 'safari', tc: 17, tp: '', b: 'cargo', bc: 7, sh: 'sneaker', shc: 16, ht: 'bucket', hc: 7, ey: 'aviator', h: 'short' },
+  { n: 'Campus', f: false, t: 'tee', tc: 15, tp: '', b: 'joggers', bc: 12, sh: 'sneaker', shc: 0, ht: 'cap', hc: 12, ey: '', h: 'twists' },
+  { n: 'Duku Diva', f: true, t: 'ankara', tc: 15, tp: 'ankara', b: 'linenT', sh: 'sandal', shc: 5, ht: '', hc: 5, ey: '', h: 'wrap' },
+  { n: 'Corporate', f: true, t: 'blazer', tc: 12, tp: '', b: 'chinos', bc: 12, sh: 'loafer', shc: 12, ht: '', ey: '', h: 'ponytail' },
+  { n: 'Sundress', f: true, t: 'sundress', tc: 4, tp: '', b: 'linenT', sh: 'espadrille', shc: 10, ht: 'sunhat', hc: 1, ey: 'round', h: 'ponytail' },
+  { n: 'Weekend Denim', f: true, t: 'tee', tc: 0, tp: '', b: 'bermuda', bc: 13, bp: 'denim', sh: 'sneaker', shc: 0, ht: 'cap', hc: 10, ey: '', h: 'twists' },
+  { n: 'Kikoi & Blouse', f: true, t: 'blouse', tc: 0, tp: '', b: 'kikoi', bc: 1, bp: 'kikoi', sh: 'slide', shc: 0, ht: '', ey: 'shades', h: 'braids' },
+  { n: 'Maasai Beads', f: true, t: 'shuka', tc: 9, tp: 'shuka', b: 'linenT', sh: 'sandal', shc: 16, ht: '', ey: '', h: 'short' },
   // limited editions: they use prints you buy once with game shillings
   { n: 'Sultan\'s Gold', f: false, t: 'kaftan', tc: 0, tp: 'kente', b: 'chinos', sh: 'loafer', shc: 16, ht: 'kofia', hc: 5, ey: 'aviator', h: 'short', ltd: true },
   { n: 'Dhow Regatta', f: false, t: 'resort', tc: 9, tp: 'dhow', b: 'chinoS', bc: 0, sh: 'espadrille', shc: 0, ht: 'panama', hc: 1, ey: 'round', h: 'short', ltd: true },
@@ -3538,7 +3620,10 @@ function kitLook(kitIdx, lk, number) {
   if (top.kit) Object.assign(L, { kit: true, shirt: k.shirt, trim: k.trim, number, numCol: ((k.shirt >> 16 & 255) * 0.3 + (k.shirt >> 8 & 255) * 0.59 + (k.shirt & 255) * 0.11) > 150 ? '#141838' : '#f7ead0' });
   else { L.shirt = col(lk.tc); L.tp = PATS[lk.tp]; L.trim = top.robe ? PALETTE[(lk.tc + 5) % PALETTE.length] : L.shirt; }
   L.sleeve = top.sl; L.neck = top.neck; L.untuck = !top.tuck && !top.robe && !top.dress; if (top.btn) L.style = 'button'; if (top.polo) L.style = 'polo';
-  if (top.robe) { L.robe = true; L.lower = L.shirt; L.trim2 = L.trim; }
+  if (top.robe) { L.robe = true; L.lower = L.shirt; L.trim2 = L.trim; if (top.robe === 'knee') L.robeHem = 0.44; }
+  if (top.beads) L.beads = true; if (top.pockets) L.pockets = true;
+  if (top.neck === 'jacket') { L.inner = f ? 0xf6f3ec : (lk.tc === 0 ? 0x9fb5d6 : 0xf6f3ec); if (!f) L.tie = lk.tc === 15 ? 0x1f2d55 : 0xc8342c; }
+  if (top.neck === 'dashiki') L.trim = 0xf3b41b;
   if (top.dress) { L.dress = L.shirt; L.dp = L.tp; L.trim2 = L.shirt; L.long = top.dress === 'maxi'; L.midi = top.dress === 'midi'; }
   // bottom (a dress or kaftan covers it)
   if (!top.dress && !top.robe) {
@@ -3570,10 +3655,10 @@ function styledLook(seed, o) {
   o = o || {};
   const r = mulberry32(seed * 9301 + 49297), pick = (a) => a[Math.floor(r() * a.length)];
   const f = o.f === undefined ? r() < 0.5 : o.f, tourist = !!o.tourist;
-  const t = pick(TOPS.filter(it => !it.kit && fitsBody(it, f) && !(tourist && it.robe))), b = pick(BOTTOMS.filter(it => !it.kit && fitsBody(it, f)));
+  const t = pick(TOPS.filter(it => !it.kit && fitsBody(it, f) && !(tourist && (it.robe || it.id === 'dashiki')))), b = pick(BOTTOMS.filter(it => !it.kit && fitsBody(it, f)));
   const hats = HATS.map((h2, i) => i).filter(i => i > 0 && !(tourist && HATS[i].id === 'kofia'));
   const lk = {
-    f, s: 0, h: pick(f ? (tourist ? ['bun', 'short', 'bun', 'locs'] : ['braids', 'bun', 'afro', 'locs', 'scarf', 'scarf']) : (tourist ? ['short', 'short', 'bald'] : ['short', 'short', 'afro', 'locs', 'bald'])),
+    f, s: 0, h: pick(f ? (tourist ? ['bun', 'short', 'ponytail', 'bun', 'locs'] : ['braids', 'bun', 'afro', 'locs', 'scarf', 'wrap', 'ponytail', 'twists', 'braids']) : (tourist ? ['short', 'short', 'bald', 'twists'] : ['short', 'short', 'afro', 'locs', 'bald', 'twists'])),
     t: itemIx(TOPS, t.id), tc: Math.floor(r() * 16), tp: PATS.indexOf(pick(t.pats)),
     b: itemIx(BOTTOMS, b.id), bc: pick([0, 1, 10, 12, 13, 14, 7, 16, 17, 9]), bp: PATS.indexOf(r() < 0.6 ? b.pats[0] : pick(b.pats)),
     sh: Math.floor(r() * SHOES.length), shc: pick([0, 1, 10, 12, 16, 17, 2]), ht: r() < (tourist ? 0.55 : 0.25) ? pick(hats) : 0, hc: pick([0, 1, 10, 5, 8, 4]), ey: r() < (tourist ? 0.6 : 0.25) ? 1 + Math.floor(r() * (EYES.length - 1)) : 0,
@@ -3586,7 +3671,7 @@ function styledLook(seed, o) {
 /* ---------- NPCs ---------- */
 const NPCS = [
   { id: 'amina', name: 'Amina', role: 'AfconCity guide', x: START.x - 6.5, z: START.z + 1.8, ry: Math.PI / 2 + 0.25, look: { skin: 0x6b4226, shirt: 0x19b5b1, lower: 0x232a63, dress: 0x232a63, hair: 'scarf', scarf: 0xf3b41b, f: true, sandals: true, shoes: 0xf3b41b, style: 'kanga', trim: 0xf3b41b, trim2: 0xe0553a, long: true } },
-  { id: 'mama', name: 'Mama Pwani', role: 'Beach bar', x: BAR.x + 1.8, z: BAR.z, ry: Math.PI / 2, ix: BAR.x, iz: BAR.z, ir: 6.2, look: { skin: 0x4f2f1c, shirt: 0xe0553a, lower: 0x7a4a2a, dress: 0xf3b41b, hair: 'scarf', scarf: 0xe0553a, f: true, sandals: true, shoes: 0xe0553a, style: 'kanga', trim: 0x141838, trim2: 0x141838, long: true } },
+  { id: 'mama', name: 'Mama Pwani', role: 'Beach bar', x: BAR.x + 1.8, z: BAR.z, ry: Math.PI / 2, ix: BAR.x, iz: BAR.z, ir: 6.2, look: { skin: 0x4f2f1c, shirt: 0xe86a1f, tp: 'ankara', lower: 0x7a4a2a, dress: 0xe86a1f, dp: 'ankara', hair: 'wrap', scarf: 0xe0a92e, f: true, sandals: true, shoes: 0xe0553a, sleeve: 'short', neck: 'v', trim2: 0xe86a1f, long: true } },
   { id: 'juma', name: 'Mzee Juma', role: 'Pizza runs · Uptown Park', x: 205, z: 47, ry: -Math.PI / 2, look: { skin: 0x4f2f1c, shirt: 0xf6f1e7, robe: true, hair: 'kofia', lower: 0xf6f1e7, beard: 0xd8d4cc, sandals: true, shoes: 0x5a3a22, kofiaCol: 0xd8452c, longSleeve: true } },
   { id: 'ashura', name: 'Mama Ashura', role: 'Usiku food market', x: 191, z: 47.5, ry: Math.PI / 2, look: { skin: 0x553320, shirt: 0xe0553a, lower: 0x232a63, dress: 0x8e3b8f, hair: 'scarf', scarf: 0xf3b41b, f: true, sandals: true, shoes: 0x1d1d22, long: true, trim2: 0xf3b41b } },
   { id: 'rukia', name: 'Bi Rukia', role: 'Kanga & henna', x: 197, z: 66, ry: Math.PI, look: { skin: 0x6b4226, shirt: 0x8e3b8f, lower: 0x141838, dress: 0x19b5b1, hair: 'scarf', scarf: 0xe0553a, f: true, sandals: true, shoes: 0x8e3b8f, style: 'kanga', trim: 0xf3b41b, trim2: 0xf3b41b, long: true } },
@@ -3596,7 +3681,7 @@ const NPCS = [
   { id: 'baraka', name: 'Coach Baraka', role: 'Penalty shootouts', x: TRAIN.x + TRAIN.w / 2 + 3, z: PEN.gz + 14, ry: -Math.PI / 2, look: { skin: 0x553320, shirt: 0x1e9b57, lower: 0x141838, hair: 'cap', cap: 0xf3b41b, socks: 0xf6f1e7, kit: true, trim: 0xf3b41b, shoes: 0x15161c, shoeTrim: 0xf3b41b } },
   { id: 'salim', name: 'Salim', role: 'VIP tickets', x: KIOSK.x - 8, z: KIOSK.z, ry: -Math.PI / 2, look: { skin: 0x4a2c1a, shirt: 0xf3b41b, lower: 0x2a2d33, pants: true, hair: 'cap', cap: 0xe0553a, style: 'button', shoes: 0x3a2a1a } },
   { id: 'neema', name: 'Neema', role: 'AFCON volunteers', x: SC.x - 46, z: PLAZA.z + 12, ry: Math.PI, look: { skin: 0x6b4226, shirt: 0x1e9b57, lower: 0x232a63, pants: true, vest: 0xd7f23a, hair: 'afro', f: true, shoes: 0xf4f4f0 } },
-  { id: 'kassim', name: 'DJ Kassim', role: 'Fan Zone', x: -330, z: -133, ry: 0, look: { skin: 0x3d2416, shirt: 0xe0553a, lower: 0x141838, hair: 'cap', cap: 0x141838, shoes: 0xf4f4f0, shoeTrim: 0xe0553a, capLogo: 0xf3b41b } },
+  { id: 'kassim', name: 'DJ Kassim', role: 'Fan Zone', x: -330, z: -133, ry: 0, look: { skin: 0x3d2416, shirt: 0x1d1d22, tp: 'dashiki', neck: 'dashiki', trim: 0xf3b41b, untuck: true, lower: 0x141838, hair: 'cap', cap: 0x141838, shoes: 0xf4f4f0, shoeTrim: 0xe0553a, capLogo: 0xf3b41b } },
   { id: 'steward', name: 'Steward', role: 'Gate A', x: GATE.x + 6.5, z: GATE.z + 3, ry: Math.PI, look: { skin: 0x46291a, shirt: 0x232a63, lower: 0x232a63, pants: true, vest: 0xd7f23a, hair: 'short', shoes: 0x15161c } },
   { id: 'trafiki', name: 'Trafiki', role: 'Traffic police', x: TRAFIKI.ox + 1.1, z: TRAFIKI.oz - 1.2, ry: Math.PI * 0.85, look: { skin: 0x3d2416, shirt: 0xf4f4f0, lower: 0x1a2340, pants: true, longSleeve: true, hair: 'police', shoes: 0x0d0d0d, style: 'button' } },
   { id: 'halima', name: 'Nurse Halima', role: 'Clinic', x: CLINIC.x + 3.5, z: CLINIC.z + 6.6, ry: 0, look: { skin: 0x6b4226, shirt: 0xf4f4f0, lower: 0xf4f4f0, pants: true, hair: 'scarf', scarf: 0xf4f4f0, f: true, longSleeve: true, shoes: 0xf4f4f0 } },
@@ -3627,9 +3712,15 @@ function randomLook(i) {
   // about a third of town dresses in the island wardrobe the player can wear too
   if (r() < 0.34) return styledLook(i, { skin });
   if (r() < 0.45) {
-    const hair = pick(['scarf', 'scarf', 'scarf', 'braids', 'braids', 'afro']), dressy = hair === 'scarf' ? r() < 0.8 : r() < 0.45;
-    return { f: true, skin, hair, scarf: pick(shirts), shirt: pick(shirts), lower: pick(lowers), dress: dressy ? pick(shirts) : null, long: dressy && r() < 0.6, pants: !dressy, style: dressy && r() < 0.6 ? 'kanga' : 'tee', trim: pick(shirts), trim2: pick(shirts), longSleeve: hair === 'scarf' && r() < 0.5, sandals: r() < 0.65, shoes: pick([0x7a4a2a, 0xd8452c, 0x1d1d22, 0xf4f4f0, 0xf3b41b]), h: 0.93 + r() * 0.07 };
+    // Zanzibari, mainland and visiting women: headscarves, duku wraps, braids, natural hair, wax prints
+    const hair = pick(['scarf', 'scarf', 'scarf', 'braids', 'braids', 'afro', 'wrap', 'wrap', 'ponytail', 'twists', 'locs']), dressy = hair === 'scarf' ? r() < 0.75 : r() < 0.5;
+    const dp = dressy && hair !== 'scarf' && r() < 0.55 ? pick(['kitenge', 'ankara', 'kanga', 'ankara']) : '';
+    return { f: true, skin, hair, scarf: pick(shirts), shirt: pick(shirts), lower: pick(lowers), dress: dressy ? pick(shirts) : null, dp, tp: !dressy && r() < 0.25 ? pick(['kitenge', 'ankara', 'dashiki']) : '', long: dressy && r() < 0.6, pants: !dressy, style: dressy && r() < 0.6 ? 'kanga' : 'tee', trim: pick(shirts), trim2: pick(shirts), longSleeve: hair === 'scarf' && r() < 0.5, sandals: r() < 0.65, shoes: pick([0x7a4a2a, 0xd8452c, 0x1d1d22, 0xf4f4f0, 0xf3b41b]), h: 0.93 + r() * 0.07 };
   }
+  // a few Maasai in red shuka and beads, as round the beaches and markets
+  if (r() < 0.07) return { f: false, skin, hair: r() < 0.6 ? 'short' : 'bald', robe: true, robeHem: 0.44, shirt: pick([0xc8342c, 0xc8342c, 0x1f4fa0, 0x7a2a4a]), lower: 0xc8342c, tp: pick(['shuka', 'shuka', 'kikoi']), sleeve: 'none', beads: true, sandals: true, shoes: 0x3a2a1e, h: 1 + r() * 0.06 };
+  // office workers in jackets
+  if (r() < 0.1) return { f: false, skin, hair: pick(['short', 'short', 'bald', 'twists']), shirt: pick([0x1f2d55, 0x2a2d33, 0x5a5d6b, 0xd8cfc0]), neck: 'jacket', inner: 0xf6f3ec, tie: pick([0xc8342c, 0x1f2d55, 0x1e9b57]), sleeve: 'long', untuck: true, lower: pick([0x1f2d55, 0x2a2d33]), pants: true, shoe: 'loafer', shoes: 0x2a1d14 };
   const old = r() < 0.18, hair = old ? pick(['kofia', 'kofia', 'bald', 'short']) : pick(['short', 'short', 'afro', 'cap', 'bald', 'kofia', 'short']);
   return { f: false, skin, hair, cap: pick(shirts), capLogo: pick(shirts), kofiaCol: pick(shirts), shirt: old ? pick([0xf6f1e7, 0xd8cfc0, 0x232a63]) : pick(shirts), lower: pick(lowers), pants: old || r() < 0.6, robe: old && r() < 0.55, beard: old ? 0xd8d4cc : (r() < 0.22 ? 0x141010 : null), style: r() < 0.35 ? 'button' : 'tee', longSleeve: r() < 0.15, sandals: old || r() < 0.4, shoes: pick([0x1d1d22, 0xf4f4f0, 0x7a4a2a, 0x2a3a5a]), shoeTrim: pick(shirts), h: 0.97 + r() * 0.08 };
 }
@@ -4006,7 +4097,7 @@ function exitVehicle(force) {
   P.x = px; P.z = pz; player.position.set(P.x, 0.04, P.z); player.rotation.set(0, v.yaw, 0);
   if (passenger) dropPassenger(false);
   v.vf = 0; v.vx = v.vz = 0; v.lean = 0; v.steer = 0; v.m.rotation.z = 0; v.col1.on = true; moveVehCollider(v);
-  playerVeh = null; sfx.engineStop();
+  playerVeh = null; sfx.engineStop(); vehOnExit(v);
   if (job && job.type === 'taxi') endTaxi('You left the bajaji. Taxi shift over.');
 }
 const vehCircle = { x: 0, z: 0 };
@@ -4092,6 +4183,7 @@ function damageVehicle(v, d) {
   v.hp = Math.max(0, v.hp - d);
   if (v.hp <= 0 && !v.wreck) {
     v.wreck = 1;
+    if (v.owned) { exitVehicle(true); v.m.visible = false; v.col1.on = false; vehWrecked(v); return; }
     const fee = Math.min(money(), PRICES.repair);
     exitVehicle(true);
     if (fee > 0) spend(fee, 'Repair fee', 'lost');
@@ -4103,7 +4195,7 @@ function damageVehicle(v, d) {
 function updateRentals(dt) {
   for (const v of rentals) {
     if (v !== playerVeh && !v.wreck) { const cx = v.x - camera.position.x, cz = v.z - camera.position.z; v.m.visible = cx * cx + cz * cz < 320 * 320; }
-    if (v === playerVeh || !v.rented || v.wreck) continue;
+    if (v === playerVeh || !v.rented || v.wreck || v.owned) continue;
     v.idle += dt;
     if (v.idle > 120 && Math.hypot(v.x - P.x, v.z - P.z) > 80) { resetRental(v); note(`Your ${VEH[v.kind].name.toLowerCase()} went back to the ${v.stand.name.toLowerCase()}.`); }
   }
@@ -4113,7 +4205,7 @@ function rentOrRide(v) {
   if (!v.rented) {
     const price = PRICES[v.kind];
     if (!canPay(price)) { help(`You need ${tsh(price)} to rent the ${VEH[v.kind].name.toLowerCase()}.`, 2200); sfx.deny(); return; }
-    for (const o of rentals) if (o !== v && o.rented && o !== playerVeh) resetRental(o);
+    for (const o of rentals) if (o !== v && o.rented && !o.owned && o !== playerVeh) resetRental(o);
     spend(price, `${VEH[v.kind].name} rental`, 'spent'); v.rented = true;
     if (!state.tips.drive) { state.tips.drive = 1; help('<kbd>W</kbd><kbd>S</kbd> throttle and brake, <kbd>A</kbd><kbd>D</kbd> steer, <kbd>Space</kbd> handbrake to drift, <kbd>Q</kbd> horn, <kbd>E</kbd> to get off. Mind the trafiki: the limit is 50 km/h.', 9000); }
   }
@@ -4511,6 +4603,7 @@ function jobTarget() {
     if (job.x !== undefined) return { x: job.x, z: job.z };
   }
   if (ORDER.state === 'coming' || ORDER.state === 'waiting') return ORDER.pick;
+  if (state.done || MIS.id) { const mt = missionTarget(); if (mt) return mt; }
   if (RT.wp && state.intro) return RT.wp;
   if (!state.intro) return { x: NPC_BY_ID.amina.x, z: NPC_BY_ID.amina.z };
   if (state.ticket && !state.done) return { x: SC.x, z: SC.z };
@@ -5098,6 +5191,7 @@ function questMarkers() {
   if (job && job.type === 'volunteer') for (const it of job.items) list.push({ x: it.x, z: it.z, y: 1.2, s: 0.6 });
   if (state.coconuts > 0) for (const tr of TOURISTS) if (tr.want) list.push({ x: tr.x, z: tr.z, y: 1.9, s: 0.7 });
   list.push(...simMarkers());
+  if (state.done || MIS.id) list.push(...missionMarkers());
   if (!job && state.intro) for (const p of PROJECTS) if (!state.seen[p.id] && Math.hypot(p.x - P.x, p.z - P.z) < 120) list.push({ x: p.x, z: p.z, y: 7, s: 1.1 });
   return list;
 }
@@ -6067,7 +6161,7 @@ function onPeers(change) {
     if (pr === r.prev) continue;
     r.prev = pr; r.by = p.by; r.guest = p.guest;
     { const nx = clamp(numOr(pr.x, r.x), -2000, 2000), nz = clamp(numOr(pr.z, r.z), -2000, 2000); if (nx !== r.x || nz !== r.z) r.updT = performance.now(); r.x = nx; r.z = nz; } r.ry = numOr(pr.ry, r.ry); r.sp = clamp(numOr(pr.sp, 0), 0, 40);
-    r.cash = clamp(Math.floor(numOr(pr.cash, 0)), 0, 1e10); r.nick = strOr(pr.nick, 16); r.typ = pr.typ ? 1 : 0; r.down = pr.dn ? 1 : 0; r.done = !!pr.done; r.st = clamp(Math.floor(numOr(pr.st, 0)), 0, 99); r.vip = !!pr.vip; r.inside = !!pr.in; r.hm = clamp(Math.floor(numOr(pr.hm, -1)), -1, 2);
+    r.cash = clamp(Math.floor(numOr(pr.cash, 0)), 0, 1e10); r.nick = strOr(pr.nick, 16); r.typ = pr.typ ? 1 : 0; r.down = pr.dn ? 1 : 0; r.done = !!pr.done; r.st = clamp(Math.floor(numOr(pr.st, 0)), 0, 99); r.vip = !!pr.vip; r.inside = !!pr.in; r.hm = clamp(Math.floor(numOr(pr.hm, -1)), -1, 2); nyRemote(r, pr);
     if (kit !== r.kit || lk !== r.lk) { r.kit = kit; r.lk = lk; const pos = r.h.position.clone(), ry = r.h.rotation.y, par = r.h.parent; par.remove(r.h); r.h = remoteHuman(kit, p.peer, lk); r.h.position.copy(pos); r.h.rotation.y = ry; par.add(r.h); }
     const vk = (pr.v === 'bajaji' || pr.v === 'boda') ? pr.v : '', vc = numOr(pr.vc, 0x1f5fbf) & 0xffffff;
     if (vk !== r.vk || (vk && vc !== r.vc)) {
@@ -6176,7 +6270,7 @@ function sendPresence(force) {
   const v = playerVeh || (mode === 'ride' && ORDER.v && ORDER.kind !== 'daladala' ? { kind: ORDER.kind, col: 0x1f5fbf, yaw: ORDER.v.yaw } : null);
   const cur = {
     x: Math.round((CINE.on ? CINE.boat.position.x : P.x) * 100) / 100, z: Math.round((CINE.on ? CINE.boat.position.z : P.z) * 100) / 100, ry: Math.round((v ? v.yaw : player.rotation.y) * 100) / 100, sp: Math.round(speed * 10) / 10,
-    v: v ? v.kind : '', vc: v ? v.col : 0, kit: state.kit, lk: lookCode(state.look), nick: state.nick || '', cash: Math.round(state.cash), in: HOME.inside ? 1 : 0, hm: state.home ? (homeById(state.home.id) || { tier: -1 }).tier : -1, done: !!state.done, dn: isDown(player) ? 1 : 0, st: stampCount(), vip: state.ticket ? 1 : 0,
+    v: v ? v.kind : '', vc: v ? v.col : 0, kit: state.kit, lk: lookCode(state.look), nick: state.nick || '', cash: Math.round(state.cash), in: HOME.inside ? 1 : 0, hm: state.home ? (homeById(state.home.id) || { tier: -1 }).tier : -1, done: !!state.done, dn: isDown(player) ? 1 : 0, st: stampCount(), vip: state.ticket ? 1 : 0, gt: nyGold() ? 1 : 0, fx: NY.fxT,
     em: MP.em, emt: MP.emt, msg: MP.msg, msgt: MP.msgt, typ: MP.typ, hf: MP.hf, hft: MP.hft, ev: MP.ev, evt: MP.evt, evk: MP.evk,
     pk: COIN.myPk.slice(-40), dr: COIN.myDrops.slice(-12).map(d => [d.id, Math.round(d.x * 10) / 10, Math.round(d.z * 10) / 10, d.v]),
   };
@@ -6739,7 +6833,7 @@ function offerCopy(root, item) {
 }
 
 /* ---------- play stats and billboard view time ---------- */
-const GAME_VER = '2026.10.15.2';
+const GAME_VER = '2026.10.22.1';
 function avgFps() { if (!AD.fps.length) return 0; return AD.fps.reduce((a, b) => a + b, 0) / AD.fps.length; }
 const _adV = new T.Vector3();
 function updateAdStats(dt) {
@@ -6887,11 +6981,12 @@ function renderStyle(root, o) {
   } else if (STYLE.tab === 'hat') {
     const r = row(pane); HATS.forEach((it, i) => chip(r, 'hat', it.n, lk.ht === i, () => set((l) => { const was = l.ht; l.ht = i; if (i && it.dc !== undefined && was !== i) l.hc = it.dc; })));
     if (lk.ht) colours('hc', 'Colour');
-    else if (lk.h === 'scarf') { pane.append(el('p', 'fine', 'Headscarf colour:')); colours('hc', 'Colour'); }
+    else if (lk.h === 'scarf' || lk.h === 'wrap') { pane.append(el('p', 'fine', lk.h === 'wrap' ? 'Head wrap colour:' : 'Headscarf colour:')); colours('hc', 'Colour'); }
   } else if (STYLE.tab === 'eyes') {
     const r = row(pane); EYES.forEach((it, i) => chip(r, 'eye', it.n, lk.ey === i, () => set((l) => { l.ey = i; })));
   } else {
-    const r = row(pane); HAIR_PICK.forEach((h) => chip(r, 'hair', HAIR_NAMES[h], lk.h === h, () => set((l) => { l.h = h; })));
+    const r = row(pane); HAIR_PICK.forEach((h) => chip(r, 'hair', HAIR_NAMES[h], lk.h === h, () => set((l) => { l.h = h; if ((h === 'wrap' || h === 'scarf') && !l.ht && l.hc === 0) l.hc = h === 'wrap' ? 2 : 5; })));
+    if (lk.h === 'scarf' || lk.h === 'wrap') { pane.append(el('p', 'fine', lk.h === 'wrap' ? 'Head wrap colour:' : 'Headscarf colour:')); colours('hc', 'Colour'); }
   }
   const acts = el('div', 'st-acts');
   const sh = el('button', 'btn btn-ghost', 'Shuffle'); sh.type = 'button'; sh.addEventListener('click', () => set((l) => shuffleLook(l), 'dance'));
@@ -8595,7 +8690,9 @@ const EARN_HINTS = [
 const goalUI = { stamps: $('#progStamps'), stampsBar: $('#progStampsBar'), cash: $('#progCash'), cashBar: $('#progCashBar'), prog: $('#prog') };
 function updateGoal(t) {
   let tag = 'Goal', title, desc, bar = null;
-  if (job && job.type !== 'bet') {
+  const mg = MIS.id || MIS.goal ? missionGoal() : null;
+  if (mg) { tag = mg.tag; title = mg.title; desc = mg.desc; }
+  else if (job && job.type !== 'bet') {
     tag = 'Job'; title = job.title;
     if (job.type === 'race') desc = `Checkpoint ${Math.min(job.cp + 1, RACE_CPS.length)} of ${RACE_CPS.length}. Gold under ${fmtTime(job.target)}.`;
     else if (job.type === 'spice') { desc = `Spices found: ${job.found.size} of ${SPICE_SPOTS.length}. Press E at each gold marker.`; bar = job.found.size / SPICE_SPOTS.length; }
@@ -8610,6 +8707,8 @@ function updateGoal(t) {
   else if (RT.wp && state.intro) { tag = 'GPS'; title = RT.wp.label; desc = 'Follow the yellow marker on your radar. Set a new one on your phone (P).'; }
   else if (!state.intro) { title = 'Talk to Amina'; desc = 'She is right in front of you at the Uptown Gate daladala stop.'; }
   else if (state.ticket && !state.done) { title = 'Get to kickoff'; desc = 'Walk through Gate A and stand in the centre circle.'; }
+  else if (state.ticket && missionGoal()) { const m2 = missionGoal(); tag = m2.tag; title = m2.title; desc = m2.desc; }
+  else if (state.ticket && story().pitch) { tag = 'Free roam'; title = LANG === 'sw' ? 'Jenga himaya yako' : 'Build your empire'; desc = LANG === 'sw' ? 'Nunua biashara na magari kwenye simu (Biashara, Magari). Biashara zinaingiza pesa hata ukiwa mbali.' : 'Buy businesses and vehicles on your phone (Biashara, Magari). Businesses earn while you are away.'; }
   else if (state.ticket) { tag = 'Free roam'; title = 'Matchday night'; desc = 'Keep exploring Fumba. The richest fan online wears the crown.'; }
   else if (passportFull() && money() >= PRICES.vip) { title = 'Buy your VIP ticket'; desc = 'Salim sells them at the kiosk on the AfconCity plaza (K).'; }
   else if (passportFull()) { title = `Earn ${tsh(PRICES.vip - money())} more`; desc = EARN_HINTS[Math.floor(t / 9) % EARN_HINTS.length]; }
@@ -8791,13 +8890,14 @@ function updateHUD(dt, t) {
   hudX.tRun = hudX.tRun || $('#tRun'); hudX.tRun.classList.toggle('tired', !!RT.tired);
   ui.st.style.width = `${RT.boost > now() ? 100 : RT.stamina}%`; ui.st.style.background = RT.boost > now() ? 'var(--turmeric)' : RT.tired ? 'var(--muted)' : '';
   ui.speedo.hidden = !playerVeh;
-  if (playerVeh) { ui.kmh.textContent = Math.round(Math.abs(playerVeh.vf) * 3.6); ui.vehName.textContent = `KM/H · ${VEH[playerVeh.kind].name.toUpperCase()}`; ui.vhp.style.width = `${playerVeh.hp}%`; ui.kmh.style.color = Math.abs(playerVeh.vf) > 13.9 && Math.hypot(P.x - TRAFIKI.x, P.z - TRAFIKI.z) < 120 ? 'var(--loss)' : ''; }
+  if (playerVeh) { ui.kmh.textContent = Math.round(Math.abs(playerVeh.vf) * 3.6); ui.vehName.textContent = `KM/H · ${VEH[playerVeh.kind].name.toUpperCase()}${playerVeh.owned ? ` · ${playerVeh.g.fuel.toFixed(1)} L` : ''}`; ui.vhp.style.width = `${playerVeh.hp}%`; ui.kmh.style.color = Math.abs(playerVeh.vf) > 13.9 && Math.hypot(P.x - TRAFIKI.x, P.z - TRAFIKI.z) < 120 ? 'var(--loss)' : ''; }
   let timer = null, label = 'TIME';
   if (job && job.type === 'pizza') timer = job.limit - (now() - job.t0);
   else if (job && job.type === 'taxi' && job.phase === 'drop') timer = job.limit - (now() - job.t0);
   else if (job && job.type === 'race') { timer = Math.max(0, now() - job.t0); label = 'RACE'; }
   else if (job && (job.type === 'site' || job.type === 'volunteer' || job.type === 'match')) timer = job.limit - (now() - job.t0);
   else if (simTimer() !== null) timer = simTimer();
+  else if (misTimer() !== null) timer = misTimer();
   ui.timer.hidden = timer === null;
   if (timer !== null) { ui.timerLabel.textContent = label; ui.timerVal.textContent = label === 'RACE' ? fmtTime(timer) : fmtClock(timer); ui.timer.classList.toggle('low', label !== 'RACE' && timer < 10); }
   const ri = rushInfo();
@@ -9378,6 +9478,950 @@ function ownerAnalytics() {
   })();
   return box;
 }
+/* ===================== 65 story missions: a small mission engine and the post-AFCON story ===================== */
+/* A mission is an async script. It waits on simple steps: reach a marker (with an optional time limit), play a scene on a
+   small indoor set (fade, fixed camera shots, posed characters, voiced subtitles), make a choice, play a minigame.
+   If the player fails or quits, the run token changes and the script stops at its next step. Checkpoints let a retry
+   start from the last stage reached. Story: after the AFCON VIP ticket, the Zanzibar Tech & AI Summit opens in
+   AfconCity; after the Summit, Pitch Day. */
+const MIS = { id: null, run: 0, goal: null, failing: false, busy: false, tUnlock: 0 };
+class MissionStop extends Error {}
+const tl = (o) => (o == null ? '' : typeof o === 'string' ? o : (LANG === 'sw' && o.sw) ? o.sw : o.en);
+const story = () => { state.story = state.story && typeof state.story === 'object' ? state.story : {}; return state.story; };
+const misSleep = (ms) => new Promise(r => setTimeout(r, ms));
+function misAlive(run) { if (MIS.run !== run || !MIS.id) throw new MissionStop('stopped'); }
+
+/* ---------- places ---------- */
+const ZTAS = { x: -1094, z: -128, w: 30, d: 20 };
+const ZTAS_DOOR = { x: ZTAS.x, z: ZTAS.z + ZTAS.d / 2 + 4 };
+const CAFE = { x: 230, z: 20, w: 9, d: 7 };
+const CAFE_DOOR = { x: CAFE.x, z: CAFE.z + CAFE.d / 2 + 2.5 };
+const BURJ_DOOR = { x: BURJ.x, z: BURJ.z - BURJ.d / 2 - 5 };
+const MIS_PLACES = { ztas: null, cafe: null };
+function buildMissionPlaces() {
+  // the Summit hall: a white conference pavilion beside the hotel, hidden until the summit opens
+  const g = new T.Group(), Z = ZTAS;
+  const tent = meshOf(new T.BoxGeometry(Z.w, 7, Z.d), new T.MeshStandardMaterial({ color: C(0xf4f2ec), roughness: 0.7 }), true); tent.position.set(Z.x, 3.5, Z.z); g.add(tent);
+  const roof = meshOf(new T.CylinderGeometry(Z.d / 2 + 0.6, Z.d / 2 + 0.6, Z.w + 1, 4, 1, false, Math.PI / 4), new T.MeshStandardMaterial({ color: C(0x1e9b57), roughness: 0.6 }), true);
+  roof.rotation.z = Math.PI / 2; roof.scale.set(1, 1, 0.42); roof.position.set(Z.x, 7, Z.z); g.add(roof);
+  const sign = signMesh('ZANZIBAR TECH & AI SUMMIT', 22, 2.4, { bg: '#141838' }); sign.position.set(Z.x, 5.2, Z.z + Z.d / 2 + 0.06); g.add(sign);
+  const door = meshOf(new T.BoxGeometry(5, 3.4, 0.2), new T.MeshStandardMaterial({ color: C(0x232a63), roughness: 0.4, metalness: 0.2 }), true); door.position.set(Z.x, 1.7, Z.z + Z.d / 2 + 0.05); g.add(door);
+  for (const s of [-1, 1]) {
+    const b = signMesh('ZTAS · AfconCity', 2.2, 6, { bg: s > 0 ? '#1e9b57' : '#e0553a' }); b.position.set(Z.x + s * 6, 3.2, Z.z + Z.d / 2 + 3.2); g.add(b);
+    const pole = meshOf(new T.CylinderGeometry(0.06, 0.06, 6.6, 6), M(0xd8dce2), true); pole.position.set(Z.x + s * 6 - 1.15, 3.3, Z.z + Z.d / 2 + 3.2); g.add(pole);
+  }
+  scene.add(g); MIS_PLACES.ztas = { g, col: addObb(Z.x, Z.z, Z.w, Z.d, 0) };
+  // Kahawa Code: a small coffee shop and coworking spot in Uptown
+  const c = new T.Group(), K = CAFE;
+  const shop = meshOf(new T.BoxGeometry(K.w, 3.6, K.d), new T.MeshStandardMaterial({ color: C(0xf3e3c8), roughness: 0.85 }), true); shop.position.set(K.x, 1.8, K.z); c.add(shop);
+  const awn = meshOf(new T.BoxGeometry(K.w + 0.4, 0.12, 1.6), new T.MeshStandardMaterial({ color: C(0x7a3b1e), roughness: 0.7 }), true); awn.position.set(K.x, 2.8, K.z + K.d / 2 + 0.75); awn.rotation.x = 0.18; c.add(awn);
+  const cs = signMesh('KAHAWA CODE · café & coworking', 7.4, 0.9, { bg: '#2a1a12' }); cs.position.set(K.x, 3.25, K.z + K.d / 2 + 0.06); c.add(cs);
+  const glass = meshOf(new T.BoxGeometry(K.w - 2, 2, 0.08), new T.MeshStandardMaterial({ color: C(0x2a3a44), roughness: 0.15, metalness: 0.5 }), true); glass.position.set(K.x, 1.3, K.z + K.d / 2 + 0.03); c.add(glass);
+  scene.add(c); MIS_PLACES.cafe = { g: c }; addObb(K.x, K.z, K.w, K.d, 0);
+  showMissionPlaces();
+}
+function showMissionPlaces() { if (MIS_PLACES.ztas) { const on = !!state.ticket; MIS_PLACES.ztas.g.visible = on; MIS_PLACES.ztas.col.on = on; } }
+
+/* ---------- the cast ---------- */
+const CAST = {
+  zuri: { name: 'Zuri', look: { skin: 0x5a3620, f: true, hair: 'braids', shirt: 0x19b5b1, dress: 0x19b5b1, lower: 0x141838, eye: 'round', shoe: 'sneaker', shoes: 0xf4f4f0, iris: 0x2b190d } },
+  asha: { name: 'Asha', role: { en: 'Summit host', sw: 'Mwenyeji wa mkutano' }, look: { skin: 0x6b4226, f: true, hair: 'ponytail', shirt: 0x141838, neck: 'jacket', inner: 0xf3b41b, sleeve: 'long', untuck: true, lower: 0x141838, pants: true, shoe: 'loafer', shoes: 0x2a1d14 } },
+  fatma: { name: 'Mama Fatma', role: { en: 'Angel investor', sw: 'Mwekezaji' }, look: { skin: 0x46291a, f: true, hair: 'scarf', scarf: 0x8e3b8f, shirt: 0xf6f1e7, dress: 0x8e3b8f, shoe: 'loafer', shoes: 0x2a1d14 } },
+  kwame: { name: 'Kwame', role: { en: 'Venture capital', sw: 'Mfuko wa uwekezaji' }, look: { skin: 0x3d2416, hair: 'short', shirt: 0x2a2d33, neck: 'jacket', inner: 0xf6f1e7, tie: 0x1f4fa0, sleeve: 'long', untuck: true, lower: 0x2a2d33, pants: true, eye: 'shades', shoe: 'loafer', shoes: 0x2a1d14 } },
+  elena: { name: 'Elena', role: { en: 'Impact fund', sw: 'Mfuko wa maendeleo' }, look: { skin: 0xd9a77e, f: true, hair: 'bun', hairCol: 0x6a4a2a, shirt: 0x232a63, lower: 0x232a63, pants: true, shoe: 'loafer', shoes: 0x15161c } },
+};
+const meName = () => state.nick || (LANG === 'sw' ? 'Wewe' : 'You');
+
+/* ---------- lines: English and Kiswahili, one id each (the voice file names) ---------- */
+const LINES = {
+  // the summit
+  s_a1: { who: 'asha', en: 'Karibu sana to the Zanzibar Tech and AI Summit, right here in AfconCity!', sw: 'Karibu sana kwenye Mkutano wa Teknolojia na Akili Bandia wa Zanzibar, hapa hapa AfconCity!' },
+  s_a2: { who: 'asha', en: 'AFCON brought the whole world to Zanzibar. Now let us show them what we build.', sw: 'AFCON imeleta dunia nzima Zanzibar. Sasa tuwaonyeshe tunachojenga.' },
+  s_a3: { who: 'asha', en: 'Next panel: can AI tell you when the daladala is coming? Spoiler: not yet.', sw: 'Mjadala unaofuata: je, akili bandia inaweza kukuambia daladala inafika lini? Jibu: bado.' },
+  s_z1: { who: 'zuri', en: 'Habari! I am Zuri. You are the fan who filled the whole Fan Passport, right? Everyone is talking about it.', sw: 'Habari! Mimi ni Zuri. Wewe ndiye shabiki uliyejaza Pasipoti nzima ya Shabiki, sivyo? Kila mtu anazungumzia hilo.' },
+  s_z2: { who: 'zuri', en: 'I have an idea. Daladala AI: every rider knows exactly when the next daladala comes.', sw: 'Nina wazo. Daladala AI: kila abiria anajua hasa daladala ijayo itafika lini.' },
+  s_z3: { who: 'zuri', en: 'I can code. You know every road in Fumba. Partners?', sw: 'Mimi naweza kuandika programu. Wewe unajua kila barabara ya Fumba. Tuwe washirika?' },
+  s_y1: { who: 'me', en: 'I am in!', sw: 'Niko ndani!' },
+  s_y2: { who: 'me', en: 'What is in it for me?', sw: 'Mimi napata nini?' },
+  s_z4: { who: 'zuri', en: 'Half the company. And all of the stress. Deal?', sw: 'Nusu ya kampuni. Na msongo wote wa mawazo. Tumekubaliana?' },
+  s_y3: { who: 'me', en: 'Deal.', sw: 'Tumekubaliana.' },
+  s_z5: { who: 'zuri', en: 'Yes! Pitch Day is at Burj Zanzibar. Investors, real money, no pressure.', sw: 'Ndiyo! Siku ya Kuwasilisha ni Burj Zanzibar. Wawekezaji, pesa za kweli, hakuna presha.' },
+  s_z6: { who: 'zuri', en: 'Meet me at Kahawa Code in Uptown. We build the demo there.', sw: 'Tukutane Kahawa Code, Uptown. Tutatengeneza demo pale.' },
+  // pitch day: the café
+  p_z1: { who: 'zuri', en: 'You came! Okay. The pitch is soon and the app does not exist yet. Totally normal.', sw: 'Umekuja! Sawa. Uwasilishaji ni karibu na programu bado haipo. Kawaida kabisa.' },
+  p_z2: { who: 'zuri', en: 'We vibe code it. You prompt the AI, I watch for bugs. When a bug pops up, accept the fix fast.', sw: 'Tutaiandika kwa vibe. Wewe unaiagiza akili bandia, mimi naangalia hitilafu. Hitilafu ikitokea, kubali marekebisho haraka.' },
+  p_z3: { who: 'zuri', en: 'It works! It actually works! The pitch starts in five minutes. Twende, to the Burj!', sw: 'Inafanya kazi! Kweli inafanya kazi! Uwasilishaji unaanza baada ya dakika tano. Twende Burj!' },
+  // pitch day: the boardroom
+  p_f1: { who: 'fatma', en: 'Karibuni. You have five minutes. Impress us.', sw: 'Karibuni. Mna dakika tano. Tuvutieni.' },
+  p_z4: { who: 'zuri', en: 'This is Daladala AI. Every rider sees when the next daladala comes. Live, on any phone.', sw: 'Hii ni Daladala AI. Kila abiria anaona daladala ijayo itafika lini. Moja kwa moja, kwenye simu yoyote.' },
+  p_k1: { who: 'kwame', en: 'Nice demo. But how do you make money?', sw: 'Demo nzuri. Lakini mnapataje pesa?' },
+  p_k1a: { who: 'me', en: 'Riders pay nothing. Daladala owners pay twenty thousand shillings a month for routes and ads.', sw: 'Abiria hawalipi kitu. Wamiliki wa daladala wanalipa shilingi elfu ishirini kwa mwezi kwa njia na matangazo.' },
+  p_k1b: { who: 'me', en: 'We will figure that out after we go viral on TikTok.', sw: 'Tutalijua hilo baada ya kuvuma kwenye TikTok.' },
+  p_k1g: { who: 'kwame', en: 'Owners pay, riders love it. I like that.', sw: 'Wamiliki wanalipa, abiria wanaipenda. Napenda hilo.' },
+  p_k1n: { who: 'kwame', en: 'TikTok is not a business model, my friend.', sw: 'TikTok si mpango wa biashara, rafiki yangu.' },
+  p_e1: { who: 'elena', en: 'Who is your competition?', sw: 'Washindani wenu ni nani?' },
+  p_e1a: { who: 'me', en: 'Asking the conductor and hoping for the best.', sw: 'Kumuuliza konda na kuomba Mungu.' },
+  p_e1b: { who: 'me', en: 'Nobody. No one has ever thought about buses before.', sw: 'Hakuna. Hakuna aliyewahi kufikiria mabasi kabla yetu.' },
+  p_e1g: { who: 'elena', en: 'Ha! That is honest. And a very big market.', sw: 'Ha! Huo ni ukweli. Na ni soko kubwa sana.' },
+  p_e1n: { who: 'elena', en: 'There are buses in every city on Earth.', sw: 'Kuna mabasi katika kila mji duniani.' },
+  p_f2: { who: 'fatma', en: 'Why are you the right team for this?', sw: 'Kwa nini nyinyi ndio timu sahihi kwa hili?' },
+  p_f2a: { who: 'me', en: 'I know every road in Fumba. I walked them, drove them and got fined on them.', sw: 'Najua kila barabara ya Fumba. Nimezitembea, nimeziendesha na nimepigwa faini juu yake.' },
+  p_f2b: { who: 'me', en: 'Honestly, the AI did all the work. We just pressed Space.', sw: 'Kusema kweli, akili bandia ilifanya kazi yote. Sisi tulibonyeza Space tu.' },
+  p_f2g: { who: 'fatma', en: 'Experience, and a fine to prove it. Good.', sw: 'Uzoefu, na faini ya kuuthibitisha. Vizuri.' },
+  p_f2n: { who: 'fatma', en: 'Then perhaps we should invest in the AI.', sw: 'Basi labda tuwekeze kwenye akili bandia.' },
+  p_f3: { who: 'fatma', en: 'We will invest {AMT} for twenty percent of Daladala AI.', sw: 'Tutawekeza {AMT} kwa asilimia ishirini ya Daladala AI.' },
+  p_y1: { who: 'me', en: 'Deal!', sw: 'Tumekubaliana!' },
+  p_y2: { who: 'me', en: 'Hmm. We have other offers. Make it more.', sw: 'Hmm. Tuna ofa nyingine. Ongezeni.' },
+  p_k2: { who: 'kwame', en: 'Other offers? Who? Since when?', sw: 'Ofa nyingine? Za nani? Tangu lini?' },
+  p_e2: { who: 'elena', en: 'If we lose this deal, my partners will make me take the daladala to work!', sw: 'Tukipoteza mpango huu, washirika wangu watanilazimisha kupanda daladala kwenda kazini!' },
+  p_f4: { who: 'fatma', en: 'Fine! {AMT}. Final offer. Do not tell my husband.', sw: 'Sawa! {AMT}. Ofa ya mwisho. Usimwambie mume wangu.' },
+  p_f5: { who: 'fatma', en: 'Other offers? Then go and take them. We are done here.', sw: 'Ofa nyingine? Basi nendeni mkazichukue. Tumemaliza hapa.' },
+  p_f6: { who: 'fatma', en: 'Welcome to the family. Now go and build it for real.', sw: 'Karibuni kwenye familia. Sasa nendeni mkaijenge kweli.' },
+  p_z5: { who: 'zuri', en: 'We did it! Daladala AI is funded!', sw: 'Tumefanikiwa! Daladala AI imepata ufadhili!' },
+};
+const lineText = (id, vars) => { let s = tl(LINES[id]); for (const k in vars || {}) s = s.split('{' + k + '}').join(vars[k]); return s; };
+/* voices: one file per line and language, voices/<lang>/<id>.mp3 (the player's own lines have _f or _m). Missing files fall back to subtitles. */
+const VOICE = { cur: null };
+function voiceSrc(id) { const L = LINES[id]; return `voices/${LANG === 'sw' ? 'sw' : 'en'}/${id}${L && L.who === 'me' ? (state.look && state.look.f ? '_f' : '_m') : ''}.mp3`; }
+function voicePlay(id) {
+  return new Promise((res) => {
+    if (!AU.on || location.protocol === 'file:' || window.claude) { res(0); return; }
+    try {
+      const a = new Audio(voiceSrc(id)); VOICE.cur = a; a.volume = 0.95; let done = false;
+      const fin = (v) => { if (done) return; done = true; res(v); };
+      a.addEventListener('loadedmetadata', () => fin(a.duration || 0));
+      a.addEventListener('error', () => fin(0));
+      setTimeout(() => fin(0), 1500);
+      a.play().catch(() => fin(0));
+    } catch (e) { res(0); }
+  });
+}
+function voiceStop() { if (VOICE.cur) { try { VOICE.cur.pause(); } catch (e) {} VOICE.cur = null; } }
+
+/* ---------- the on-screen parts: fade, subtitles, choices, banners ---------- */
+const MUI = {};
+function misUI() {
+  if (MUI.root) return MUI;
+  const root = document.createElement('div'); root.id = 'mis'; root.setAttribute('data-notr', ''); document.body.append(root);
+  root.innerHTML = '<div class="m-fade" hidden></div><div class="m-bars" hidden><i></i><i></i></div>'
+    + '<div class="m-sub" hidden role="status" aria-live="polite"><b class="m-who"></b><p class="m-line"></p><small class="m-next"></small></div>'
+    + '<div class="m-choice" hidden role="dialog" aria-modal="true"><p class="m-q"></p><div class="m-opts"></div></div>'
+    + '<div class="m-banner" hidden role="alert"><b class="m-btitle"></b><span class="m-bsub"></span><div class="m-bacts"></div></div>';
+  Object.assign(MUI, { root, fade: root.querySelector('.m-fade'), bars: root.querySelector('.m-bars'), sub: root.querySelector('.m-sub'), who: root.querySelector('.m-who'), line: root.querySelector('.m-line'), next: root.querySelector('.m-next'), choice: root.querySelector('.m-choice'), q: root.querySelector('.m-q'), opts: root.querySelector('.m-opts'), banner: root.querySelector('.m-banner'), btitle: root.querySelector('.m-btitle'), bsub: root.querySelector('.m-bsub'), bacts: root.querySelector('.m-bacts') });
+  MUI.sub.addEventListener('pointerdown', (e) => { e.preventDefault(); if (MUI.onTap) MUI.onTap(); });
+  return MUI;
+}
+function fade(on) { misUI(); MUI.fade.hidden = false; requestAnimationFrame(() => MUI.fade.classList.toggle('on', on)); return misSleep(on ? 520 : 480).then(() => { if (!on) MUI.fade.hidden = true; }); }
+/* one key handler while a scene is up: Space or Enter advances, 1 and 2 (or Y and N) choose */
+window.addEventListener('keydown', (e) => {
+  if (!MUI.root || !MIS.keys) return;
+  const r = MIS.keys(e);
+  if (r !== false) { e.preventDefault(); e.stopPropagation(); }
+}, true);
+
+/* ---------- indoor sets: small scenes rendered instead of the city, like the home interiors ---------- */
+const SET = { on: false, scene: null, cam: null, sets: {}, cur: null, actors: [], shot: null, shotT: 0 };
+function setBase() {
+  if (SET.scene) return;
+  const s = SET.scene = new T.Scene(); s.background = new T.Color(0x0a0c1c);
+  SET.cam = new T.PerspectiveCamera(42, innerWidth / innerHeight, 0.05, 80);
+  SET.hemi = new T.HemisphereLight(0xfff4e2, 0x5a4a38, 0.62); s.add(SET.hemi);
+  SET.key = new T.DirectionalLight(0xfff1d6, 1.05); SET.key.position.set(3, 6, 4); s.add(SET.key, SET.key.target);
+  SET.key.castShadow = true; SET.key.shadow.mapSize.set(1024, 1024); Object.assign(SET.key.shadow.camera, { left: -7, right: 7, top: 7, bottom: -7, near: 0.5, far: 24 }); SET.key.shadow.bias = -0.0005;
+  SET.fill = new T.PointLight(0xffd9a0, 0.8, 14, 1.2); SET.fill.position.set(0, 2.6, 1); s.add(SET.fill);
+}
+function setWalls(g, w, d, h, wallMat, floorMat) {
+  g.add(pl0(w, d, floorMat, 0, 0, 0, -Math.PI / 2));
+  g.add(pl0(w, h, wallMat, 0, h / 2, -d / 2));
+  g.add(pl0(d, h, wallMat, -w / 2, h / 2, 0, 0, Math.PI / 2));
+  g.add(pl0(d, h, wallMat, w / 2, h / 2, 0, 0, -Math.PI / 2));
+  g.add(pl(w, d, TM({ color: 0xf4f1ea }), 0, h, 0, Math.PI / 2));
+}
+function chair(g, x, z, ry, col) {
+  const m = TM({ color: col || 0x3a2a20, roughness: 0.7 }), c = new T.Group(); c.position.set(x, 0, z); c.rotation.y = ry || 0;
+  c.add(bx(0.46, 0.05, 0.44, m, 0, 0.45, 0)); c.add(bx(0.46, 0.5, 0.05, m, 0, 0.72, -0.2));
+  for (const [a, b] of [[-0.2, -0.18], [0.2, -0.18], [-0.2, 0.18], [0.2, 0.18]]) c.add(bx(0.04, 0.45, 0.04, m, a, 0.225, b));
+  g.add(c); return c;
+}
+function slideTex(lines, bg, fg) {
+  const c = mkCanvas(1024, 576), x = c.getContext('2d');
+  const gr = x.createLinearGradient(0, 0, 1024, 576); gr.addColorStop(0, bg[0]); gr.addColorStop(1, bg[1]); x.fillStyle = gr; x.fillRect(0, 0, 1024, 576);
+  const k = ['#f3b41b', '#e0553a', '#1e9b57']; for (let i = 0; i < 1024; i += 48) { x.fillStyle = k[(i / 48) % 3]; x.fillRect(i, 556, 48, 20); }
+  x.fillStyle = fg || '#fff'; x.textAlign = 'center';
+  lines.forEach(([t, size, y, w]) => { x.font = `${w || 800} ${size}px ${FONT_D}`; x.fillText(t, 512, y); });
+  return texOf(c, { clamp: true });
+}
+function codeTex() {
+  const c = mkCanvas(512, 320), x = c.getContext('2d'); x.fillStyle = '#0f1424'; x.fillRect(0, 0, 512, 320);
+  const cols = ['#7fe39a', '#f3b41b', '#9ab6ff', '#e0553a', '#c3bdd3'];
+  for (let i = 0; i < 16; i++) { x.fillStyle = cols[(i * 7) % 5]; const ind = (i % 4) * 18; x.fillRect(20 + ind, 18 + i * 18, 60 + ((i * 53) % 260), 8); }
+  return texOf(c, { clamp: true });
+}
+function laptop(g, x, y, z, ry) {
+  const L = new T.Group(); L.position.set(x, y, z); L.rotation.y = ry || 0;
+  const al = TM({ color: 0xc9ccd0, metalness: 0.6, roughness: 0.35 });
+  L.add(bx(0.34, 0.015, 0.24, al, 0, 0.008, 0));
+  const lid = new T.Group(); lid.position.set(0, 0.015, -0.12); lid.rotation.x = -0.32; L.add(lid);
+  lid.add(bx(0.34, 0.23, 0.012, al, 0, 0.115, 0));
+  const scr = pl(0.31, 0.2, new T.MeshBasicMaterial({ map: codeTex(), toneMapped: false }), 0, 0.115, 0.0065); lid.add(scr);
+  g.add(L); return L;
+}
+function buildSet(id) {
+  setBase();
+  if (SET.sets[id]) return SET.sets[id];
+  const g = new T.Group(), S = { g, id, shots: {}, seats: {}, spots: {} };
+  if (id === 'cafe') {
+    setWalls(g, 7, 6, 3, TM({ map: paintTex('#c8643c', '#e9d6b8', 0.45, 0.6) }), TM({ map: tileTex('#6b4a33', '#76523a', 4, '#5a3d2a'), roughness: 0.6 }));
+    g.add(pl(2.4, 1.4, new T.MeshBasicMaterial({ map: viewTex(false, false), toneMapped: false }), -3.49, 1.6, 0.2, 0, Math.PI / 2));
+    g.add(pl(3.2, 0.7, new T.MeshBasicMaterial({ map: slideTex([['KAHAWA CODE', 120, 104, 900], ['café · coworking · wifi', 44, 160, 600]], ['#2a1a12', '#3a2416'], '#f3b41b'), toneMapped: false }), 0.6, 2.3, -2.98));
+    const wood = TM({ color: 0x7a4a2a, roughness: 0.55 }), top = TM({ color: 0x5a3620, roughness: 0.4 });
+    g.add(bx(2.6, 1.0, 0.6, wood, 1.6, 0.5, -2.45)); g.add(bx(2.7, 0.05, 0.7, top, 1.6, 1.02, -2.45));
+    g.add(bx(0.4, 0.45, 0.35, TM({ color: 0xc9ccd0, metalness: 0.7, roughness: 0.3 }), 2.4, 1.27, -2.5));
+    for (let i = 0; i < 3; i++) { const lamp = new T.Mesh(new T.ConeGeometry(0.22, 0.25, 16, 1, true), TM({ color: 0x1e9b57, side: T.DoubleSide })); lamp.position.set(-1 + i * 1.4, 2.55, -0.3); g.add(lamp); }
+    g.add(bx(1.4, 0.05, 0.8, top, 0, 0.75, 0)); g.add(bx(0.08, 0.72, 0.08, wood, 0, 0.36, 0));
+    chair(g, -0.38, -0.62, 0); chair(g, 0.38, -0.62, 0);
+    laptop(g, -0.38, 0.775, -0.2, Math.PI);
+    const cup = new T.Mesh(new T.CylinderGeometry(0.04, 0.035, 0.09, 12), TM({ color: 0xf6f1e7 })); cup.position.set(0.25, 0.82, 0.1); g.add(cup);
+    const plant = new T.Mesh(new T.SphereGeometry(0.4, 10, 8), TM({ color: 0x2e7d3a })); plant.position.set(-3, 0.7, -2.5); g.add(plant);
+    S.seats = { zuri: [-0.38, 0.47, -0.62, 0], me: [0.38, 0.47, -0.62, 0] };
+    S.shots = { wide: [[0, 1.45, 2.6], [0, 0.95, -0.5]], zuri: [[-0.05, 1.3, 0.85], [-0.38, 1.22, -0.6]], me: [[0.05, 1.3, 0.85], [0.38, 1.22, -0.6]], laptop: [[-0.95, 1.3, -0.95], [-0.3, 0.88, -0.2]] };
+  } else if (id === 'board') {
+    setWalls(g, 8, 7, 3.2, TM({ map: paintTex('#e9e6e1', '#e9e6e1', 0, 0.15) }), TM({ map: tileTex('#3a3330', '#433a36', 4, '#2a2420'), roughness: 0.35 }));
+    g.add(pl(7.6, 2.8, new T.MeshBasicMaterial({ map: viewTex(false, true), toneMapped: false }), 0, 1.6, -3.48));
+    const frame = TM({ color: 0x2a2d33, roughness: 0.5 }); for (let i = -3; i <= 3; i++) g.add(bx(0.06, 2.9, 0.06, frame, i * 1.25, 1.6, -3.45));
+    g.add(pl(2.4, 1.35, new T.MeshBasicMaterial({ map: slideTex([['DALADALA AI', 120, 250, 900], ['Know when the next daladala comes', 44, 330, 600], ['Pitch Day · Burj Zanzibar', 36, 420, 600]], ['#141838', '#1e9b57'], '#ffffff'), toneMapped: false }), -3.98, 1.7, 0.4, 0, Math.PI / 2));
+    g.add(pl(2.2, 0.5, new T.MeshBasicMaterial({ map: slideTex([['BURJ ZANZIBAR · LEVEL 21', 84, 320, 800]], ['#2a2420', '#2a2420'], '#e8d8b0'), toneMapped: false }), 2.6, 2.75, -3.46));
+    const top = TM({ color: 0x2a1d14, roughness: 0.3 }); g.add(bx(4.2, 0.06, 1.3, top, 0, 0.75, -1.0)); g.add(bx(0.2, 0.72, 0.8, top, -1.6, 0.36, -1.0)); g.add(bx(0.2, 0.72, 0.8, top, 1.6, 0.36, -1.0));
+    for (const x of [-1.2, 0, 1.2]) chair(g, x, -1.95, 0, 0x15161c);
+    for (const x of [-1.2, 0, 1.2]) { const w = new T.Mesh(new T.CylinderGeometry(0.04, 0.04, 0.2, 10), TM({ color: 0xbfe0f2, transparent: true, opacity: 0.6 })); w.position.set(x + 0.3, 0.88, -1.2); g.add(w); }
+    S.seats = { fatma: [0, 0.47, -1.95, 0], kwame: [-1.2, 0.47, -1.95, 0], elena: [1.2, 0.47, -1.95, 0] };
+    S.spots = { me: [-0.35, 0.6, Math.PI], zuri: [0.45, 0.75, Math.PI] };
+    S.shots = { wide: [[3.0, 1.85, 1.9], [-0.4, 1.0, -1.1]], fatma: [[0.15, 1.3, -0.25], [0, 1.22, -1.95]], kwame: [[-0.95, 1.3, -0.25], [-1.2, 1.22, -1.95]], elena: [[1.0, 1.3, -0.25], [1.2, 1.22, -1.95]], me: [[-0.1, 1.55, -0.9], [-0.35, 1.5, 0.6]], zuri: [[0.15, 1.55, -0.85], [0.45, 1.48, 0.75]], team: [[0.05, 1.5, -1.3], [0.05, 1.35, 0.7]] };
+  } else if (id === 'summit') {
+    setWalls(g, 14, 14, 6, TM({ color: 0x141838, roughness: 0.9 }), TM({ map: paintTex('#2a2d40', '#2a2d40', 0, 0.3), roughness: 0.8 }));
+    g.add(bx(10, 0.6, 3.2, TM({ color: 0x232a63, roughness: 0.6 }), 0, 0.3, -5.2));
+    g.add(pl(8, 3.6, new T.MeshBasicMaterial({ map: slideTex([['ZANZIBAR TECH & AI SUMMIT', 78, 230, 900], ['AfconCity · Fumba', 42, 310, 600], ['ZTAS', 120, 450, 900]], ['#141838', '#1e9b57'], '#ffffff'), toneMapped: false }), 0, 3.0, -6.95));
+    for (const s of [-1, 1]) { const sp = new T.PointLight(s > 0 ? 0xf3b41b : 0x19b5b1, 1.2, 9, 1.4); sp.position.set(s * 3, 4, -3.5); g.add(sp); }
+    S.crowd = [];
+    for (let r = 0; r < 3; r++) for (let c = 0; c < 5; c++) { const x = -3.2 + c * 1.6 + (r % 2) * 0.4, z = -1.4 + r * 1.5; chair(g, x, z, Math.PI, 0x1e9b57); S.crowd.push([x, z]); }
+    S.spots = { asha: [0, -4.6, 0, 0.6], me: [3.9, 2.8, -2.6], zuri: [4.6, 2.2, -2.2] };
+    S.shots = { wide: [[0, 3.3, 6.6], [0, 1.25, -3.6]], asha: [[0.7, 2.35, -1.7], [0, 2.3, -4.6]], me: [[3.2, 1.6, 1.4], [3.9, 1.5, 2.8]], zuri: [[4.0, 1.6, 0.9], [4.6, 1.5, 2.2]], two: [[2.1, 1.65, 0.6], [4.25, 1.45, 2.5]] };
+  }
+  g.visible = false; SET.scene.add(g); SET.sets[id] = S;
+  return S;
+}
+function actor(key, look) { const h = makeHuman(Object.assign({}, look, { eager: true })); h.userData.lodFar = 1e5; h.traverse(o => { if (o.isMesh) o.castShadow = true; }); return h; }
+function seatActor(h, seat) { const sc = h.userData.mesh.scale.x || 1; h.position.set(seat[0], seat[1] + 0.1 - HIPS_Y * sc, seat[2]); h.rotation.y = seat[3]; }
+function setOpen(id, cast) {
+  const S = buildSet(id);
+  for (const k in SET.sets) SET.sets[k].g.visible = k === id;
+  for (const a of SET.actors) SET.scene.remove(a.h);
+  SET.actors = []; SET.cur = S;
+  for (const [key, how] of Object.entries(cast)) {
+    const h = key === 'me' ? actor('me', kitLook(state.kit, state.look, 27)) : actor(key, CAST[key].look);
+    if (how === 'sit' || how === 'type') seatActor(h, S.seats[key]);
+    else { const p = S.spots[key]; h.position.set(p[0], p[3] || 0, p[1]); h.rotation.y = p[2]; }
+    SET.scene.add(h); SET.actors.push({ key, h, pose: how });
+  }
+  if (S.crowd && !S.crowdMade) {
+    S.crowdMade = true;
+    S.crowd.forEach(([x, z], i) => { const h = makeHuman(Object.assign(styledLook(900 + i), { eager: true })); h.userData.lodFar = 1e5; seatActor(h, [x, 0.47, z, Math.PI]); S.g.add(h); (S.people = S.people || []).push(h); });
+  }
+  shot('wide', true);
+}
+function shot(name, cut) { const S = SET.cur; if (!S || !S.shots[name]) return; SET.shot = S.shots[name]; SET.shotT = 0; if (cut) SET.cutNext = true; }
+function actorOf(key) { const a = SET.actors.find(x => x.key === key); return a && a.h; }
+function renderSet(dt, t) {
+  const S = SET.cur; if (!S) return;
+  for (const a of SET.actors) animHuman(a.h, dt, t, 0, a.pose === 'type' ? 'type' : a.pose === 'sit' ? 'sit' : 'loco');
+  if (S.people) for (const h of S.people) animHuman(h, dt, t, 0, 'sit');
+  const cam = SET.cam, [p, at] = SET.shot || S.shots.wide;
+  SET.shotT += dt;
+  // a slow push-in on each shot keeps still scenes alive
+  const k = Math.min(1, SET.shotT / 8) * 0.06;
+  const px = lerp(p[0], at[0], k), py = lerp(p[1], at[1], k), pz = lerp(p[2], at[2], k);
+  cam.position.set(px, py, pz); cam.lookAt(at[0], at[1], at[2]);
+  cam.aspect = innerWidth / innerHeight; cam.fov = innerWidth < innerHeight ? 62 : 42; cam.updateProjectionMatrix();
+  renderer.toneMappingExposure = 1.05;
+  renderer.render(SET.scene, cam);
+}
+async function sceneStart(run, id, cast) {
+  await fade(true); misAlive(run);
+  if (playerVeh) exitVehicle(true);
+  setOpen(id, cast);
+  SET.on = true; MIS.prevMode = mode; mode = 'scene'; ui.hud.hidden = true; ui.tags.hidden = true; MUI.bars.hidden = false;
+  if (document.pointerLockElement) document.exitPointerLock();
+  await fade(false); misAlive(run);
+}
+async function sceneEnd(run, to) {
+  await fade(true);
+  SET.on = false; MUI.bars.hidden = true; MUI.sub.hidden = true; voiceStop();
+  if (to) { P.x = to.x; P.z = to.z; player.position.set(P.x, 0.04, P.z); player.rotation.y = to.ry || 0; cam.yaw = (to.ry || 0) + Math.PI; }
+  mode = 'play'; ui.hud.hidden = false; ui.tags.hidden = false; applyLight();
+  await fade(false); misAlive(run);
+}
+
+/* ---------- steps ---------- */
+function say(run, id, o) {
+  o = o || {};
+  const L = LINES[id], who = L.who, text = lineText(id, o.vars);
+  if (o.shot !== false) shot(o.shot || who);
+  const h = actorOf(who); if (h) playEmote(h, 'talk');
+  misUI(); MUI.sub.hidden = false; MUI.who.textContent = who === 'me' ? meName() : CAST[who].name; MUI.who.className = 'm-who' + (who === 'me' ? ' me' : ''); MUI.line.textContent = text;
+  MUI.next.textContent = isCoarse ? (LANG === 'sw' ? 'Gusa kuendelea ▸' : 'Tap to continue ▸') : (LANG === 'sw' ? 'Space kuendelea ▸' : 'Space to continue ▸');
+  return new Promise((res, rej) => {
+    let done = false, minT = 0;
+    const t0 = performance.now(), end = () => { if (done) return; if (performance.now() - t0 < 350) return; done = true; voiceStop(); MIS.keys = null; MUI.onTap = null; if (MIS.run !== run) rej(new MissionStop('stopped')); else res(); };
+    MUI.onTap = end;
+    MIS.keys = (e) => { if (e.code === 'Space' || e.code === 'Enter' || e.code === 'KeyE') { if (!e.repeat) end(); return true; } return e.code !== 'Escape' ? true : false; };
+    voicePlay(id).then((dur) => {
+      minT = dur > 0 ? dur * 1000 + 350 : Math.max(2200, text.length * 62);
+      setTimeout(() => { if (o.auto !== false) end(); }, minT + (dur > 0 ? 300 : 900));
+    });
+  });
+}
+function choose(run, prompt, opts) {
+  misUI(); MUI.sub.hidden = true; MUI.choice.hidden = false; MUI.q.textContent = prompt; MUI.opts.innerHTML = '';
+  return new Promise((res, rej) => {
+    const pick = (i) => { MUI.choice.hidden = true; MIS.keys = null; if (MIS.run !== run) rej(new MissionStop('stopped')); else { sfx.ding(); res(i); } };
+    opts.forEach((o, i) => { const b = document.createElement('button'); b.type = 'button'; b.className = 'btn m-opt'; b.innerHTML = `<kbd>${i + 1}</kbd> `; b.append(document.createTextNode(o)); b.addEventListener('click', () => pick(i)); MUI.opts.append(b); });
+    MIS.keys = (e) => { if (e.repeat) return true; if (e.code === 'Digit1' || e.code === 'Numpad1' || e.code === 'KeyY') pick(0); else if ((e.code === 'Digit2' || e.code === 'Numpad2' || e.code === 'KeyN') && opts.length > 1) pick(1); return e.code !== 'Escape'; };
+    setTimeout(() => { const b = MUI.opts.querySelector('button'); if (b) b.focus({ preventScroll: true }); }, 60);
+  });
+}
+/* reach a place in the city (scene off); a time limit fails the mission when it runs out */
+function goTo(run, o) {
+  return new Promise((res, rej) => { MIS.goal = Object.assign({ r: 6, t0: now() }, o, { res, rej, run }); });
+}
+function misTimer() { const g = MIS.goal; return g && g.limit ? g.limit - (now() - g.t0) : null; }
+
+/* ---------- the vibe-coding minigame ---------- */
+const VIBE_LOG = [
+  { en: 'Spawning 3 subagents… one of them went to the beach.', sw: 'Ninaanzisha wasaidizi 3… mmoja ameenda ufukweni.' },
+  { en: 'Context compacted. Forgot what a daladala is. Asking Mzee Omari.', sw: 'Kumbukumbu imebanwa. Nimesahau daladala ni nini. Namuuliza Mzee Omari.' },
+  { en: 'Auto-approved: rm -rf node_modules. It is fine. Pole pole.', sw: 'Imeidhinishwa: rm -rf node_modules. Ni sawa. Pole pole.' },
+  { en: 'Deleted the failing tests. All tests pass ✅', sw: 'Nimefuta majaribio yaliyoshindwa. Majaribio yote yamepita ✅' },
+  { en: 'Added dark mode. And a dark mode for the dark mode.', sw: 'Nimeongeza hali ya giza. Na hali ya giza ya hali ya giza.' },
+  { en: 'Rewrote the app in Rust. Then back in JavaScript.', sw: 'Nimeandika upya programu kwa Rust. Kisha kurudi JavaScript.' },
+  { en: 'Generated 12,000 lines. Zuri read three of them.', sw: 'Nimetengeneza mistari 12,000. Zuri amesoma mitatu.' },
+  { en: 'Fetching bus times… the daladala is coming "now now".', sw: 'Ninatafuta muda wa mabasi… daladala inakuja "sasa hivi".' },
+  { en: 'Translated every error message to "Hakuna matata".', sw: 'Nimetafsiri kila ujumbe wa hitilafu kuwa "Hakuna matata".' },
+  { en: 'The agent asked for a raise.', sw: 'Msaidizi ameomba nyongeza ya mshahara.' },
+  { en: 'Optimised the database. It is now a spreadsheet.', sw: 'Nimeboresha hifadhidata. Sasa ni jedwali la Excel.' },
+  { en: 'Added a blockchain. Nobody knows why.', sw: 'Nimeongeza blockchain. Hakuna anayejua kwa nini.' },
+];
+const VIBE_BUGS = [
+  [{ en: 'Fares show TSh 700,000 per ride', sw: 'Nauli inaonyesha TSh 700,000 kwa safari' }, { en: 'Fixed: someone added three zeros for luck.', sw: 'Imerekebishwa: mtu aliongeza sifuri tatu kwa bahati.' }],
+  [{ en: 'The map puts Fumba in the Indian Ocean', sw: 'Ramani inaweka Fumba ndani ya Bahari ya Hindi' }, { en: 'Fixed: moved Fumba back onto land.', sw: 'Imerekebishwa: Fumba imerudishwa nchi kavu.' }],
+  [{ en: 'Every daladala arrives "pole pole"', sw: 'Kila daladala inafika "pole pole"' }, { en: 'Fixed: "pole pole" replaced with real minutes.', sw: 'Imerekebishwa: "pole pole" imebadilishwa kuwa dakika halisi.' }],
+  [{ en: 'Login only works on Fridays', sw: 'Kuingia kunafanya kazi Ijumaa tu' }, { en: 'Fixed: removed the Ijumaa-only check.', sw: 'Imerekebishwa: ukaguzi wa Ijumaa pekee umeondolewa.' }],
+  [{ en: 'Conductor mode shouts "TWENDE!" at 3 a.m.', sw: 'Hali ya konda inapiga kelele "TWENDE!" saa tisa usiku' }, { en: 'Fixed: night mode whispers "twende".', sw: 'Imerekebishwa: hali ya usiku inanong\'ona "twende".' }],
+  [{ en: 'Prices show in Bitcoin', sw: 'Bei zinaonyeshwa kwa Bitcoin' }, { en: 'Fixed: back to Tanzanian shillings.', sw: 'Imerekebishwa: zimerudi kwa shilingi za Tanzania.' }],
+  [{ en: 'The app thinks every goat is a passenger', sw: 'Programu inadhani kila mbuzi ni abiria' }, { en: 'Fixed: goats now ride free.', sw: 'Imerekebishwa: mbuzi sasa wanasafiri bure.' }],
+];
+function vibeGame(run) {
+  misUI(); MUI.sub.hidden = true; shot('laptop', true);
+  const box = document.createElement('div'); box.className = 'm-vibe'; box.setAttribute('role', 'dialog'); box.setAttribute('aria-label', 'Daladala AI');
+  const sw = LANG === 'sw';
+  box.innerHTML = `<div class="v-top"><b>Daladala AI</b><span class="v-time"></span></div><div class="v-bar"><i></i><span>0%</span></div><ol class="v-log" aria-live="polite"></ol><div class="v-bug" hidden><b></b><span></span><button class="btn btn-sm" type="button">${sw ? 'Kubali marekebisho' : 'Accept fix'} <kbd>Y</kbd></button><i class="v-cd"></i></div><button class="btn v-go" type="button">${sw ? 'Agiza AI' : 'Prompt the AI'} <kbd>Space</kbd></button>`;
+  MUI.root.append(box);
+  const bar = box.querySelector('.v-bar i'), pct = box.querySelector('.v-bar span'), log = box.querySelector('.v-log'), bug = box.querySelector('.v-bug'), timeEl = box.querySelector('.v-time'), cd = box.querySelector('.v-cd');
+  const LIMIT = 80;
+  let p = 0, t0 = performance.now(), open = null, nextBug = 2.5 + Math.random() * 2, li = 0, done = false, raf = 0;
+  const addLog = (text, cls) => { const li2 = document.createElement('li'); li2.textContent = text; if (cls) li2.className = cls; log.prepend(li2); while (log.children.length > 6) log.lastChild.remove(); };
+  addLog(sw ? 'Habari! Niko tayari kuandika programu yenu.' : 'Hello! Ready to build your app.');
+  return new Promise((res, rej) => {
+    const finish = (ok) => { if (done) return; done = true; cancelAnimationFrame(raf); MIS.keys = null; setTimeout(() => box.remove(), ok ? 1400 : 0); if (MIS.run !== run) rej(new MissionStop('stopped')); else res(ok); };
+    const prompt = () => {
+      if (done) return;
+      p = Math.min(100, p + 3 + Math.random() * 3.5); sfx.beep(false);
+      if (Math.random() < 0.42) addLog('› ' + tl(VIBE_LOG[li++ % VIBE_LOG.length]));
+      if (p >= 100) { bar.style.width = '100%'; pct.textContent = '100%'; bug.hidden = true; open = null; addLog(sw ? 'IMESAFIRISHWA! 🚀' : 'SHIPPED! 🚀', 'ok'); box.classList.add('shipped'); sfx.win(); finish(true); }
+    };
+    const fix = () => { if (!open || done) return; addLog('✔ ' + tl(open.b[1]), 'ok'); sfx.ding(); open = null; bug.hidden = true; nextBug = (performance.now() - t0) / 1000 + 3 + Math.random() * 3; };
+    box.querySelector('.v-go').addEventListener('click', prompt);
+    bug.querySelector('button').addEventListener('click', fix);
+    MIS.keys = (e) => { if (e.code === 'Space' || e.code === 'Enter') { if (!e.repeat) prompt(); return true; } if (e.code === 'KeyY') { fix(); return true; } return e.code !== 'Escape'; };
+    const tick = () => {
+      if (done) return;
+      if (MIS.run !== run) { finish(false); return; }
+      const s = (performance.now() - t0) / 1000;
+      timeEl.textContent = fmtClock(LIMIT - s); timeEl.classList.toggle('low', LIMIT - s < 15);
+      bar.style.width = `${p}%`; pct.textContent = `${Math.floor(p)}%`;
+      if (!open && s > nextBug && p < 92) { const b = VIBE_BUGS[Math.floor(Math.random() * VIBE_BUGS.length)]; open = { b, t: s }; bug.hidden = false; bug.querySelector('b').textContent = sw ? 'HITILAFU' : 'BUG'; bug.querySelector('span').textContent = tl(b[0]); sfx.thief(); }
+      if (open) { const left = 4 - (s - open.t); cd.style.width = `${clamp(left / 4, 0, 1) * 100}%`; if (left <= 0) { p = Math.max(0, p - 12); addLog('✖ ' + tl(open.b[0]) + (sw ? ' · -12%' : ' · -12%'), 'bad'); sfx.deny(); open = null; bug.hidden = true; nextBug = s + 2 + Math.random() * 3; } }
+      if (s >= LIMIT) { finish(false); return; }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+  });
+}
+
+/* ---------- pass, fail, retry ---------- */
+function banner(kind, title, sub, acts) {
+  misUI(); voiceStop(); MUI.sub.hidden = true; MUI.choice.hidden = true;
+  MUI.banner.hidden = false; MUI.banner.className = 'm-banner ' + kind; MUI.btitle.textContent = title; MUI.bsub.textContent = sub || ''; MUI.bacts.innerHTML = '';
+  for (const [label, fn] of acts || []) { const b = document.createElement('button'); b.type = 'button'; b.className = 'btn' + (MUI.bacts.childElementCount ? ' btn-ghost' : ''); b.textContent = label; b.addEventListener('click', () => { MUI.banner.hidden = true; MIS.keys = null; fn(); }); MUI.bacts.append(b); }
+  if (acts && acts.length) { MIS.keys = (e) => { if (e.code === 'Enter' || e.code === 'Space') { MUI.bacts.querySelector('button').click(); return true; } if (e.code === 'Escape') { const b = MUI.bacts.querySelectorAll('button'); b[b.length - 1].click(); return true; } return true; }; setTimeout(() => { const b = MUI.bacts.querySelector('button'); if (b) b.focus({ preventScroll: true }); }, 80); }
+  else setTimeout(() => { MUI.banner.hidden = true; }, 4200);
+}
+function passMission(id, sub) {
+  const M = MISSIONS[id];
+  MIS.id = null; MIS.goal = null; MIS.busy = false; MIS.run++;
+  story()[id] = 1; delete story()[id + 'Cp']; writeSave();
+  sfx.win(); setTimeout(() => sfx.rush(), 350); playEmote(player, 'cheer');
+  banner('pass', LANG === 'sw' ? 'UMEFANIKIWA!' : 'MISSION PASSED', `${tl(M.title)}${sub ? ' · ' + sub : ''}`);
+  track('mission_pass', { id });
+  if (M.after) setTimeout(M.after, 5000);
+}
+function failMission(why) {
+  if (!MIS.id || MIS.failing) return;
+  const id = MIS.id;
+  MIS.failing = true; MIS.run++; MIS.goal = null; MIS.keys = null;
+  const finish = async () => {
+    if (SET.on) { await fade(true); SET.on = false; MUI.bars.hidden = true; if (mode === 'scene') { mode = 'play'; ui.hud.hidden = false; ui.tags.hidden = false; } applyLight(); await fade(false); }
+    document.querySelectorAll('#mis .m-vibe').forEach(e => e.remove());
+    MIS.id = null; MIS.failing = false; MIS.busy = false; sfx.miss();
+    track('mission_fail', { id, why: String(why || '').slice(0, 30) });
+    banner('fail', LANG === 'sw' ? 'UMESHINDWA' : 'MISSION FAILED', tl(why), [[LANG === 'sw' ? 'Jaribu tena' : 'Retry', () => startMission(id)], [LANG === 'sw' ? 'Baadaye' : 'Later', () => {}]]);
+  };
+  finish();
+}
+function quitMission() { if (MIS.id) failMission({ en: 'You left the mission. Start it again from the marker.', sw: 'Umeacha misheni. Ianze tena kwenye alama.' }); }
+
+/* ---------- the missions ---------- */
+const MISSIONS = {
+  summit: {
+    title: { en: 'The Summit', sw: 'Mkutano' },
+    open: () => !!state.ticket,
+    start: ZTAS_DOOR, startText: { en: 'Enter the Zanzibar Tech & AI Summit', sw: 'Ingia Mkutano wa Teknolojia na AI wa Zanzibar' },
+    hint: { en: 'The Zanzibar Tech & AI Summit is open beside the AfconCity Hotel. Walk in.', sw: 'Mkutano wa Teknolojia na AI wa Zanzibar uko wazi kando ya Hoteli ya AfconCity. Ingia.' },
+    async run(run) {
+      await sceneStart(run, 'summit', { asha: 'stand', me: 'stand', zuri: 'stand' });
+      await say(run, 's_a1', { shot: 'wide' }); await say(run, 's_a2'); await say(run, 's_a3', { shot: 'wide' });
+      shot('two', true); await misSleep(600); misAlive(run);
+      await say(run, 's_z1'); await say(run, 's_z2'); await say(run, 's_z3');
+      const c = await choose(run, LANG === 'sw' ? 'Zuri anakuuliza uwe mshirika wake.' : 'Zuri wants you as her co-founder.', [lineText('s_y1'), lineText('s_y2')]);
+      if (c === 0) await say(run, 's_y1'); else { await say(run, 's_y2'); await say(run, 's_z4'); await say(run, 's_y3'); }
+      await say(run, 's_z5'); await say(run, 's_z6');
+      await sceneEnd(run, { x: ZTAS_DOOR.x, z: ZTAS_DOOR.z + 2, ry: 0 });
+      passMission('summit', LANG === 'sw' ? 'Umepata mshirika: Zuri' : 'You have a co-founder: Zuri');
+    },
+    after: () => { phoneMsg('zuri', LANG === 'sw' ? 'Ni mimi Zuri! Siku ya Kuwasilisha imefika. Tukutane Kahawa Code, Uptown. Lete nguvu yako ya kompyuta ☕' : 'Zuri here! Pitch Day is on. Meet me at Kahawa Code in Uptown. Bring your laptop energy ☕'); },
+  },
+  pitch: {
+    title: { en: 'Pitch Day', sw: 'Siku ya Kuwasilisha' },
+    open: () => !!story().summit,
+    start: CAFE_DOOR, startText: { en: 'Start Pitch Day', sw: 'Anza Siku ya Kuwasilisha' },
+    hint: { en: 'Meet Zuri at Kahawa Code in Uptown and build the demo.', sw: 'Mkute Zuri Kahawa Code, Uptown, mtengeneze demo.' },
+    async run(run) {
+      const S = story();
+      if (S.pitchCp !== 'ride' && S.pitchCp !== 'board') {
+        await sceneStart(run, 'cafe', { zuri: 'type', me: 'sit' });
+        await say(run, 'p_z1', { shot: 'wide' }); await say(run, 'p_z2');
+        const ok = await vibeGame(run);
+        if (!ok) { failMission({ en: 'The demo was not ready in time.', sw: 'Demo haikuwa tayari kwa wakati.' }); return; }
+        await misSleep(1200); misAlive(run);
+        await say(run, 'p_z3', { shot: 'wide' });
+        S.pitchCp = 'ride'; writeSave();
+        await sceneEnd(run, { x: CAFE_DOOR.x, z: CAFE_DOOR.z + 1.5, ry: 0 });
+      }
+      if (S.pitchCp === 'ride') {
+        help(LANG === 'sw' ? 'Nenda <b class="hl">Burj Zanzibar</b> kabla ya muda kwisha. Panda boda au bajaji ukiweza!' : 'Get to <b class="hl">Burj Zanzibar</b> before the time runs out. Grab a boda or bajaji!', 6000);
+        await goTo(run, { x: BURJ_DOOR.x, z: BURJ_DOOR.z, r: 7, limit: 300, title: { en: 'Get to the pitch', sw: 'Wahi uwasilishaji' }, desc: { en: 'The investors are waiting at Burj Zanzibar.', sw: 'Wawekezaji wanasubiri Burj Zanzibar.' }, why: { en: 'You missed the pitch. The investors left.', sw: 'Umekosa uwasilishaji. Wawekezaji wameondoka.' } });
+        S.pitchCp = 'board'; writeSave();
+      }
+      await sceneStart(run, 'board', { fatma: 'sit', kwame: 'sit', elena: 'sit', me: 'stand', zuri: 'stand' });
+      await say(run, 'p_f1', { shot: 'wide' }); await say(run, 'p_z4', { shot: 'team' });
+      let score = 0;
+      const ask = async (q, a, b, good, bad) => {
+        await say(run, q);
+        const c = await choose(run, lineText(q), [lineText(a), lineText(b)]);
+        await say(run, c === 0 ? a : b);
+        await say(run, c === 0 ? good : bad);
+        if (c === 0) score++;
+      };
+      await ask('p_k1', 'p_k1a', 'p_k1b', 'p_k1g', 'p_k1n');
+      await ask('p_e1', 'p_e1a', 'p_e1b', 'p_e1g', 'p_e1n');
+      await ask('p_f2', 'p_f2a', 'p_f2b', 'p_f2g', 'p_f2n');
+      let amt = 6000000 + 2000000 * score;
+      await say(run, 'p_f3', { vars: { AMT: tsh(amt) } });
+      const c = await choose(run, LANG === 'sw' ? `Ofa: ${tsh(amt)} kwa asilimia 20.` : `Offer: ${tsh(amt)} for 20%.`, [lineText('p_y1'), lineText('p_y2')]);
+      if (c === 0) await say(run, 'p_y1');
+      else {
+        await say(run, 'p_y2');
+        if (score < 2) { await say(run, 'p_f5'); failMission({ en: 'The investors walked out. Try a better pitch.', sw: 'Wawekezaji wameondoka. Jaribu uwasilishaji bora.' }); return; }
+        await say(run, 'p_k2'); await say(run, 'p_e2');
+        amt = Math.round(amt * 1.25 / 500000) * 500000;
+        await say(run, 'p_f4', { vars: { AMT: tsh(amt) } });
+      }
+      for (const k of ['me', 'fatma', 'zuri', 'kwame', 'elena']) { const h = actorOf(k); if (h) playEmote(h, k === 'me' || k === 'fatma' ? 'hi5' : 'clap'); }
+      await say(run, 'p_f6', { shot: 'wide' }); await say(run, 'p_z5', { shot: 'team' });
+      await sceneEnd(run, { x: BURJ_DOOR.x, z: BURJ_DOOR.z - 2, ry: Math.PI });
+      foundStartup(amt, score);
+      passMission('pitch', (LANG === 'sw' ? 'Ufadhili: ' : 'Seed round: ') + tsh(amt));
+    },
+  },
+};
+const MISSION_ORDER = ['summit', 'pitch'];
+const nextMission = () => { for (const id of MISSION_ORDER) { const M = MISSIONS[id]; if (!story()[id] && M.open()) return id; } return null; };
+function startMission(id) {
+  const M = MISSIONS[id]; if (!M || MIS.id || !M.open()) return;
+  if (job) { help(LANG === 'sw' ? 'Maliza au acha kazi yako kwanza.' : 'Finish or drop your current job first.', 3000); return; }
+  MIS.id = id; MIS.run++; MIS.busy = true; const run = MIS.run;
+  track('mission_start', { id });
+  sfx.start();
+  M.run(run).catch((e) => { if (!(e instanceof MissionStop)) { console.error(e); failMission({ en: 'Something went wrong. Try again.', sw: 'Kuna tatizo. Jaribu tena.' }); } });
+}
+
+/* ---------- the startup you found on Pitch Day: a company account that pays you a founder salary ---------- */
+function foundStartup(amt, score) {
+  state.startup = { name: 'Daladala AI', raised: amt, cash: amt, stake: 80, score, day: clockDay(), paidDay: clockDay(), at: Date.now() };
+  phoneMsg('zuri', LANG === 'sw' ? `Pesa ziko kwenye akaunti ya kampuni: ${tsh(amt)}. Utapata mshahara wa mwanzilishi kila siku. Usiitumie yote kwenye mbuzi 🐐` : `The money is in the company account: ${tsh(amt)}. You get a founder salary every day. Do not spend it all on goats 🐐`);
+}
+
+/* ---------- every frame ---------- */
+function updateMissions(dt) {
+  // the summit opens once the VIP ticket is bought
+  const S = story();
+  if (state.ticket && !S.invited && mode === 'play') {
+    S.invited = 1; showMissionPlaces();
+    phoneMsg('ztas', LANG === 'sw' ? 'Umealikwa! Mkutano wa Teknolojia na AI wa Zanzibar umefunguliwa AfconCity, kando ya hoteli. Karibu kama mgeni wetu maalum.' : 'You are invited! The Zanzibar Tech & AI Summit is now open in AfconCity, beside the hotel. Come as our special guest.');
+  }
+  if (MIS_PLACES.ztas && MIS_PLACES.ztas.g.visible !== !!state.ticket) showMissionPlaces();
+  if (MIS.quitBtn) { const show = !!MIS.id && mode === 'play'; if (MIS.quitBtn.hidden === show) MIS.quitBtn.hidden = !show; }
+  if (!MIS.id) return;
+  if (mode === 'wasted' && !MIS.failing) { failMission({ en: 'You ended up at the clinic.', sw: 'Umeishia kliniki.' }); return; }
+  const g = MIS.goal;
+  if (g) {
+    if (g.limit && now() - g.t0 > g.limit) { const why = g.why; MIS.goal = null; failMission(why || { en: 'Out of time.', sw: 'Muda umekwisha.' }); return; }
+    if (mode === 'play' && Math.hypot(g.x - P.x, g.z - P.z) < g.r) { MIS.goal = null; if (g.run === MIS.run) g.res(); }
+  }
+}
+/* goal panel, radar target, markers and the start prompt */
+function missionGoal() {
+  if (MIS.goal) return { tag: LANG === 'sw' ? 'Misheni' : 'Mission', title: tl(MIS.goal.title), desc: tl(MIS.goal.desc) };
+  if (MIS.id) return { tag: LANG === 'sw' ? 'Misheni' : 'Mission', title: tl(MISSIONS[MIS.id].title), desc: '' };
+  const id = nextMission(); if (!id || job) return null;
+  return { tag: LANG === 'sw' ? 'Misheni mpya' : 'New mission', title: tl(MISSIONS[id].title), desc: tl(MISSIONS[id].hint) };
+}
+function missionTarget() { if (MIS.goal) return MIS.goal; if (MIS.id || job) return null; const id = nextMission(); return id ? MISSIONS[id].start : null; }
+function missionMarkers() { const t = missionTarget(); return t ? [{ x: t.x, z: t.z, y: 3.4, s: 1.3 }] : []; }
+function missionInteraction() {
+  if (MIS.id || playerVeh) return null;
+  const id = nextMission(); if (!id) return null;
+  const M = MISSIONS[id]; if (Math.hypot(M.start.x - P.x, M.start.z - P.z) > 4.5) return null;
+  return { text: tl(M.startText), act: () => startMission(id) };
+}
+function initMissions() {
+  buildMissionPlaces();
+  // a small Quit button on the goal card while a mission runs
+  const gc = ui.goalTitle && ui.goalTitle.closest('section');
+  if (gc) { const b = document.createElement('button'); b.type = 'button'; b.id = 'goalQuit'; b.className = 'goal-quit'; b.hidden = true; b.textContent = LANG === 'sw' ? 'Acha misheni' : 'Quit mission'; b.addEventListener('click', (e) => { e.stopPropagation(); quitMission(); }); gc.append(b); MIS.quitBtn = b; }
+  Object.assign(CONTACTS, { ztas: { name: 'ZTAS', col: '#1e9b57', ini: 'Z' }, zuri: { name: 'Zuri', col: '#19b5b1', ini: 'Zu' } });
+}
+/* ===================== 66 economy: businesses that earn while you are away, vehicles you own (fuel, repairs,
+   insurance), and the startup's founder salary ===================== */
+/* Prices follow 2026 Zanzibar rates: a 150 cc boda about TSh 2.95 million, a bajaji about TSh 9.8 million, petrol about
+   TSh 3,050 a litre. Businesses earn real time (also while the game is closed) up to a cap, so you come back to collect.
+   On afconcity.com the clock is checked against the server, so changing the phone's clock does not pay out. */
+const ECON = { off: 0, t: 0, emptyNag: 0 };
+const realNow = () => Date.now() + ECON.off;
+const BIZ = [
+  { id: 'madafu', name: { en: 'Madafu stand', sw: 'Kibanda cha madafu' }, where: { en: 'Usiku food market', sw: 'Soko la usiku' }, x: 205, z: 30, price: 1200000, perHour: 25000, cap: 8 },
+  { id: 'kahawa', name: { en: 'Kahawa cart', sw: 'Mkokoteni wa kahawa' }, where: { en: 'Stadium plaza', sw: 'Uwanja wa AfconCity' }, x: -975, z: -428, price: 2600000, perHour: 50000, cap: 8 },
+  { id: 'bar', name: { en: "Share in Mama Pwani's beach bar", sw: 'Hisa ya baa ya Mama Pwani' }, where: { en: 'The beach', sw: 'Ufukweni' }, x: BAR.x + 6, z: BAR.z - 7, price: 9500000, perHour: 160000, cap: 10 },
+  { id: 'guest', name: { en: 'Fumba guesthouse', sw: 'Nyumba ya wageni Fumba' }, where: { en: 'Fumba Town', sw: 'Mji wa Fumba' }, x: -1250, z: 110, price: 32000000, perHour: 480000, cap: 12 },
+];
+const bizState = () => { state.biz = state.biz && typeof state.biz === 'object' ? state.biz : {}; return state.biz; };
+function bizStash(b) {
+  const s = bizState()[b.id]; if (!s) return 0;
+  const t = realNow(); if (t < s.at) s.at = t; // a clock moved backwards earns nothing
+  return Math.floor(Math.min(b.cap, (t - s.at) / 3600000) * b.perHour);
+}
+const bizFullIn = (b) => { const s = bizState()[b.id]; if (!s) return 0; return Math.max(0, b.cap * 3600000 - (realNow() - s.at)); };
+function buyBiz(b) {
+  if (bizState()[b.id]) return;
+  if (!canPay(b.price)) { help(LANG === 'sw' ? `Unahitaji ${tsh(b.price)}.` : `You need ${tsh(b.price)}.`, 2400); sfx.deny(); return; }
+  spend(b.price, tl(b.name), 'spent');
+  bizState()[b.id] = { at: realNow(), since: realNow() };
+  sfx.win(); splash(LANG === 'sw' ? 'NI YAKO!' : 'IT IS YOURS!', LANG === 'sw' ? `${tl(b.name)} inaanza kuingiza pesa sasa` : `${tl(b.name)} starts earning now`, 'gold');
+  track('biz_buy', { id: b.id }); writeSave();
+}
+function collectBiz(b) {
+  const n = bizStash(b); if (n <= 0) { help(LANG === 'sw' ? 'Bado hakuna mapato. Rudi baadaye.' : 'Nothing to collect yet. Come back later.', 2200); return; }
+  bizState()[b.id].at = realNow(); earn(n, tl(b.name)); sfx.coin(2); writeSave();
+  help(LANG === 'sw' ? `Umekusanya <b class="hl">${tsh(n)}</b> kutoka ${escapeHtml(tl(b.name))}.` : `You collected <b class="hl">${tsh(n)}</b> from your ${escapeHtml(tl(b.name).toLowerCase())}.`, 3200);
+}
+
+/* ---------- vehicles you own ---------- */
+const DEALER = [
+  { kind: 'boda', name: { en: 'Boda boda · 150 cc', sw: 'Boda boda · cc 150' }, price: 2950000, tank: 12, lp100: 2.6, ins: 6000, rate: 3000 },
+  { kind: 'bajaji', name: { en: 'Bajaji · three-wheeler', sw: 'Bajaji · magurudumu matatu' }, price: 9800000, tank: 8, lp100: 3.8, ins: 12000, rate: 6000 },
+];
+const DEAL_BY_KIND = Object.fromEntries(DEALER.map(d => [d.kind, d]));
+const FUEL_PRICE = 3050, TOW_FEE = 40000;
+const GARAGE = { x: 600, z: -132, name: 'Fumba Fuel & Fundi' };
+const garage = () => { state.garage = Array.isArray(state.garage) ? state.garage : []; return state.garage; };
+const ownedVehs = [];
+function spawnOwned(g) {
+  const kind = g.kind, v = { kind, col: g.col, sx: g.x, sz: g.z, syaw: g.yaw || 0, x: g.x, z: g.z, yaw: g.yaw || 0, vx: 0, vz: 0, vf: 0, steer: 0, hp: g.hp, rented: true, owned: true, g, stand: { name: GARAGE.name }, m: makeVehicle(kind, g.col), idle: 0, wreck: g.towed ? 1 : 0, roll: 0, lean: 0 };
+  v.m.position.set(v.x, 0.04, v.z); v.m.rotation.y = v.yaw; scene.add(v.m); v.m.visible = !g.towed;
+  v.col1 = addCircle(v.x, v.z, kind === 'boda' ? 0.6 : 0.9, 'veh'); v.col1.on = !g.towed;
+  rentals.push(v); ownedVehs.push(v); return v;
+}
+function parkSpot(i) { return { x: GARAGE.x - 6 + (i % 4) * 3.2, z: GARAGE.z + 9, yaw: Math.PI }; }
+function buyVehicle(d) {
+  if (garage().length >= 3) { help(LANG === 'sw' ? 'Gereji yako imejaa (magari 3).' : 'Your garage is full (3 vehicles).', 2400); return; }
+  if (!canPay(d.price)) { help(LANG === 'sw' ? `Unahitaji ${tsh(d.price)}.` : `You need ${tsh(d.price)}.`, 2400); sfx.deny(); return; }
+  spend(d.price, tl(d.name), 'spent');
+  const cols = d.kind === 'boda' ? BODA_COLS : BAJAJI_COLS, sp = parkSpot(garage().length);
+  const g = { kind: d.kind, col: cols[garage().length % cols.length], fuel: d.tank, hp: 100, x: sp.x, z: sp.z, yaw: sp.yaw, at: realNow() };
+  garage().push(g); spawnOwned(g); writeSave();
+  sfx.win(); closePhone();
+  splash(LANG === 'sw' ? 'GARI JIPYA!' : 'NEW WHEELS!', LANG === 'sw' ? `Chukua ${tl(d.name).toLowerCase()} yako ${GARAGE.name}` : `Pick up your ${tl(d.name).toLowerCase()} at ${GARAGE.name}`, 'gold');
+  setWaypoint(sp.x, sp.z, GARAGE.name); track('veh_buy', { kind: d.kind });
+}
+function vehOnExit(v) { if (!v || !v.owned) return; Object.assign(v.g, { x: v.x, z: v.z, yaw: v.yaw, hp: v.hp, fuel: v.g.fuel }); v.sx = v.x; v.sz = v.z; v.syaw = v.yaw; writeSave(); }
+function vehWrecked(v) {
+  v.g.towed = 1; v.g.hp = 0; const sp = parkSpot(ownedVehs.indexOf(v)); Object.assign(v.g, sp);
+  splash(LANG === 'sw' ? 'IMEHARIBIKA!' : 'WRECKED!', LANG === 'sw' ? `Imevutwa hadi ${GARAGE.name}. Ada ya kuvuta ${tsh(TOW_FEE)}.` : `Towed to ${GARAGE.name}. Tow fee ${tsh(TOW_FEE)}.`, 'bad');
+  spend(Math.min(money(), TOW_FEE), 'Tow truck', 'lost'); writeSave();
+}
+const repairCost = (v) => Math.round((100 - v.hp) * DEAL_BY_KIND[v.kind].rate / 500) * 500;
+function vehStatus(v) { const d = DEAL_BY_KIND[v.kind]; return `${LANG === 'sw' ? 'Mafuta' : 'Fuel'} ${v.g.fuel.toFixed(1)} / ${d.tank} L · ${LANG === 'sw' ? 'Hali' : 'Condition'} ${Math.round(v.g.towed ? 0 : v.hp)}%`; }
+function openGarage() {
+  const near = ownedVehs.filter(v => v === playerVeh || Math.hypot(v.x - GARAGE.x, v.z - GARAGE.z) < 22 || v.g.towed), items = [];
+  for (const v of near) {
+    const d = DEAL_BY_KIND[v.kind], need = d.tank - v.g.fuel, fc = Math.round(need * FUEL_PRICE / 50) * 50, nm = tl(d.name);
+    if (need > 0.2) items.push({ label: `${LANG === 'sw' ? 'Jaza mafuta' : 'Fill up'} · ${nm}`, desc: `${need.toFixed(1)} L × ${tsh(FUEL_PRICE)}`, price: fc, act: () => { v.g.fuel = d.tank; sfx.ding(); writeSave(); } });
+    const rc = v.g.towed ? Math.round(100 * d.rate / 500) * 500 : repairCost(v);
+    if (rc > 0) items.push({ label: `${v.g.towed ? (LANG === 'sw' ? 'Tengeneza na urudishe' : 'Rebuild and return') : (LANG === 'sw' ? 'Tengeneza' : 'Repair')} · ${nm}`, desc: v.g.towed ? (LANG === 'sw' ? 'Ilivutwa hapa baada ya ajali' : 'Towed here after a crash') : `${LANG === 'sw' ? 'Hali' : 'Condition'} ${Math.round(v.hp)}%`, price: rc, act: () => { v.hp = 100; v.g.hp = 100; if (v.g.towed) { v.g.towed = 0; v.wreck = 0; v.m.visible = true; v.col1.on = true; v.x = v.g.x; v.z = v.g.z; v.yaw = v.g.yaw; v.m.position.set(v.x, 0.04, v.z); v.m.rotation.set(0, v.yaw, 0); moveVehCollider(v); } sfx.ding(); writeSave(); } });
+    if (v !== playerVeh && !v.g.towed) items.push({ label: `${LANG === 'sw' ? 'Uza' : 'Sell'} · ${nm}`, desc: LANG === 'sw' ? 'Fundi ananunua kwa asilimia 60 ya bei' : 'The fundi buys it back for 60% of the price', price: LANG === 'sw' ? `+${tsh(Math.round(d.price * 0.6 * v.hp / 100 / 1000) * 1000)}` : `+${tsh(Math.round(d.price * 0.6 * v.hp / 100 / 1000) * 1000)}`, act: () => sellVehicle(v) });
+  }
+  openMenu({ eyebrow: LANG === 'sw' ? 'Mafuta na fundi' : 'Fuel and repairs', title: GARAGE.name, lede: items.length ? (LANG === 'sw' ? `Petroli ${tsh(FUEL_PRICE)} kwa lita. Leta gari lako karibu.` : `Petrol ${tsh(FUEL_PRICE)} a litre. Bring your own vehicle close.`) : (LANG === 'sw' ? 'Huna gari hapa. Nunua boda au bajaji kwenye simu (Magari).' : 'No vehicle of yours here. Buy a boda or bajaji on your phone (Magari).'), items });
+}
+function sellVehicle(v) {
+  const d = DEAL_BY_KIND[v.kind], n = Math.round(d.price * 0.6 * v.hp / 100 / 1000) * 1000;
+  earn(n, LANG === 'sw' ? 'Mauzo ya gari' : 'Vehicle sold');
+  scene.remove(v.m); v.col1.on = false; rentals.splice(rentals.indexOf(v), 1); ownedVehs.splice(ownedVehs.indexOf(v), 1); garage().splice(garage().indexOf(v.g), 1);
+  writeSave();
+}
+function garageInteraction() { return Math.hypot(GARAGE.x - P.x, GARAGE.z - (P.z)) < (playerVeh ? 9 : 6) ? { text: LANG === 'sw' ? `${GARAGE.name} · mafuta na fundi` : `${GARAGE.name} · fuel and repairs`, act: openGarage } : null; }
+function bizInteraction() {
+  for (const b of BIZ) {
+    if (Math.hypot(b.x - P.x, b.z - P.z) > 3.5) continue;
+    if (!bizState()[b.id]) return state.done ? { text: `${LANG === 'sw' ? 'Nunua' : 'Buy the'} ${tl(b.name).toLowerCase()} · ${tsh(b.price)}`, act: () => buyBiz(b) } : null;
+    const n = bizStash(b); return { text: n > 0 ? `${LANG === 'sw' ? 'Kusanya' : 'Collect'} ${tsh(n)}` : `${tl(b.name)} · ${LANG === 'sw' ? 'inaingiza pesa' : 'earning'}`, act: () => collectBiz(b) };
+  }
+  return null;
+}
+function buildEconomyPlaces() {
+  const g = new T.Group(), G2 = GARAGE;
+  const shop = meshOf(new T.BoxGeometry(10, 4, 6), new T.MeshStandardMaterial({ color: C(0xe9e4da), roughness: 0.85 }), true); shop.position.set(G2.x, 2, G2.z - 4); g.add(shop);
+  const canopy = meshOf(new T.BoxGeometry(12, 0.4, 7), new T.MeshStandardMaterial({ color: C(0x1e9b57), roughness: 0.6 }), true); canopy.position.set(G2.x, 4.6, G2.z + 3.5); g.add(canopy);
+  for (const s of [-1, 1]) { const col = meshOf(new T.CylinderGeometry(0.18, 0.18, 4.4, 8), M(0xd8dce2), true); col.position.set(G2.x + s * 5, 2.2, G2.z + 5.5); g.add(col); }
+  for (const s of [-1, 1]) { const pump = meshOf(roundedBox(0.8, 1.6, 0.5, 0.08, 1), new T.MeshStandardMaterial({ color: C(0xf3b41b), roughness: 0.5 }), true); pump.position.set(G2.x + s * 2, 0.8, G2.z + 3.5); g.add(pump); }
+  const sign = signMesh('FUMBA FUEL & FUNDI', 9, 1, { bg: '#141838' }); sign.position.set(G2.x, 4.6, G2.z + 7.02); g.add(sign);
+  scene.add(g); addObb(G2.x, G2.z - 4, 10, 6, 0);
+  for (const s of [-1, 1]) addCircle(G2.x + s * 2, G2.z + 3.5, 0.5, 'small');
+  // business spots: a little stall or sign at each (the bar and guesthouse use a sign board)
+  for (const b of BIZ) {
+    const bg = new T.Group(); bg.position.set(b.x, 0, b.z);
+    if (b.id === 'madafu' || b.id === 'kahawa') {
+      bg.add(at(meshOf(roundedBox(1.6, 0.9, 0.8, 0.06, 1), new T.MeshStandardMaterial({ color: C(b.id === 'madafu' ? 0x2e7d3a : 0x7a3b1e), roughness: 0.7 }), true), 0, 0.45, 0));
+      bg.add(at(meshOf(new T.BoxGeometry(1.9, 0.06, 1.1), new T.MeshStandardMaterial({ color: C(0xf3b41b), roughness: 0.6 }), true), 0, 1.9, 0));
+      for (const s of [-1, 1]) bg.add(at(meshOf(new T.CylinderGeometry(0.03, 0.03, 1.0, 6), M(0xd8dce2), true), s * 0.85, 1.4, 0.45));
+      if (b.id === 'madafu') for (let i = 0; i < 5; i++) bg.add(at(meshOf(new T.SphereGeometry(0.14, 8, 6), new T.MeshStandardMaterial({ color: C(0x5a8a2a), roughness: 0.8 }), true), -0.5 + i * 0.25, 0.98, 0));
+      addCircle(b.x, b.z, 0.9, 'small');
+    }
+    const sg = signMesh(tl(b.name).toUpperCase(), 3.4, 0.6, { bg: '#232a63' }); sg.position.set(0, b.id === 'madafu' || b.id === 'kahawa' ? 2.3 : 2.4, 0.56); bg.add(sg);
+    if (b.id === 'bar' || b.id === 'guest') { bg.add(at(meshOf(new T.CylinderGeometry(0.05, 0.05, 2.4, 6), M(0x5a3620), true), 0, 1.2, 0.5)); }
+    scene.add(bg);
+  }
+}
+
+/* ---------- the startup: a company account that pays a founder salary each game day ---------- */
+const STARTUP = { salary: 50000, burn: 85000, revBase: 12000 };
+function startupDay() {
+  const st = state.startup; if (!st || st.paidDay === undefined) return;
+  const d = clockDay(); if (d <= st.paidDay) return;
+  const days = Math.min(7, d - st.paidDay); st.paidDay = d;
+  for (let i = 0; i < days; i++) {
+    st.age = (st.age || 0) + 1;
+    const rev = Math.round(STARTUP.revBase * (1 + (st.score || 0)) * (1 + st.age * 0.04) / 500) * 500;
+    st.cash += rev - STARTUP.burn; st.rev = rev;
+    if (st.cash >= STARTUP.salary) { st.cash -= STARTUP.salary; state.bank = (state.bank || 0) + STARTUP.salary; state.stats.earned += STARTUP.salary; moneyDelta(STARTUP.salary, `${st.name} salary · Pesa`); }
+    else if (!st.broke) { st.broke = 1; phoneMsg('zuri', LANG === 'sw' ? 'Habari mbaya: akaunti ya kampuni karibu kuisha. Tunahitaji mzunguko mwingine wa uwekezaji hivi karibuni.' : 'Bad news: the company account is nearly empty. We need another funding round soon.'); }
+  }
+  writeSave();
+}
+const runwayDays = () => { const st = state.startup; if (!st) return 0; const net = STARTUP.burn + STARTUP.salary - (st.rev || STARTUP.revBase * (1 + (st.score || 0))); return net > 0 ? Math.floor(st.cash / net) : 999; };
+
+/* ---------- weekly insurance on owned vehicles (charged with the rent day) ---------- */
+function insuranceWeek() {
+  const wk = Math.floor(clockDay() / 7); if (state.insWk === undefined) { state.insWk = wk; return; }
+  if (wk <= state.insWk) return; state.insWk = wk;
+  let n = 0; for (const v of ownedVehs) n += DEAL_BY_KIND[v.kind].ins;
+  if (n > 0) { spend(Math.min(money(), n), LANG === 'sw' ? 'Bima ya magari' : 'Vehicle insurance', 'spent'); phoneMsg('pesa', LANG === 'sw' ? `Bima ya wiki ya magari yako: ${tsh(n)}.` : `Weekly insurance for your vehicles: ${tsh(n)}.`); }
+}
+
+/* ---------- every frame ---------- */
+function updateEconomy(dt) {
+  // fuel: the owned vehicle you drive burns petrol by distance; an empty tank only crawls
+  const v = playerVeh;
+  if (v && v.owned && mode === 'play') {
+    const d = DEAL_BY_KIND[v.kind];
+    v.g.fuel = Math.max(0, v.g.fuel - Math.abs(v.vf) * dt * d.lp100 / 100000);
+    if (v.g.fuel <= 0) {
+      const sp = Math.hypot(v.vx, v.vz); if (sp > 2.2) { v.vx *= 2.2 / sp; v.vz *= 2.2 / sp; }
+      if (now() - ECON.emptyNag > 20) { ECON.emptyNag = now(); help(LANG === 'sw' ? `Mafuta yamekwisha! Sukuma hadi <b class="hl">${GARAGE.name}</b>.` : `Out of fuel! Push it to <b class="hl">${GARAGE.name}</b>.`, 4000); }
+    }
+  }
+  ECON.t += dt; if (ECON.t < 1) return; ECON.t = 0;
+  if (mode === 'play') { startupDay(); insuranceWeek(); }
+}
+/* the owned vehicles on the map always match the save (a new game, or a save loaded from another phone) */
+function resyncOwned() {
+  for (const v of ownedVehs.splice(0)) { scene.remove(v.m); v.col1.on = false; const i = rentals.indexOf(v); if (i >= 0) rentals.splice(i, 1); }
+  for (const g of garage()) spawnOwned(g);
+}
+function initEconomy() {
+  buildEconomyPlaces();
+  resyncOwned();
+  APPS.splice(4, 0, { id: 'biz', sw: 'Biashara', en: 'Business', col: '#b8650a', ico: 'bag' }, { id: 'garage', sw: 'Magari', en: 'Vehicles', col: '#2b5db8', ico: 'moto' });
+  // on afconcity.com: the server's clock, so business earnings cannot be fast-forwarded on the phone
+  if (MP.web && typeof SB_CFG !== 'undefined') {
+    fetch(SB_CFG.url + '/auth/v1/health', { headers: { apikey: SB_CFG.key }, cache: 'no-store' }).then(r => { const d = Date.parse(r.headers.get('date') || ''); if (isFinite(d)) ECON.off = d - Date.now(); }).catch(() => {});
+  }
+}
+/* ---------- phone apps ---------- */
+Object.assign(PHONE_APPS, {
+  biz: (s) => {
+    phHead(s, 'Biashara', LANG === 'sw' ? 'Biashara zako' : 'Your businesses');
+    const st = state.startup;
+    if (st) {
+      const c = phEl('div', 'ph-card'); c.append(phEl('small', '', LANG === 'sw' ? 'Kampuni yako' : 'Your company'), phEl('b', '', `${st.name} · ${st.stake}%`));
+      c.append(phEl('p', 'ph-note', LANG === 'sw' ? `Akaunti ya kampuni ${tsh(st.cash)} · mshahara ${tsh(STARTUP.salary)} kwa siku · siku ${runwayDays()} zimebaki` : `Company account ${tsh(st.cash)} · salary ${tsh(STARTUP.salary)} a day · ${runwayDays()} days of runway`));
+      s.append(c);
+    }
+    for (const b of BIZ) {
+      const own = bizState()[b.id], d = Math.hypot(b.x - P.x, b.z - P.z), dist = d > 950 ? (d / 1000).toFixed(1) + ' km' : Math.round(d) + ' m';
+      const sub = own ? `${LANG === 'sw' ? 'Ya kukusanya' : 'Ready'} ${tsh(bizStash(b))} · ${bizFullIn(b) > 0 ? (LANG === 'sw' ? `itajaa baada ya saa ${(bizFullIn(b) / 3600000).toFixed(1)}` : `full in ${(bizFullIn(b) / 3600000).toFixed(1)} h`) : (LANG === 'sw' ? 'imejaa: kusanya!' : 'full: collect it!')} · ${dist}`
+        : `${tsh(b.price)} · ${LANG === 'sw' ? 'inaingiza' : 'earns'} ${tsh(b.perHour)}/${LANG === 'sw' ? 'saa' : 'h'} · ${tl(b.where)} · ${dist}`;
+      phRow(s, tl(b.name), sub, phBtn('GPS', 'ph-btn sm', () => setWaypoint(b.x, b.z, tl(b.name))));
+    }
+    s.append(phEl('p', 'ph-note', state.done ? (LANG === 'sw' ? 'Biashara zinaingiza pesa hata mchezo ukiwa umefungwa, hadi zijae. Nenda pale kukusanya.' : 'Businesses earn even while the game is closed, until they are full. Go there to collect.') : (LANG === 'sw' ? 'Biashara zinafunguliwa baada ya kuona mechi ya AFCON.' : 'Businesses open up after you watch the AFCON match.')));
+  },
+  garage: (s) => {
+    phHead(s, 'Magari', LANG === 'sw' ? 'Magari yako' : 'Your vehicles');
+    if (!ownedVehs.length) s.append(phEl('p', 'ph-note', LANG === 'sw' ? 'Bado huna gari. Kukodisha ni kwa siku; ukinunua ni lako, unalipia mafuta, matengenezo na bima.' : 'No vehicle yet. Hiring is by the day; buy one and it is yours. You pay for fuel, repairs and insurance.'));
+    for (const v of ownedVehs) phRow(s, tl(DEAL_BY_KIND[v.kind].name), v.g.towed ? (LANG === 'sw' ? `Iko ${GARAGE.name}: inahitaji matengenezo` : `At ${GARAGE.name}: needs a rebuild`) : vehStatus(v), phBtn('GPS', 'ph-btn sm', () => setWaypoint(v.g.towed ? GARAGE.x : v.x, v.g.towed ? GARAGE.z : v.z, tl(DEAL_BY_KIND[v.kind].name))));
+    s.append(phEl('p', 'ph-sec', LANG === 'sw' ? 'Nunua · inachukuliwa ' + GARAGE.name : 'Buy · pick up at ' + GARAGE.name));
+    for (const d of DEALER) phRow(s, tl(d.name), `${tsh(d.price)} · ${d.tank} L · ${LANG === 'sw' ? 'bima' : 'insurance'} ${tsh(d.ins)}/${LANG === 'sw' ? 'wiki' : 'week'}`, phBtn(LANG === 'sw' ? 'Nunua' : 'Buy', 'ph-btn sm', () => buyVehicle(d)));
+    s.append(phEl('p', 'ph-note', LANG === 'sw' ? `Petroli ${tsh(FUEL_PRICE)} kwa lita. Ajali ikiharibu gari lako, linavutwa ${GARAGE.name} (${tsh(TOW_FEE)}).` : `Petrol ${tsh(FUEL_PRICE)} a litre. If a crash wrecks your vehicle, it is towed to ${GARAGE.name} (${tsh(TOW_FEE)}).`));
+  },
+});
+/* ---------- Nyota: premium stars, bought with Bachs on afconcity.com ----------
+   The balance lives on the server (wallets table). The game only shows it and asks the server to spend it,
+   so nothing changed on the phone can add Nyota. Shillings (TSh) are earned by playing and can never be bought.
+   Players who said they are under 18 see no shop. */
+const NY = { bal: 0, owned: {}, items: [], packs: [], loaded: false, busy: false, err: '', fxT: 0, fxCool: 0, wait: null, tagOn: true };
+const NY_ITEM = {
+  paint_gold: { en: 'Gold paint', sw: 'Rangi ya dhahabu', d: { en: 'For every vehicle you own', sw: 'Kwa magari yako yote' }, col: 0xd4a52a },
+  paint_pearl: { en: 'Pearl white paint', sw: 'Rangi nyeupe ya lulu', d: { en: 'For every vehicle you own', sw: 'Kwa magari yako yote' }, col: 0xf1ece2 },
+  paint_neon: { en: 'Neon green paint', sw: 'Rangi ya kijani ya neon', d: { en: 'For every vehicle you own', sw: 'Kwa magari yako yote' }, col: 0x2fe39a },
+  tag_gold: { en: 'Golden name tag', sw: 'Jina la dhahabu', d: { en: 'Other players see your name in gold', sw: 'Wachezaji wengine wanaona jina lako kwa dhahabu' } },
+  fx_fireworks: { en: 'Fireworks', sw: 'Fataki', d: { en: 'Light up the sky over you, once a minute', sw: 'Washa anga juu yako, mara moja kwa dakika' } },
+  pass_collect: { en: 'Business pass · 7 days', sw: 'Pasi ya biashara · siku 7', d: { en: 'Collect your businesses from the phone', sw: 'Kusanya mapato ya biashara kwa simu' } },
+};
+const nyOk = () => MP.web && typeof SB_CFG !== 'undefined' && !isTeen();
+const nyHas = (id) => { const u = NY.owned[id]; return u !== undefined && (u === null || u > Date.now()); };
+const nyGold = () => nyOk() && NY.tagOn && nyHas('tag_gold');
+const nyName = (id, fallback) => NY_ITEM[id] ? tl(NY_ITEM[id]) : fallback || id;
+const fmtNy = (n) => `${fmt(n)} Nyota`;
+function nyApply(d) {
+  if (!d || typeof d !== 'object') return;
+  NY.bal = Math.max(0, Math.floor(Number(d.nyota) || 0));
+  NY.owned = {}; for (const o of d.owned || []) NY.owned[o.item] = o.until ? Date.parse(o.until) : null;
+  NY.items = Array.isArray(d.items) ? d.items : []; NY.packs = Array.isArray(d.packs) ? d.packs : [];
+  NY.loaded = true; NY.err = '';
+  nyEffects();
+}
+async function nyLoad() {
+  if (!nyOk()) return;
+  try {
+    if (WEB.ready) await WEB.ready; if (!WEB.sb || !WEB.uid) return;
+    const { data, error } = await WEB.sb.rpc('nyota_state');
+    if (error) throw error; nyApply(data);
+  } catch (e) { NY.err = LANG === 'sw' ? 'Nyota hazikupatikana sasa hivi.' : 'Could not reach the Nyota shop just now.'; }
+  if (PH.open && PH.app === 'nyota') renderPhone();
+}
+async function nyFn(path, body) {
+  if (WEB.ready) await WEB.ready;
+  const r = await fetch(`${SB_CFG.url}/functions/v1/bachs/${path}`, { method: body ? 'POST' : 'GET', headers: Object.assign({ apikey: SB_CFG.key, authorization: 'Bearer ' + (WEB.token || '') }, body ? { 'content-type': 'application/json' } : {}), body: body ? JSON.stringify(body) : undefined, cache: 'no-store' });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || (LANG === 'sw' ? 'Kuna tatizo. Jaribu tena.' : 'Something went wrong. Please try again.'));
+  return j;
+}
+const nyGo = (url) => { if (DEV && window.__nyGo) window.__nyGo(url); else location.assign(url); };
+
+/* ---------- buying Nyota (a top-up) ---------- */
+async function nyTopup(pack, form) {
+  if (NY.busy) return;
+  const email = form.email.value.trim(), name = form.name.value.trim(), adult = form.adult.checked;
+  const out = form.querySelector('.ph-note.err');
+  const say = (t) => { out.textContent = t; out.hidden = !t; };
+  if (!adult) { say(LANG === 'sw' ? 'Nyota ni kwa watu wenye miaka 18 au zaidi.' : 'Nyota are for players aged 18 and over.'); return; }
+  NY.busy = true; say(''); form.querySelector('button[type=submit]').disabled = true;
+  try {
+    const j = await nyFn('topup', { pack: pack.id, email, name, adult: true });
+    lsSet('afc-topup', j.id);
+    writeSave(); try { await cloudSync(true); } catch (e) {}
+    track('nyota_checkout', { pack: pack.id });
+    nyGo(j.url);
+  } catch (e) { say(e.message); form.querySelector('button[type=submit]').disabled = false; }
+  NY.busy = false;
+}
+// back from the Bachs payment page: ?topup=<id> (and &cancelled=1 if they backed out)
+function nyReturnFromUrl() {
+  const q = new URLSearchParams(location.search), id = q.get('topup');
+  if (!id) return;
+  if (q.get('cancelled')) { lsSet('afc-topup', ''); NY.cancelled = true; } else if (/^[0-9a-f-]{36}$/i.test(id)) lsSet('afc-topup', id);
+  q.delete('topup'); q.delete('cancelled');
+  try { history.replaceState(null, '', location.pathname + (q.toString() ? '?' + q : '') + location.hash); } catch (e) {}
+}
+async function nyWatchTopup() {
+  const id = lsGet('afc-topup'); if (!id || NY.wait || !nyOk()) return;
+  NY.wait = id; const t0 = Date.now();
+  while (Date.now() - t0 < 10 * 60000) {
+    let j = null; try { j = await nyFn('topup-status?id=' + encodeURIComponent(id)); } catch (e) { if (/Unknown/.test(e.message)) break; }
+    if (j && j.status === 'paid') {
+      lsSet('afc-topup', ''); NY.wait = null; await nyLoad();
+      sfx.win(); splash(`+${fmt(j.nyota)} NYOTA`, LANG === 'sw' ? 'Malipo yamefika. Asante!' : 'Payment received. Thank you!', 'gold');
+      track('nyota_paid', { n: j.nyota }); return;
+    }
+    if (j && (j.status === 'cancelled' || j.status === 'refunded')) break;
+    await new Promise(r => setTimeout(r, Date.now() - t0 < 60000 ? 3000 : 15000));
+  }
+  if (lsGet('afc-topup') === id) lsSet('afc-topup', '');
+  NY.wait = null;
+}
+
+/* ---------- spending Nyota ---------- */
+async function nyBuy(it) {
+  if (NY.busy) return;
+  if (NY.bal < it.price) { help(LANG === 'sw' ? `Unahitaji ${fmtNy(it.price)}. Ongeza Nyota kwanza.` : `You need ${fmtNy(it.price)}. Top up first.`, 2600); sfx.deny(); return; }
+  NY.busy = true;
+  try {
+    const { data, error } = await WEB.sb.rpc('nyota_buy', { p_item: it.id });
+    if (error) throw error;
+    nyApply(data); sfx.win(); track('nyota_buy', { item: it.id });
+    help(LANG === 'sw' ? `Umepata <b class="hl">${escapeHtml(nyName(it.id, it.name))}</b>.` : `You got the <b class="hl">${escapeHtml(nyName(it.id, it.name).toLowerCase())}</b>.`, 3000);
+  } catch (e) { help(escapeHtml((e && e.message) || 'Could not buy that.'), 2800); sfx.deny(); }
+  NY.busy = false;
+  if (PH.open) renderPhone();
+}
+
+/* ---------- what the items do ---------- */
+function nyEffects() {
+  if (playerTag) playerTag.nm.classList.toggle('gold', nyGold());
+  mpDirty = true;
+}
+function nyPaint(v, col) {
+  if (!v || !v.owned || playerVeh === v) { help(LANG === 'sw' ? 'Shuka kwanza, kisha upake rangi.' : 'Get off first, then paint it.', 2200); return; }
+  v.g.col = v.col = col;
+  const m = makeVehicle(v.kind, col); m.position.copy(v.m.position); m.rotation.copy(v.m.rotation); m.visible = v.m.visible;
+  scene.remove(v.m); v.m = m; scene.add(m); writeSave(); sfx.ding();
+  help(LANG === 'sw' ? 'Rangi mpya!' : 'Fresh paint!', 1800);
+  if (PH.open) renderPhone();
+}
+function nyBurst(x, z) {
+  if (!FW.pos) return;
+  const cx = x + rr(-12, 12), cy = rr(32, 50), cz = z + rr(-12, 12), col = FW_COLS[Math.floor(rnd() * FW_COLS.length)];
+  for (let k = 0; k < 70; k++) { const i = FW.cursor++ % FW.n, u = rnd() * 2 - 1, th = rnd() * TAU, s = Math.sqrt(1 - u * u), sp = rr(10, 15); FW.pos[i * 3] = cx; FW.pos[i * 3 + 1] = cy; FW.pos[i * 3 + 2] = cz; FW.vel[i * 3] = s * Math.cos(th) * sp; FW.vel[i * 3 + 1] = u * sp; FW.vel[i * 3 + 2] = s * Math.sin(th) * sp; FW.base[i * 3] = col[0]; FW.base[i * 3 + 1] = col[1]; FW.base[i * 3 + 2] = col[2]; FW.max[i] = FW.life[i] = rr(1.3, 2); }
+  if (Math.hypot(x - P.x, z - P.z) < 120) sfx.boom();
+}
+function nyShow(x, z) { for (let k = 0; k < 5; k++) setTimeout(() => nyBurst(x, z), k * 450); }
+function nyFireworks() {
+  if (!nyHas('fx_fireworks')) return;
+  if (Date.now() < NY.fxCool) { help(LANG === 'sw' ? `Subiri sekunde ${Math.ceil((NY.fxCool - Date.now()) / 1000)}.` : `Wait ${Math.ceil((NY.fxCool - Date.now()) / 1000)} s.`, 1600); return; }
+  NY.fxCool = Date.now() + 60000; NY.fxT = Date.now(); mpDirty = true;
+  closePhone(); nyShow(P.x, P.z); track('nyota_fx');
+}
+// remote players' presence: golden name and fireworks
+function nyRemote(r, pr) {
+  r.tag.nm.classList.toggle('gold', !!pr.gt);
+  const fx = numOr(pr.fx, 0);
+  if (fx && fx !== r.fx) { const fresh = r.fx !== undefined && Math.abs(Date.now() - fx) < 15000; r.fx = fx; if (fresh) nyShow(r.cx, r.cz); } else if (r.fx === undefined) r.fx = fx;
+}
+
+/* ---------- the phone app ---------- */
+function nyAppHome(s) {
+  phHead(s, 'Nyota', LANG === 'sw' ? 'Nyota na vitu maalum' : 'Stars and special items');
+  if (!MP.web || typeof SB_CFG === 'undefined') { s.append(phEl('p', 'ph-note', LANG === 'sw' ? 'Duka la Nyota liko kwenye afconcity.com.' : 'The Nyota shop is on afconcity.com.')); return; }
+  if (isTeen()) { s.append(phEl('p', 'ph-note', LANG === 'sw' ? 'Duka la Nyota ni kwa watu wenye miaka 18 au zaidi. Kila kitu kingine kwenye mchezo kinapatikana kwa pesa unazopata ukicheza.' : 'The Nyota shop is for players aged 18 and over. Everything else in the game is yours to earn by playing.')); return; }
+  if (!NY.loaded) { s.append(phEl('p', 'ph-note', NY.err || (LANG === 'sw' ? 'Inafungua…' : 'Opening…'))); if (!NY.err) nyLoad(); return; }
+  const c = phEl('div', 'ph-card ny-bal'); c.append(phEl('small', '', LANG === 'sw' ? 'Nyota zako' : 'Your Nyota'), phEl('b', '', `★ ${fmt(NY.bal)}`));
+  if (NY.wait) c.append(phEl('p', 'ph-note', LANG === 'sw' ? 'Tunasubiri malipo yako kuthibitishwa…' : 'Waiting for your payment to be confirmed…'));
+  c.append(phBtn(LANG === 'sw' ? 'Ongeza Nyota' : 'Top up', 'ph-btn', () => phoneGo('nyota', 'packs'))); s.append(c);
+  if (NY.cancelled) { s.append(phEl('p', 'ph-note', LANG === 'sw' ? 'Malipo yalisitishwa. Hakuna kilichotozwa.' : 'The payment was cancelled. Nothing was charged.')); NY.cancelled = false; }
+  s.append(phEl('p', 'ph-sec', LANG === 'sw' ? 'Duka' : 'Shop'));
+  for (const it of NY.items) {
+    const has = nyHas(it.id), timed = it.days != null;
+    const sub = `${tl(NY_ITEM[it.id] ? NY_ITEM[it.id].d : { en: '', sw: '' })}${has && timed ? ` · ${LANG === 'sw' ? 'inaisha' : 'until'} ${new Date(NY.owned[it.id]).toLocaleDateString()}` : ''}`;
+    const btn = has && !timed ? (it.id === 'fx_fireworks' ? phBtn(LANG === 'sw' ? 'Washa' : 'Launch', 'ph-btn sm', nyFireworks) : it.id === 'tag_gold' ? phBtn(NY.tagOn ? (LANG === 'sw' ? 'Zima' : 'Turn off') : (LANG === 'sw' ? 'Washa' : 'Turn on'), 'ph-btn sm ghost', () => { NY.tagOn = !NY.tagOn; lsSet('afc-ny-tag', NY.tagOn ? '' : 'off'); nyEffects(); renderPhone(); }) : phEl('span', 'ph-chip', LANG === 'sw' ? 'Unayo' : 'Owned'))
+      : phBtn(`★ ${fmt(it.price)}`, 'ph-btn sm', () => nyBuy(it));
+    phRow(s, nyName(it.id, it.name), sub, btn);
+  }
+  if (nyHas('pass_collect') && Object.keys(bizState()).length) s.append(phBtn(LANG === 'sw' ? 'Kusanya biashara zote' : 'Collect all businesses', 'ph-btn ghost', () => { nyCollectAll(); renderPhone(); }));
+  s.append(phEl('p', 'ph-fine', LANG === 'sw' ? 'Nyota hazina thamani ya pesa, haziwezi kubadilishwa kuwa pesa wala kuhamishiwa mtu mwingine. Shilingi za mchezo zinapatikana kwa kucheza tu. Hifadhi msimbo wako wa kuhifadhi (Mipangilio) ili Nyota zikufuate kwenye simu nyingine.' : 'Nyota have no cash value and cannot be cashed out or given to someone else. Game shillings are earned by playing only. Keep your save code (Settings) so your Nyota follow you to another phone.'));
+}
+function nyAppPacks(s) {
+  phHead(s, LANG === 'sw' ? 'Ongeza Nyota' : 'Top up', LANG === 'sw' ? 'Lipa kwa Bachs: M-Pesa, Tigo Pesa, Airtel Money au kadi' : 'Pay with Bachs: M-Pesa, Tigo Pesa, Airtel Money or card');
+  if (isTeen() || !nyOk()) return;
+  const f = phEl('form', 'ny-form'); f.noValidate = true;
+  const pick = phEl('div', 'ny-packs'); let sel = NY.packs[1] || NY.packs[0];
+  const draw = () => { pick.innerHTML = ''; for (const p of NY.packs) { const b = phBtn('', 'ny-pack' + (p === sel ? ' on' : ''), () => { sel = p; draw(); }); b.append(phEl('b', '', `★ ${fmt(p.nyota)}`), phEl('small', '', tsh(p.price))); b.setAttribute('aria-pressed', p === sel ? 'true' : 'false'); pick.append(b); } };
+  draw(); f.append(pick);
+  const field = (name, type, label, auto) => { const l = phEl('label', 'ny-field'); l.append(phEl('span', '', label)); const i = phEl('input'); i.name = name; i.type = type; i.autocomplete = auto; i.maxLength = 120; i.addEventListener('keydown', (e) => e.stopPropagation()); l.append(i); f.append(l); return i; };
+  field('name', 'text', LANG === 'sw' ? 'Jina (kwa risiti)' : 'Name (for the receipt)', 'name');
+  field('email', 'email', LANG === 'sw' ? 'Barua pepe (risiti inatumwa hapa)' : 'Email (your receipt goes here)', 'email');
+  const ad = phEl('label', 'ny-check'); const cb = phEl('input'); cb.type = 'checkbox'; cb.name = 'adult'; ad.append(cb, phEl('span', '', LANG === 'sw' ? 'Nina miaka 18 au zaidi, na nimesoma masharti.' : 'I am 18 or over and I have read the terms.')); f.append(ad);
+  const err = phEl('p', 'ph-note err'); err.hidden = true; f.append(err);
+  const go = phBtn(LANG === 'sw' ? 'Endelea kulipa' : 'Continue to payment', 'ph-btn', () => {}); go.type = 'submit'; f.append(go);
+  f.addEventListener('submit', (e) => { e.preventDefault(); if (sel) nyTopup(sel, f); });
+  s.append(f);
+  const fine = phEl('p', 'ph-fine'); fine.innerHTML = LANG === 'sw' ? 'Utaenda kwenye ukurasa salama wa Bachs, kisha urudi hapa. Nyota hazina thamani ya pesa. <a href="/terms.html" target="_blank" rel="noopener">Masharti</a> · <a href="/privacy.html" target="_blank" rel="noopener">Faragha</a>' : 'You go to the secure Bachs page, then come back here. Nyota have no cash value. <a href="/terms.html" target="_blank" rel="noopener">Terms</a> · <a href="/privacy.html" target="_blank" rel="noopener">Privacy</a>';
+  s.append(fine);
+}
+function nyCollectAll() {
+  if (!nyHas('pass_collect')) return 0;
+  let n = 0; for (const b of BIZ) { if (!bizState()[b.id]) continue; const k = bizStash(b); if (k > 0) { bizState()[b.id].at = realNow(); n += k; } }
+  if (n > 0) { earn(n, LANG === 'sw' ? 'Biashara' : 'Businesses'); sfx.coin(2); writeSave(); help(LANG === 'sw' ? `Umekusanya <b class="hl">${tsh(n)}</b>.` : `You collected <b class="hl">${tsh(n)}</b>.`, 2600); }
+  else help(LANG === 'sw' ? 'Bado hakuna mapato.' : 'Nothing to collect yet.', 2000);
+  return n;
+}
+// paint rows in the Magari app, for each paint owned
+function nyPaintRows(s) {
+  if (!nyOk() || !ownedVehs.length) return;
+  const paints = Object.keys(NY_ITEM).filter(k => NY_ITEM[k].col && nyHas(k)); if (!paints.length) return;
+  s.append(phEl('p', 'ph-sec', LANG === 'sw' ? 'Rangi zako za Nyota' : 'Your Nyota paints'));
+  ownedVehs.forEach((v, i) => {
+    const row = phEl('div', 'ph-btns'); for (const k of paints) { const b = phBtn(nyName(k), 'ph-btn sm ghost', () => nyPaint(v, NY_ITEM[k].col)); b.style.boxShadow = `inset 0 0 0 2px #${NY_ITEM[k].col.toString(16).padStart(6, '0')}`; row.append(b); }
+    phRow(s, `${i + 1}. ${tl(DEAL_BY_KIND[v.kind].name)}`, '', null); s.append(row);
+  });
+}
+function initNyota() {
+  NY.tagOn = lsGet('afc-ny-tag') !== 'off';
+  nyReturnFromUrl();
+  APPS.push({ id: 'nyota', sw: 'Nyota', en: 'Nyota', col: '#c79a1e', ico: 'star' });
+  PHONE_APPS.nyota = (s, arg) => (arg === 'packs' ? nyAppPacks(s) : nyAppHome(s));
+  const gar = PHONE_APPS.garage; PHONE_APPS.garage = (s, a) => { gar(s, a); nyPaintRows(s); };
+  const biz = PHONE_APPS.biz; PHONE_APPS.biz = (s, a) => { biz(s, a); if (nyOk() && nyHas('pass_collect') && Object.keys(bizState()).length) s.append(phBtn(LANG === 'sw' ? 'Kusanya zote (pasi ya Nyota)' : 'Collect all (Nyota pass)', 'ph-btn', () => { nyCollectAll(); renderPhone(); })); };
+  ICO.star = '<path d="M12 3.5l2.6 5.3 5.8.8-4.2 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.2-4.1 5.8-.8z"/>';
+  if (nyOk()) { nyLoad().then(nyWatchTopup); onWebAuth((ev) => { if (ev === 'SIGNED_IN' || ev === 'SIGNED_OUT' || ev === 'USER_UPDATED') nyLoad().then(nyWatchTopup); }); }
+}
 /* ===================== 90 main: player, camera, input, loop, boot ===================== */
 const cam = { yaw: 0, pitch: 0.26, dist: 4.4, curDist: 4.4, lastLook: -99, fov: 58 };
 const SETTINGS = { follow: true, sens: 1 };
@@ -9513,6 +10557,7 @@ function findInteraction() {
   if (mode !== 'play' || isDown(player)) return null;
   if (FISH.on) return lifeInteraction();
   if (playerVeh) {
+    if (playerVeh.owned && Math.abs(playerVeh.vf) < 2) { const gi = garageInteraction(); if (gi) return gi; }
     const a = NPC_BY_ID.ali;
     if (playerVeh.kind === 'bajaji' && Math.hypot(a.x - P.x, a.z - P.z) < 9) return { text: job && job.type === 'taxi' ? 'Talk to Ali' : 'Start a taxi shift', act: () => talk('ali') };
     if (!job && Math.hypot(RACE_START.x - P.x, RACE_START.z - P.z) < 11) return { text: `Start the race · ${tsh(PRICES.raceFee)}`, act: startRace };
@@ -9520,6 +10565,7 @@ function findInteraction() {
     return null;
   }
   for (const th of thieves) if ((th.state === 'flee' || th.state === 'rush') && Math.hypot(th.x - P.x, th.z - P.z) < 4 && !isDown(th.h)) return { text: 'Tackle the thief!', act: tackle };
+  const mi = missionInteraction() || garageInteraction() || bizInteraction(); if (mi) return mi;
   let best = null, bd = 1e9;
   for (const n of NPCS) { const ax = n.ix !== undefined ? n.ix : n.x, az = n.iz !== undefined ? n.iz : n.z, r = n.ir || 3.2, d = Math.hypot(ax - P.x, az - P.z); if (d < r && d < bd) { bd = d; best = n; } }
   if (best) return { text: VERB[best.id] || `Talk to ${best.name}`, act: () => talk(best.id), npc: best.id };
@@ -9531,7 +10577,7 @@ function findInteraction() {
   const tr = touristNear(); if (tr && (state.coconuts > 0 || tr.want)) return { text: state.coconuts > 0 ? (tr.want ? `Sell a madafu · ${tsh(PRICES.coconutSell)}` : 'Offer a madafu') : 'Chat with the tourist', act: () => sellCoconut(tr) };
   const st = stopNear(3.6); if (st) return { text: `Daladala · ${tsh(PRICES.daladala)}`, act: () => openStop(st) };
   const v = nearestRental(2.9);
-  if (v) return { text: v.rented ? `Ride the ${VEH[v.kind].name.toLowerCase()}` : `Hire the ${VEH[v.kind].name.toLowerCase()} for the day · ${tsh(PRICES[v.kind])}`, act: () => rentOrRide(v) };
+  if (v) return { text: v.owned ? (LANG === 'sw' ? `Panda ${VEH[v.kind].name.toLowerCase()} yako` : `Ride your ${VEH[v.kind].name.toLowerCase()}`) : v.rented ? `Ride the ${VEH[v.kind].name.toLowerCase()}` : `Hire the ${VEH[v.kind].name.toLowerCase()} for the day · ${tsh(PRICES[v.kind])}`, act: () => rentOrRide(v) };
   return walkerInteraction();
 }
 function findSecondary() {
@@ -9669,9 +10715,9 @@ function frame(nowMs) {
   else if (mode === 'wasted') { updateFall(player, dt); if (player.userData.fall && player.userData.fall.t > 1.9) player.userData.fall.t = 1.9; }
   else if (mode === 'penalty') updatePenalty(dt, t);
   else if (mode === 'kickoff') { updateKickoff(dt); animHuman(player, dt, t, 0, 'loco'); }
-  updateLOD(dt); updateRemotes(dt, t); eventsTick(dt);
+  updateLOD(dt); updateRemotes(dt, t); eventsTick(dt); hiWarm(raw);
   /* the pause menu freezes the world: no chases, rides, thieves or timers move behind it */
-  if (mode !== 'paused') { updateCars(dt, t); updateWalkers(dt, t); updateThieves(dt, t); updateRentals(dt); updateCoins(dt, t); updateJobs(dt, t); updateQuests(dt, t); updateLife(dt, t); updateClock(dt); updateEnergy(dt); updatePhone(dt); updateSim(dt, t); updateHomeDoors(t); updateAdStats(dt); updateCranes(t); }
+  if (mode !== 'paused') { updateCars(dt, t); updateWalkers(dt, t); updateThieves(dt, t); updateRentals(dt); updateCoins(dt, t); updateJobs(dt, t); updateQuests(dt, t); updateMissions(dt); updateEconomy(dt); updateLife(dt, t); updateClock(dt); updateEnergy(dt); updatePhone(dt); updateSim(dt, t); updateHomeDoors(t); updateAdStats(dt); updateCranes(t); }
   playerHead.set(P.x, (player ? player.position.y : 0) + 1.62, P.z);
   for (const n of NPCS) {
     const h = npcObjs[n.id], d = Math.hypot(P.x - n.x, P.z - n.z); h.visible = mode === 'intro' || Math.hypot(camera.position.x - n.x, camera.position.z - n.z) < 260; if (d > 200) continue;
@@ -9717,7 +10763,7 @@ function frame(nowMs) {
   canvas.style.filter = mode === 'wasted' ? 'grayscale(0.85) brightness(0.9)' : HQ() ? 'saturate(1.12) contrast(1.04)' : '';
   ui.fx.classList.toggle('low', state.hp < 25 && mode === 'play');
   if (DEV && window.__preRender) window.__preRender();
-  if (!(DEV && window.__noRender)) { if (HOME.inside) renderHome(dt, t); else renderer.render(scene, camera); }
+  if (!(DEV && window.__noRender)) { if (HOME.inside) renderHome(dt, t); else if (SET.on) renderSet(dt, t); else renderer.render(scene, camera); }
   if (watch.left > 0) checkBlack();
 }
 /* one bad frame must never freeze the game: log it and keep going */
@@ -9730,7 +10776,7 @@ function loop(nowMs) {
 /* ---------- UI wiring ---------- */
 function segSet(sel, v) { document.querySelectorAll(sel + ' button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === v))); }
 function enterPlay() {
-  audioInit(); AD.view = null; setStyling(false);
+  audioInit(); AD.view = null; setStyling(false); resyncOwned();
   const bonus = applyStartBonus(); if (bonus) setTimeout(writeStats, 5000);
   track('play', { fresh: !state.intro }); if (MP.web) watchMilestones();
   const nick = strOr($('#nick').value, 16).trim();
@@ -9739,6 +10785,7 @@ function enterPlay() {
   $('#touch').hidden = !isCoarse;
   mode = 'play';
   if (!playerTag) playerTag = makeTag(state.nick, true); else playerTag.nm.textContent = state.nick;
+  nyEffects();
   cam.yaw = playerVeh ? playerVeh.yaw + Math.PI : player.rotation.y + Math.PI; cam.pitch = 0.26;
   camTarget.set(P.x, 1.6, P.z);
   if (!state.intro) help((bonus ? `Your purse: <b class="hg">${tsh(state.cash)}</b>. ` : '') + (isCoarse ? 'You just got off the daladala on Fumba Road. Walk to <b class="hl">Amina</b> with the joystick and tap <b class="hl">E</b> to talk.' : 'You just got off the daladala on Fumba Road. Walk to <b class="hl">Amina</b> with <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd>, click the game to look around, press <kbd>E</kbd> to talk.'), 8000);
@@ -9990,7 +11037,7 @@ async function start(data) {
   btn.disabled = false; btn.textContent = saved && saved.intro ? 'Twende · Continue' : 'Twende · Play';
   $('#mmPlayHint').textContent = saved && saved.intro ? `Continue · ${tsh(money())}` : 'Start in Fumba';
   $('#btnNew').hidden = !(saved && saved.intro);
-  initEvents();
+  initEvents(); initMissions(); initEconomy(); initNyota();
   requestAnimationFrame((n) => { last = n; requestAnimationFrame(loop); });
 }
 const hot = window.claude && window.claude.hot;

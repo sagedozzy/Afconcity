@@ -2,7 +2,7 @@
 /* ---------- NPCs ---------- */
 const NPCS = [
   { id: 'amina', name: 'Amina', role: 'AfconCity guide', x: START.x - 6.5, z: START.z + 1.8, ry: Math.PI / 2 + 0.25, look: { skin: 0x6b4226, shirt: 0x19b5b1, lower: 0x232a63, dress: 0x232a63, hair: 'scarf', scarf: 0xf3b41b, f: true, sandals: true, shoes: 0xf3b41b, style: 'kanga', trim: 0xf3b41b, trim2: 0xe0553a, long: true } },
-  { id: 'mama', name: 'Mama Pwani', role: 'Beach bar', x: BAR.x + 1.8, z: BAR.z, ry: Math.PI / 2, ix: BAR.x, iz: BAR.z, ir: 6.2, look: { skin: 0x4f2f1c, shirt: 0xe0553a, lower: 0x7a4a2a, dress: 0xf3b41b, hair: 'scarf', scarf: 0xe0553a, f: true, sandals: true, shoes: 0xe0553a, style: 'kanga', trim: 0x141838, trim2: 0x141838, long: true } },
+  { id: 'mama', name: 'Mama Pwani', role: 'Beach bar', x: BAR.x + 1.8, z: BAR.z, ry: Math.PI / 2, ix: BAR.x, iz: BAR.z, ir: 6.2, look: { skin: 0x4f2f1c, shirt: 0xe86a1f, tp: 'ankara', lower: 0x7a4a2a, dress: 0xe86a1f, dp: 'ankara', hair: 'wrap', scarf: 0xe0a92e, f: true, sandals: true, shoes: 0xe0553a, sleeve: 'short', neck: 'v', trim2: 0xe86a1f, long: true } },
   { id: 'juma', name: 'Mzee Juma', role: 'Pizza runs · Uptown Park', x: 205, z: 47, ry: -Math.PI / 2, look: { skin: 0x4f2f1c, shirt: 0xf6f1e7, robe: true, hair: 'kofia', lower: 0xf6f1e7, beard: 0xd8d4cc, sandals: true, shoes: 0x5a3a22, kofiaCol: 0xd8452c, longSleeve: true } },
   { id: 'ashura', name: 'Mama Ashura', role: 'Usiku food market', x: 191, z: 47.5, ry: Math.PI / 2, look: { skin: 0x553320, shirt: 0xe0553a, lower: 0x232a63, dress: 0x8e3b8f, hair: 'scarf', scarf: 0xf3b41b, f: true, sandals: true, shoes: 0x1d1d22, long: true, trim2: 0xf3b41b } },
   { id: 'rukia', name: 'Bi Rukia', role: 'Kanga & henna', x: 197, z: 66, ry: Math.PI, look: { skin: 0x6b4226, shirt: 0x8e3b8f, lower: 0x141838, dress: 0x19b5b1, hair: 'scarf', scarf: 0xe0553a, f: true, sandals: true, shoes: 0x8e3b8f, style: 'kanga', trim: 0xf3b41b, trim2: 0xf3b41b, long: true } },
@@ -12,7 +12,7 @@ const NPCS = [
   { id: 'baraka', name: 'Coach Baraka', role: 'Penalty shootouts', x: TRAIN.x + TRAIN.w / 2 + 3, z: PEN.gz + 14, ry: -Math.PI / 2, look: { skin: 0x553320, shirt: 0x1e9b57, lower: 0x141838, hair: 'cap', cap: 0xf3b41b, socks: 0xf6f1e7, kit: true, trim: 0xf3b41b, shoes: 0x15161c, shoeTrim: 0xf3b41b } },
   { id: 'salim', name: 'Salim', role: 'VIP tickets', x: KIOSK.x - 8, z: KIOSK.z, ry: -Math.PI / 2, look: { skin: 0x4a2c1a, shirt: 0xf3b41b, lower: 0x2a2d33, pants: true, hair: 'cap', cap: 0xe0553a, style: 'button', shoes: 0x3a2a1a } },
   { id: 'neema', name: 'Neema', role: 'AFCON volunteers', x: SC.x - 46, z: PLAZA.z + 12, ry: Math.PI, look: { skin: 0x6b4226, shirt: 0x1e9b57, lower: 0x232a63, pants: true, vest: 0xd7f23a, hair: 'afro', f: true, shoes: 0xf4f4f0 } },
-  { id: 'kassim', name: 'DJ Kassim', role: 'Fan Zone', x: -330, z: -133, ry: 0, look: { skin: 0x3d2416, shirt: 0xe0553a, lower: 0x141838, hair: 'cap', cap: 0x141838, shoes: 0xf4f4f0, shoeTrim: 0xe0553a, capLogo: 0xf3b41b } },
+  { id: 'kassim', name: 'DJ Kassim', role: 'Fan Zone', x: -330, z: -133, ry: 0, look: { skin: 0x3d2416, shirt: 0x1d1d22, tp: 'dashiki', neck: 'dashiki', trim: 0xf3b41b, untuck: true, lower: 0x141838, hair: 'cap', cap: 0x141838, shoes: 0xf4f4f0, shoeTrim: 0xe0553a, capLogo: 0xf3b41b } },
   { id: 'steward', name: 'Steward', role: 'Gate A', x: GATE.x + 6.5, z: GATE.z + 3, ry: Math.PI, look: { skin: 0x46291a, shirt: 0x232a63, lower: 0x232a63, pants: true, vest: 0xd7f23a, hair: 'short', shoes: 0x15161c } },
   { id: 'trafiki', name: 'Trafiki', role: 'Traffic police', x: TRAFIKI.ox + 1.1, z: TRAFIKI.oz - 1.2, ry: Math.PI * 0.85, look: { skin: 0x3d2416, shirt: 0xf4f4f0, lower: 0x1a2340, pants: true, longSleeve: true, hair: 'police', shoes: 0x0d0d0d, style: 'button' } },
   { id: 'halima', name: 'Nurse Halima', role: 'Clinic', x: CLINIC.x + 3.5, z: CLINIC.z + 6.6, ry: 0, look: { skin: 0x6b4226, shirt: 0xf4f4f0, lower: 0xf4f4f0, pants: true, hair: 'scarf', scarf: 0xf4f4f0, f: true, longSleeve: true, shoes: 0xf4f4f0 } },
@@ -43,9 +43,15 @@ function randomLook(i) {
   // about a third of town dresses in the island wardrobe the player can wear too
   if (r() < 0.34) return styledLook(i, { skin });
   if (r() < 0.45) {
-    const hair = pick(['scarf', 'scarf', 'scarf', 'braids', 'braids', 'afro']), dressy = hair === 'scarf' ? r() < 0.8 : r() < 0.45;
-    return { f: true, skin, hair, scarf: pick(shirts), shirt: pick(shirts), lower: pick(lowers), dress: dressy ? pick(shirts) : null, long: dressy && r() < 0.6, pants: !dressy, style: dressy && r() < 0.6 ? 'kanga' : 'tee', trim: pick(shirts), trim2: pick(shirts), longSleeve: hair === 'scarf' && r() < 0.5, sandals: r() < 0.65, shoes: pick([0x7a4a2a, 0xd8452c, 0x1d1d22, 0xf4f4f0, 0xf3b41b]), h: 0.93 + r() * 0.07 };
+    // Zanzibari, mainland and visiting women: headscarves, duku wraps, braids, natural hair, wax prints
+    const hair = pick(['scarf', 'scarf', 'scarf', 'braids', 'braids', 'afro', 'wrap', 'wrap', 'ponytail', 'twists', 'locs']), dressy = hair === 'scarf' ? r() < 0.75 : r() < 0.5;
+    const dp = dressy && hair !== 'scarf' && r() < 0.55 ? pick(['kitenge', 'ankara', 'kanga', 'ankara']) : '';
+    return { f: true, skin, hair, scarf: pick(shirts), shirt: pick(shirts), lower: pick(lowers), dress: dressy ? pick(shirts) : null, dp, tp: !dressy && r() < 0.25 ? pick(['kitenge', 'ankara', 'dashiki']) : '', long: dressy && r() < 0.6, pants: !dressy, style: dressy && r() < 0.6 ? 'kanga' : 'tee', trim: pick(shirts), trim2: pick(shirts), longSleeve: hair === 'scarf' && r() < 0.5, sandals: r() < 0.65, shoes: pick([0x7a4a2a, 0xd8452c, 0x1d1d22, 0xf4f4f0, 0xf3b41b]), h: 0.93 + r() * 0.07 };
   }
+  // a few Maasai in red shuka and beads, as round the beaches and markets
+  if (r() < 0.07) return { f: false, skin, hair: r() < 0.6 ? 'short' : 'bald', robe: true, robeHem: 0.44, shirt: pick([0xc8342c, 0xc8342c, 0x1f4fa0, 0x7a2a4a]), lower: 0xc8342c, tp: pick(['shuka', 'shuka', 'kikoi']), sleeve: 'none', beads: true, sandals: true, shoes: 0x3a2a1e, h: 1 + r() * 0.06 };
+  // office workers in jackets
+  if (r() < 0.1) return { f: false, skin, hair: pick(['short', 'short', 'bald', 'twists']), shirt: pick([0x1f2d55, 0x2a2d33, 0x5a5d6b, 0xd8cfc0]), neck: 'jacket', inner: 0xf6f3ec, tie: pick([0xc8342c, 0x1f2d55, 0x1e9b57]), sleeve: 'long', untuck: true, lower: pick([0x1f2d55, 0x2a2d33]), pants: true, shoe: 'loafer', shoes: 0x2a1d14 };
   const old = r() < 0.18, hair = old ? pick(['kofia', 'kofia', 'bald', 'short']) : pick(['short', 'short', 'afro', 'cap', 'bald', 'kofia', 'short']);
   return { f: false, skin, hair, cap: pick(shirts), capLogo: pick(shirts), kofiaCol: pick(shirts), shirt: old ? pick([0xf6f1e7, 0xd8cfc0, 0x232a63]) : pick(shirts), lower: pick(lowers), pants: old || r() < 0.6, robe: old && r() < 0.55, beard: old ? 0xd8d4cc : (r() < 0.22 ? 0x141010 : null), style: r() < 0.35 ? 'button' : 'tee', longSleeve: r() < 0.15, sandals: old || r() < 0.4, shoes: pick([0x1d1d22, 0xf4f4f0, 0x7a4a2a, 0x2a3a5a]), shoeTrim: pick(shirts), h: 0.97 + r() * 0.08 };
 }

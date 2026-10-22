@@ -205,6 +205,9 @@ begin
   select * into r from saves where code = c;
   if r.code is null then raise exception 'No save has that code. Check it and try again.' using errcode = 'P0001'; end if;
   update saves set owner = auth.uid(), updated_at = now() where code = c;  -- this device continues the save
+  if r.owner <> auth.uid() and to_regprocedure('public.nyota_move(uuid,uuid)') is not null then
+    execute 'select public.nyota_move($1, $2)' using r.owner, auth.uid();  -- Nyota and premium items travel with the save
+  end if;
   return jsonb_build_object('code', r.code, 'data', r.data, 'updated_at', r.updated_at);
 end $$;
 revoke execute on function public.save_put(text, jsonb), public.save_load(text) from public, anon;
@@ -440,3 +443,185 @@ create trigger chat_tidy after insert on public.chat_messages for each statement
 do $$ begin
   begin alter publication supabase_realtime add table public.scores; exception when duplicate_object then null; end;
 end $$;
+
+-- =====================================================================================================
+-- Version 3 (October 2026): Nyota, the premium coins bought with Bachs
+-- Nyota buy cosmetics and conveniences only. They are never turned into game shillings or real money.
+-- Balances change only inside the functions below; a top-up is credited by the bachs Edge Function after Bachs confirms payment.
+-- =====================================================================================================
+create table if not exists public.wallets (
+  uid uuid primary key,
+  nyota int not null default 0 check (nyota >= 0),
+  updated_at timestamptz not null default now()
+);
+alter table public.wallets enable row level security;
+drop policy if exists wallets_read on public.wallets;
+create policy wallets_read on public.wallets for select to authenticated using (uid = auth.uid() or public.is_admin());
+
+create table if not exists public.wallet_ledger (
+  id bigserial primary key,
+  uid uuid not null,
+  delta int not null,
+  reason text not null check (reason in ('topup', 'buy', 'refund', 'move_in', 'move_out', 'gift')),
+  ref text,
+  created_at timestamptz not null default now()
+);
+create index if not exists wallet_ledger_uid on public.wallet_ledger (uid, created_at desc);
+alter table public.wallet_ledger enable row level security;
+drop policy if exists ledger_read on public.wallet_ledger;
+create policy ledger_read on public.wallet_ledger for select to authenticated using (uid = auth.uid() or public.is_admin());
+
+-- what Nyota buy (days: how long a timed item lasts; empty = forever). Prices can be changed here in the dashboard.
+create table if not exists public.nyota_items (
+  id text primary key,
+  name text not null,
+  price int not null check (price > 0),
+  days int check (days is null or days > 0),
+  active boolean not null default true
+);
+alter table public.nyota_items enable row level security;
+drop policy if exists nyota_items_read on public.nyota_items;
+create policy nyota_items_read on public.nyota_items for select to anon, authenticated using (true);
+insert into public.nyota_items (id, name, price, days) values
+  ('paint_gold', 'Gold paint for your vehicles', 300, null),
+  ('paint_pearl', 'Pearl white paint for your vehicles', 200, null),
+  ('paint_neon', 'Neon green paint for your vehicles', 200, null),
+  ('tag_gold', 'Golden name tag, seen by everyone online', 400, null),
+  ('fx_fireworks', 'Fireworks you can set off anywhere', 250, null),
+  ('pass_collect', 'Collect your business earnings from your phone, for 7 days', 150, 7)
+on conflict (id) do nothing;
+
+-- top-up packs, priced in Tanzanian shillings
+create table if not exists public.nyota_packs (
+  id text primary key,
+  nyota int not null check (nyota > 0),
+  price int not null check (price > 0),
+  active boolean not null default true
+);
+alter table public.nyota_packs enable row level security;
+drop policy if exists nyota_packs_read on public.nyota_packs;
+create policy nyota_packs_read on public.nyota_packs for select to anon, authenticated using (true);
+insert into public.nyota_packs (id, nyota, price) values
+  ('p100', 100, 2000), ('p550', 550, 10000), ('p1200', 1200, 20000), ('p3200', 3200, 50000)
+on conflict (id) do nothing;
+
+create table if not exists public.nyota_owned (
+  uid uuid not null,
+  item text not null references public.nyota_items (id),
+  until timestamptz,
+  bought_at timestamptz not null default now(),
+  primary key (uid, item)
+);
+alter table public.nyota_owned enable row level security;
+drop policy if exists nyota_owned_read on public.nyota_owned;
+create policy nyota_owned_read on public.nyota_owned for select to authenticated using (uid = auth.uid() or public.is_admin());
+
+-- one row per top-up checkout, created and settled by the bachs Edge Function
+create table if not exists public.topups (
+  id uuid primary key default gen_random_uuid(),
+  uid uuid not null,
+  pack text not null references public.nyota_packs (id),
+  nyota int not null,
+  amount numeric(12, 2) not null,
+  currency text not null default 'TZS',
+  status text not null default 'pending_payment' check (status in ('pending_payment', 'paid', 'cancelled', 'refunded')),
+  checkout_id text,
+  email text,
+  note text,
+  created_at timestamptz not null default now(),
+  paid_at timestamptz
+);
+create index if not exists topups_uid on public.topups (uid, created_at desc);
+alter table public.topups enable row level security;
+drop policy if exists topups_read on public.topups;
+create policy topups_read on public.topups for select to authenticated using (uid = auth.uid() or public.is_admin());
+
+create or replace function public.nyota_state() returns jsonb
+language sql stable security definer set search_path = public as $$
+  select jsonb_build_object(
+    'nyota', coalesce((select nyota from wallets where uid = auth.uid()), 0),
+    'owned', coalesce((select jsonb_agg(jsonb_build_object('item', item, 'until', until)) from nyota_owned where uid = auth.uid() and (until is null or until > now())), '[]'::jsonb),
+    'items', coalesce((select jsonb_agg(jsonb_build_object('id', id, 'name', name, 'price', price, 'days', days) order by price) from nyota_items where active), '[]'::jsonb),
+    'packs', coalesce((select jsonb_agg(jsonb_build_object('id', id, 'nyota', nyota, 'price', price) order by price) from nyota_packs where active), '[]'::jsonb));
+$$;
+
+create or replace function public.nyota_buy(p_item text) returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare it public.nyota_items; bal int;
+begin
+  if auth.uid() is null then raise exception 'Sign in first.' using errcode = 'P0001'; end if;
+  select * into it from nyota_items where id = p_item and active;
+  if it.id is null then raise exception 'That item is not for sale.' using errcode = 'P0001'; end if;
+  if it.days is null and exists (select 1 from nyota_owned where uid = auth.uid() and item = p_item) then raise exception 'You already own this.' using errcode = 'P0001'; end if;
+  update wallets set nyota = nyota - it.price, updated_at = now() where uid = auth.uid() and nyota >= it.price returning nyota into bal;
+  if bal is null then raise exception 'Not enough Nyota.' using errcode = 'P0001'; end if;
+  insert into wallet_ledger (uid, delta, reason, ref) values (auth.uid(), -it.price, 'buy', p_item);
+  insert into nyota_owned (uid, item, until) values (auth.uid(), p_item, case when it.days is null then null else now() + make_interval(days => it.days) end)
+  on conflict (uid, item) do update set bought_at = now(),
+    until = case when it.days is null then null else greatest(coalesce(nyota_owned.until, now()), now()) + make_interval(days => it.days) end;
+  return nyota_state();
+end $$;
+
+-- a paid top-up: credited once, however many times Bachs tells us (service role only)
+create or replace function public.nyota_credit(p_topup uuid) returns int
+language plpgsql security definer set search_path = public as $$
+declare t public.topups;
+begin
+  update topups set status = 'paid', paid_at = now() where id = p_topup and status = 'pending_payment' returning * into t;
+  if t.id is null then return 0; end if;
+  insert into wallets (uid, nyota) values (t.uid, t.nyota) on conflict (uid) do update set nyota = wallets.nyota + excluded.nyota, updated_at = now();
+  insert into wallet_ledger (uid, delta, reason, ref) values (t.uid, t.nyota, 'topup', t.id::text);
+  return t.nyota;
+end $$;
+
+-- the owner refunds a top-up (after refunding the money in Bachs): takes back what is left of those Nyota
+create or replace function public.nyota_refund(p_topup uuid) returns int
+language plpgsql security definer set search_path = public as $$
+declare t public.topups; took int;
+begin
+  if not public.is_admin() then raise exception 'Owners only.' using errcode = 'P0001'; end if;
+  update topups set status = 'refunded' where id = p_topup and status = 'paid' returning * into t;
+  if t.id is null then return 0; end if;
+  select nyota into took from wallets where uid = t.uid for update;
+  took := least(coalesce(took, 0), t.nyota);
+  update wallets set nyota = nyota - took, updated_at = now() where uid = t.uid;
+  insert into wallet_ledger (uid, delta, reason, ref) values (t.uid, -took, 'refund', t.id::text);
+  return took;
+end $$;
+
+-- a save code loaded on another device: its Nyota and items move with it (called by save_load)
+create or replace function public.nyota_move(p_from uuid, p_to uuid) returns void
+language plpgsql security definer set search_path = public as $$
+declare n int;
+begin
+  if p_from is null or p_to is null or p_from = p_to then return; end if;
+  delete from wallets where uid = p_from returning nyota into n;
+  if coalesce(n, 0) > 0 then
+    insert into wallets (uid, nyota) values (p_to, n) on conflict (uid) do update set nyota = wallets.nyota + excluded.nyota, updated_at = now();
+    insert into wallet_ledger (uid, delta, reason, ref) values (p_from, -n, 'move_out', p_to::text), (p_to, n, 'move_in', p_from::text);
+  end if;
+  insert into nyota_owned (uid, item, until, bought_at) select p_to, item, until, bought_at from nyota_owned where uid = p_from
+  on conflict (uid, item) do update set until = case when excluded.until is null or nyota_owned.until is null then null else greatest(excluded.until, nyota_owned.until) end;
+  delete from nyota_owned where uid = p_from;
+  update topups set uid = p_to where uid = p_from;  -- purchase records follow the save, so refunds find it
+end $$;
+
+revoke execute on function public.nyota_credit(uuid), public.nyota_move(uuid, uuid) from public, anon, authenticated;
+revoke execute on function public.nyota_buy(text), public.nyota_state(), public.nyota_refund(uuid) from public, anon;
+grant execute on function public.nyota_buy(text), public.nyota_state(), public.nyota_refund(uuid) to authenticated;
+grant select on public.wallets, public.wallet_ledger, public.nyota_items, public.nyota_packs, public.nyota_owned, public.topups to authenticated;
+grant select on public.nyota_items, public.nyota_packs to anon;
+
+-- unpaid top-up checkouts are closed after two days (part of the nightly clean-up)
+create or replace function public.afc_cleanup() returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  delete from chat_messages where created_at < now() - interval '30 days';
+  delete from events where at < now() - interval '90 days';
+  delete from save_tries where at < now() - interval '2 days';
+  delete from saves where updated_at < now() - interval '12 months';
+  delete from scores where updated_at < now() - interval '12 months';
+  delete from docs where (coll = 'stats' or coll = 'reports' or coll like 'feedback%') and updated_at < now() - interval '12 months';
+  update topups set status = 'cancelled' where status = 'pending_payment' and created_at < now() - interval '2 days';
+end $$;
+revoke execute on function public.afc_cleanup() from public, anon, authenticated;

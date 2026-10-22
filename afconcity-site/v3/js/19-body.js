@@ -201,8 +201,8 @@ function buildBody(look, hi) {
   const neck = L.neck || (kit ? 'crew' : L.style === 'button' ? 'collar' : '');
 
   /* torso */
-  const TP = f ? [[0.855, 0.146, 0.094, -0.006], [0.90, 0.186, 0.114, -0.016], [0.96, 0.182, 0.110, -0.012], [1.03, 0.146, 0.092, 0.0], [1.09, 0.120, 0.082, 0.002], [1.16, 0.132, 0.090, 0.010], [1.24, 0.148, 0.098, 0.014], [1.31, 0.152, 0.094, 0.010], [1.37, 0.150, 0.085, 0.002], [1.415, 0.138, 0.076, -0.006], [1.445, 0.098, 0.062, -0.008], [1.465, 0.056, 0.048, -0.006]]
-    : [[0.855, 0.142, 0.092, -0.004], [0.90, 0.158, 0.102, -0.012], [0.96, 0.156, 0.099, -0.008], [1.03, 0.150, 0.095, 0.0], [1.10, 0.156, 0.098, 0.004], [1.18, 0.172, 0.106, 0.010], [1.26, 0.188, 0.112, 0.013], [1.33, 0.198, 0.108, 0.008], [1.385, 0.196, 0.095, 0.0], [1.425, 0.162, 0.080, -0.006], [1.45, 0.108, 0.066, -0.008], [1.465, 0.064, 0.054, -0.006]];
+  const TP = f ? [[0.855, 0.146, 0.094, -0.006], [0.90, 0.186, 0.114, -0.016], [0.96, 0.182, 0.110, -0.012], [1.03, 0.146, 0.092, 0.0], [1.09, 0.120, 0.082, 0.002], [1.16, 0.132, 0.090, 0.010], [1.24, 0.148, 0.098, 0.014], [1.31, 0.152, 0.094, 0.010], [1.37, 0.152, 0.085, 0.002], [1.415, 0.143, 0.077, -0.006], [1.445, 0.098, 0.062, -0.008], [1.465, 0.056, 0.048, -0.006]]
+    : [[0.855, 0.142, 0.092, -0.004], [0.90, 0.158, 0.102, -0.012], [0.96, 0.156, 0.099, -0.008], [1.03, 0.150, 0.095, 0.0], [1.10, 0.156, 0.098, 0.004], [1.18, 0.172, 0.106, 0.010], [1.26, 0.188, 0.112, 0.013], [1.33, 0.198, 0.108, 0.008], [1.385, 0.198, 0.095, 0.0], [1.425, 0.172, 0.082, -0.006], [1.45, 0.108, 0.066, -0.008], [1.465, 0.064, 0.054, -0.006]];
   const bustF = (y) => f ? 0.066 * Math.exp(-(((y - 1.272) / 0.058) ** 2)) : 0.014 * Math.exp(-(((y - 1.31) / 0.05) ** 2));
   const TW = [[0.95, W('hips', 1)], [1.07, W('spine', 1)], [1.19, W('spine', 1)], [1.29, W('chest', 1)]];
   // an untucked shirt hangs over the waistband
@@ -216,6 +216,10 @@ function buildBody(look, hi) {
     }
     // necklines: a V, a wide boat neck, an open collar, tank-top straps
     if (neck === 'v' && sa > 0.3 && y > 1.33 + Math.abs(ca) * 0.55) return skin;
+    // a jacket open over a shirt (and a tie for men); the lapel edge is a shade darker
+    if (neck === 'jacket' && sa > 0.2) { const v = 1.12 + Math.abs(ca) * 1.05; if (y > v + 0.022) return L.tie && Math.abs(ca) < 0.05 && y < 1.43 ? C(L.tie) : C(L.inner || 0xf6f3ec); if (y > v) return shade(shirtP, 0.78); }
+    // a dashiki: an embroidered band round a V neck
+    if (neck === 'dashiki' && sa > 0.25) { const v = 1.36 + Math.abs(ca) * 0.5; if (y > v + 0.035) return skin; if (y > v) return trim; }
     if (neck === 'boat' && y > 1.437 && Math.abs(ca) < 0.75) return skin;
     if (neck === 'collar' && L.style === 'button' && sa > 0.55 && y > 1.395 + Math.abs(ca) * 0.5) return skin;
     if (neck === 'tank' && ((y > 1.38 && Math.abs(ca) > 0.62) || (Math.abs(sa) > 0.5 && y > 1.405 + Math.abs(ca) * 0.3))) return skin;
@@ -240,6 +244,7 @@ function buildBody(look, hi) {
   {
     const nr = [[1.40, 0.056, 0.058, -0.004, W('chest', 1)], [1.46, 0.052, 0.055, -0.002, W('chest', 0.45, 'neck', 0.55)], [1.515, 0.048, 0.051, 0.004, W('neck', 0.75, 'head', 0.25)], [1.575, 0.047, 0.05, 0.012, W('head', 1)]];
     addLoft(sg, nr.map(([y, rx, rz, z, w]) => ({ y, x: 0, z, rx: rx * (f ? 0.86 : 1.05), rz: rz * (f ? 0.88 : 1.04), w, col: skin, r: R_SKIN })), LSEG + 2);
+    if (neck === 'jacket') sg.add(new T.TorusGeometry(0.06, hi ? 0.01 : 0.013, 6, hi ? 20 : 10, TAU * 0.78), mat4(0, 1.452, -0.004, 0, 1, 1, 1.8, Math.PI / 2 - 0.2, Math.PI / 2 - TAU * 0.89), C(L.inner || 0xf6f3ec), W('chest', 0.7, 'neck', 0.3), R_CLOTH);
     if (neck === 'collar' || kit) {
       // a collar stands up round the back of the neck and falls open at the front
       sg.add(new T.TorusGeometry(0.06, hi ? 0.01 : 0.013, 6, hi ? 20 : 10, kit ? TAU : TAU * 0.78), mat4(0, 1.452, -0.004, 0, 1, 1, kit ? 1.05 : 1.8, Math.PI / 2 - 0.2, kit ? 0 : Math.PI / 2 - TAU * 0.89), kit ? trim : shirt.clone().multiplyScalar(1.06), W('chest', 0.7, 'neck', 0.3), R_CLOTH);
@@ -256,11 +261,12 @@ function buildBody(look, hi) {
     const th = 'thigh' + side, sh = 'shin' + side, ft = 'foot' + side, hx = RP[th][0];
     const LW = [[0.085, W(ft, 0.35, sh, 0.65)], [0.12, W(sh, 1)], [0.44, W(sh, 1)], [0.52, W(th, 1)], [0.9, W(th, 1)], [0.975, W('hips', 0.55, th, 0.45)]];
     const ys = hi ? [0.075, 0.1, 0.14, 0.2, 0.27, 0.34, 0.4, 0.45, 0.48, 0.51, 0.57, 0.66, 0.76, 0.86, 0.93, 0.975] : [0.075, 0.14, 0.27, 0.4, 0.48, 0.57, 0.76, 0.93, 0.975];
-    const hemAt = robe ? 0.1 : shortsY, rl = [];
+    const hemAt = robe ? (L.robeHem > 0.1 ? 9 : 0.1) : shortsY, rl = [];
     const push = (y, k, col, r) => { const [rx, rz, z] = prof(LP, y); rl.push({ y, x: hx - s * 0.006 * (1 - y), z, rx: rx * k, rz: rz * k, w: wBlend(y, LW), col, r }); };
     const legCol = (y) => {
       if (y >= hemAt && !dress) return { c: robe ? lowerP : lowerCol, k: pantsLike ? Math.max(1.08, minR / prof(LP, y)[0] * (1 + (0.5 - Math.min(y, 0.5)) * (L.wide ? 0.25 : 0))) : 1.08, r: R_CLOTH };
       if (dress && y > (L.long ? 0.12 : L.midi ? 0.4 : 0.34)) return { c: skin, k: 0.8, r: R_SKIN };
+      if (robe && L.robeHem > 0.1 && y > L.robeHem + 0.02) return { c: skin, k: 0.8, r: R_SKIN };
       if (sockC && y < 0.4) return { c: y > 0.375 ? kitTrim : sockC, k: 1.06, r: R_CLOTH };
       return { c: skin, k: 1, r: R_SKIN };
     };
@@ -274,9 +280,9 @@ function buildBody(look, hi) {
   }
   /* skirt / dress or kanzu: weights follow each thigh on its own side so hems swing with the legs */
   if (dress || robe) {
-    const top = robe ? 1.38 : 1.0, bottom = robe ? 0.08 : (L.long ? 0.1 : L.midi ? 0.4 : 0.34), col = robe ? shirtP : dressP, band = C(L.trim2 || (robe ? 0xf6f1e7 : 0x141838));
+    const top = robe ? 1.38 : 1.0, bottom = robe ? (L.robeHem || 0.08) : (L.long ? 0.1 : L.midi ? 0.4 : 0.34), col = robe ? shirtP : dressP, band = C(L.trim2 || (robe ? 0xf6f1e7 : 0x141838));
     const sys = hi ? [bottom, bottom + 0.03, bottom + 0.06, 0.3, 0.45, 0.6, 0.72, 0.82, 0.9, 0.96, 1.0, 1.1, 1.2, 1.3, 1.38].filter((y, i, a) => y >= bottom && y <= top && (i === 0 || y > a[i - 1])) : [bottom, 0.5, 0.75, 0.9, 1.0, 1.2, 1.38].filter(y => y >= bottom && y <= top);
-    const sk = [], flare = L.long ? 1.04 : L.midi ? 0.84 : 0.9;
+    const sk = [], flare = L.robeHem > 0.1 ? 0.8 : L.long ? 1.04 : L.midi ? 0.84 : 0.9;
     for (const y of sys) {
       const [rx0, rz0, z0] = prof(TP, clamp(y, 0.9, 1.465)), k = y < 0.9 ? smooth((0.9 - y) / (0.9 - bottom + 1e-3)) : 0;
       const legW = y < 0.86 ? smooth(clamp((0.86 - y) / 0.45, 0, 1)) * 0.72 : 0;
@@ -293,15 +299,21 @@ function buildBody(look, hi) {
     for (const y of (hi ? [1.0, 1.003, 1.06, 1.12, 1.135, 1.15, 1.2, 1.25, 1.265, 1.28, 1.33, 1.38, 1.41] : [1.0, 1.003, 1.13, 1.2, 1.27, 1.33, 1.41])) { const [rx, rz, z] = prof(TP, y), lipK = y < 1.002 ? 1.03 : 1.075; vr.push({ y, x: 0, z, rx: rx * lipK, rz: rz * lipK, w: wBlend(y, TW), col: (Math.abs(y - 1.135) < 0.018 || Math.abs(y - 1.265) < 0.018) ? refl : vc, r: (Math.abs(y - 1.135) < 0.018 || Math.abs(y - 1.265) < 0.018) ? 0.3 : R_CLOTH, sq: 2.4 }); }
     addLoft(sg, vr, SEG * 2 - 4);
   }
+  /* a Maasai beaded collar: flat rings of colour round the neck */
+  if (L.beads) {
+    const bc = [0xc8342c, 0xf6f3ec, 0x1f4fa0, 0xf3b41b, 0x1e9b57, 0xc8342c];
+    (hi ? bc : bc.slice(0, 2)).forEach((c, k) => sg.add(new T.TorusGeometry(0.1 + k * 0.012, hi ? 0.0068 : 0.012, 4, hi ? 30 : 10), mat4(0, 1.452 - k * 0.009, 0.006 + k * 0.003, 0, f ? 0.86 : 1, 0.8, 1, Math.PI / 2 - 0.3), C(c), W('chest', 0.8, 'neck', 0.2), 0.35));
+  }
+  if (L.pockets && hi && !robe) for (const q of [1, -1]) { const [rx, rz, z] = prof(TP, 1.32); sg.add(rb(0.052, 0.058, 0.008, 0.003), mat4(q * rx * 0.42, 1.32, z + rz * 1.02 - 0.006, 0), shade(shirtP, 0.9), W('chest', 1), R_CLOTH); sg.add(rb(0.056, 0.018, 0.01, 0.003), mat4(q * rx * 0.42, 1.352, z + rz * 1.03 - 0.004, 0), shade(shirtP, 0.84), W('chest', 1), R_CLOTH); }
   /* arms */
-  const AP = [[0.875, 0.026, 0.027], [0.895, 0.027, 0.028], [0.93, 0.030, 0.031], [0.98, 0.036, 0.037], [1.05, 0.040, 0.042], [1.10, 0.037, 0.041], [1.13, 0.036, 0.040], [1.16, 0.038, 0.042], [1.20, 0.041, 0.045], [1.27, 0.045, 0.049], [1.34, 0.050, 0.054], [1.40, 0.056, 0.060], [1.44, 0.058, 0.062], [1.47, 0.050, 0.055]];
+  const AP = [[0.875, 0.026, 0.027], [0.895, 0.027, 0.028], [0.93, 0.030, 0.031], [0.98, 0.036, 0.037], [1.05, 0.040, 0.042], [1.10, 0.037, 0.041], [1.13, 0.036, 0.040], [1.16, 0.038, 0.042], [1.20, 0.041, 0.045], [1.27, 0.045, 0.049], [1.34, 0.050, 0.054], [1.38, 0.054, 0.058], [1.405, 0.051, 0.055], [1.425, 0.040, 0.044], [1.438, 0.016, 0.018]];
   const sleeveK = longArm ? 1.12 : sleeveY < 1.2 ? 1.1 : 1.06;
   for (const [s, side] of [[1, 'L'], [-1, 'R']]) {
     const sh = RP['uArm' + side], el = RP['fArm' + side], wr = RP['hand' + side], ua = 'uArm' + side, fa = 'fArm' + side, hd = 'hand' + side, cl = 'clav' + side;
-    const AW = [[0.885, W(fa, 0.5, hd, 0.5)], [0.91, W(fa, 1)], [1.105, W(fa, 1)], [1.165, W(ua, 1)], [1.40, W(ua, 1)], [1.445, W(ua, 0.7, cl, 0.3)], [1.47, W('chest', 0.5, ua, 0.5)]];
+    const AW = [[0.885, W(fa, 0.5, hd, 0.5)], [0.91, W(fa, 1)], [1.105, W(fa, 1)], [1.165, W(ua, 1)], [1.38, W(ua, 1)], [1.41, W(ua, 0.7, cl, 0.3)], [1.438, W('chest', 0.5, ua, 0.5)]];
     const cx = (y) => y > el[1] ? lerp(el[0], sh[0], (y - el[1]) / (sh[1] - el[1])) : lerp(wr[0], el[0], (y - wr[1]) / (el[1] - wr[1]));
     const cz = (y) => y > el[1] ? lerp(el[2], sh[2], (y - el[1]) / (sh[1] - el[1])) : lerp(wr[2], el[2], (y - wr[1]) / (el[1] - wr[1]));
-    const ys = hi ? AP.map(r => r[0]) : [0.875, 0.93, 1.05, 1.13, 1.2, 1.34, 1.44, 1.47];
+    const ys = hi ? AP.map(r => r[0]) : [0.875, 0.93, 1.05, 1.13, 1.2, 1.34, 1.405, 1.438];
     const ar = [], fm = f ? 0.84 : 1.07;
     const armCol = (y) => y >= sleeveY ? { c: (kit && y < sleeveY + 0.02) ? trim : shirtP, k: sleeveK, r: R_CLOTH } : { c: skin, k: 1, r: R_SKIN };
     const push = (y, k, c, r) => { const [rx, rz] = prof(AP, y); ar.push({ y, x: cx(y), z: cz(y), rx: rx * k * fm, rz: rz * k * fm, w: wBlend(y, AW), col: c, r }); };
@@ -312,7 +324,7 @@ function buildBody(look, hi) {
     }
     addLoft(sg, ar, LSEG, { capB: 0.004 });
     // deltoid cap under the sleeve
-    sg.add(new T.SphereGeometry(1, hi ? 14 : 8, hi ? 10 : 6), mat4(sh[0] - s * 0.016, 1.41, sh[2], 0, 0.05 * fm, 0.06, 0.055 * fm), sleeveY < 1.43 ? shirt : skin, W(ua, 0.75, cl, 0.25), sleeveY < 1.43 ? R_CLOTH : R_SKIN);
+    sg.add(new T.SphereGeometry(1, hi ? 14 : 8, hi ? 10 : 6), mat4(sh[0] - s * 0.022, 1.392, sh[2], 0, 0.052 * fm, 0.045, 0.056 * fm), sleeveY < 1.43 ? shirt : skin, W(ua, 0.75, cl, 0.25), sleeveY < 1.43 ? R_CLOTH : R_SKIN);
     /* hand */
     const hx = wr[0], hz = wr[2], hk = f ? 0.9 : 1, handCol = (v, n) => (n.x * -s > 0.35 ? palm : skin);
     if (hi) {
@@ -411,16 +423,36 @@ function buildBody(look, hi) {
       sg.add(geo, m, hairC.clone().multiplyScalar(0.8 + 0.3 * hash2(i, 7)), hw, 0.85);
     }
   }
+  // a duku head wrap: a tall fabric crown over the hairline, tied in a knot at the front, neck left uncovered
+  if (hair === 'wrap') {
+    const sc = C(L.scarf || 0xe86a1f), fold = (v) => sc.clone().multiplyScalar(0.84 + 0.16 * Math.sin(v.y * 160 + Math.atan2(v.z, v.x) * 3));
+    cap({ p1: hl(0.82, 1.22, 1.78), sc: 1.05, edge: 1.02, disp: (X, Y, Z) => 1.04 + 0.52 * smooth(clamp(Y - 0.1, 0, 1)) + 0.16 * smooth(clamp(-Z, 0, 1)) * smooth(clamp(Y + 0.3, 0, 1)) }, fold, 0.88);
+    sg.add(new T.SphereGeometry(1, hi ? 14 : 6, hi ? 10 : 4), mat4(0, 1.79, 0.075, 0, 0.034, 0.03, 0.026, 0.3), sc.clone().multiplyScalar(0.92), hw, 0.88);
+    if (hi) for (const s of [1, -1]) sg.add(new T.SphereGeometry(1, 10, 6), mat4(s * 0.032, 1.815, 0.06, 0, 0.03, 0.016, 0.022, 0.2, 0, s * 0.6), sc, hw, 0.88);
+  }
+  if (hair === 'ponytail') {
+    cap({ p1: LONG, sc: 1.03, disp: (X, Y) => 1 + 0.01 * smooth(clamp(Y, 0, 1)) }, jit, 0.7);
+    const a = new T.Vector3(0, 1.735, -0.112), b2 = new T.Vector3(0, 1.5, -0.15), d = b2.clone().sub(a), len = d.length();
+    sg.add(capsule(0.026, 1, hi ? 4 : 2, hi ? 8 : 5), new T.Matrix4().compose(a.clone().add(b2).multiplyScalar(0.5), new T.Quaternion().setFromUnitVectors(new T.Vector3(0, 1, 0), d.normalize()), new T.Vector3(1, len, 0.85)), jit, hw, 0.75);
+    if (hi) sg.add(new T.TorusGeometry(0.024, 0.006, 5, 14), mat4(a.x, a.y - 0.012, a.z - 0.004, 0, 1, 1, 1, Math.PI / 2 + 0.2), hairC.clone().multiplyScalar(0.6), hw, 0.6);
+  }
+  if (hair === 'twists') cap({ p1: hl(0.96, 1.34, 2.0), sc: 1.01, edge: 1.02, te: 0.9, disp: (X, Y, Z) => 1.1 + 0.06 * Math.max(0, Y) + 0.03 * Math.pow(Math.abs(Math.sin(X * 31 + Z * 7) * Math.sin(Y * 29 + X * 5)), 0.5) }, (v) => jit(v).multiplyScalar(0.88 + 0.22 * hash2(v.x * 600, v.y * 500 + v.z * 700)), 0.95);
   /* hats sit on whatever hair is under them */
   const hat = L.hat || (hair === 'hat' ? 'panama' : '');
   if (hat) {
-    const big = hair === 'afro' ? 1.32 : hair === 'scarf' ? 1.1 : (hair === 'locs' || hair === 'bun' || hair === 'braids') ? 1.05 : 1, up = hair === 'afro' ? 0.062 : hair === 'scarf' ? 0.014 : hair === 'bun' ? 0.012 : 0;
+    const big = hair === 'afro' ? 1.32 : hair === 'wrap' ? 1.3 : hair === 'twists' ? 1.1 : hair === 'scarf' ? 1.1 : (hair === 'locs' || hair === 'bun' || hair === 'braids') ? 1.05 : 1, up = hair === 'afro' ? 0.062 : hair === 'wrap' ? 0.07 : hair === 'scarf' ? 0.014 : hair === 'bun' ? 0.012 : 0;
     const hc = C(L.hatCol || (hat === 'panama' || hat === 'sunhat' ? 0xe8d8b0 : 0x141838)), cy = 1.76 + up, hseg = hi ? 28 : 10;
     if (hat === 'panama' || hat === 'sunhat') {
       const brim = hat === 'sunhat' ? 0.2 : 0.155, straw = (v) => hc.clone().multiplyScalar(0.92 + 0.08 * Math.sin(Math.atan2(v.z, v.x) * 40 + Math.hypot(v.x, v.z) * 300));
       sg.add(new T.CylinderGeometry(0.08 * big, 0.1 * big, 0.08, hseg), mat4(0, cy, -0.004, 0), hi ? straw : hc, hw, 0.92);
       sg.add(new T.CylinderGeometry(brim * big * 0.97, brim * big, 0.008, hi ? 36 : 12), mat4(0, cy - 0.038, -0.004, 0), hi ? straw : hc, hw, 0.92);
       sg.add(new T.CylinderGeometry(0.101 * big, 0.101 * big, 0.02, hseg), mat4(0, cy - 0.025, -0.004, 0), C(hat === 'sunhat' ? 0xf6f3ec : 0x2a1d14), hw, 0.8);
+    } else if (hat === 'fedora') {
+      const band = C(0x1d1d22);
+      sg.add(new T.CylinderGeometry(0.078 * big, 0.096 * big, 0.09, hseg), mat4(0, cy + 0.004, -0.004, 0, 1, 1, 0.92), hc, hw, 0.85);
+      if (hi) sg.add(rb(0.02, 0.01, 0.13 * big, 0.004), mat4(0, cy + 0.048, -0.004, 0), hc.clone().multiplyScalar(0.8), hw, 0.85);
+      sg.add(new T.CylinderGeometry(0.097 * big, 0.097 * big, 0.022, hseg), mat4(0, cy - 0.026, -0.004, 0, 1, 1, 0.92), band, hw, 0.7);
+      sg.add(new T.CylinderGeometry(0.14 * big, 0.145 * big, 0.008, hi ? 32 : 12), mat4(0, cy - 0.038, -0.004, 0.06, 1, 1, 0.94), hc.clone().multiplyScalar(0.95), hw, 0.85);
     } else if (hat === 'bucket') {
       sg.add(new T.CylinderGeometry(0.084 * big, 0.1 * big, 0.072, hseg), mat4(0, cy - 0.004, -0.004, 0), hc, hw, 0.92);
       sg.add(new T.CylinderGeometry(0.102 * big, 0.15 * big, 0.04, hseg), mat4(0, cy - 0.058, -0.004, 0), hc.clone().multiplyScalar(0.94), hw, 0.92);
@@ -499,8 +531,8 @@ function numberTex(n, col) {
 function makeHuman(look) {
   look = Object.assign({}, look || {});
   if (look.f === undefined) look.f = look.hair === 'scarf' || look.hair === 'braids' || !!look.dress;
-  /* modest dress for women: dresses reach the ankle; with no dress or robe, full-length trousers (also under a football kit) */
-  if (look.f) { if (look.dress) { if (!look.midi) look.long = true; } else if (!look.robe) { look.pants = true; if (look.plen !== undefined) look.plen = Math.min(look.plen, 0.3); } }
+  /* women's hems stop no higher than the knee: dresses reach the ankle unless midi; trousers, knee shorts or a skirt otherwise */
+  if (look.f) { if (look.dress) { if (!look.midi) look.long = true; } else if (!look.robe) { look.pants = true; if (look.plen !== undefined) look.plen = Math.min(look.plen, 0.47); } }
   const RP = rigPoints(look.f), bones = [];
   for (const name of BONES) {
     const bn = new T.Bone(); bn.name = name; const p = RP[name], par = BONE_PARENT[name];
@@ -542,11 +574,18 @@ function legIK(b, side, tx, ty, tz, pitch) {
 }
 function setR(bn, x, y, z) { bn.rotation.set(x, y, z); }
 function blendR(bn, x, y, z, w) { const r = bn.rotation; r.x += (x - r.x) * w; r.y += (y - r.y) * w; r.z += (z - r.z) * w; }
-const hiBudget = { f: -1, n: 2 };
+/* detailed meshes cost a few milliseconds each to build: at most one a frame, and people walking towards the camera
+   are built ahead of time on smooth frames (hiWarm) so the switch never lands on a busy frame */
+const hiBudget = { f: -1, n: 1 }, hiQ = new Set();
+function hiTake() { const fr = renderer.info.render.frame; if (fr !== hiBudget.f) { hiBudget.f = fr; hiBudget.n = 1; } if (hiBudget.n <= 0) return false; hiBudget.n--; return true; }
+function hiWarm(raw) {
+  if (!hiQ.size || raw > 0.03 || !hiTake()) return;
+  for (const h of hiQ) { hiQ.delete(h); const u = h.userData; if (!u.hiM && h.parent) { u.hiM = u.mk(true); u.hiM.visible = false; return; } }
+}
 function humanLOD(h) {
   const u = h.userData, e = h.matrixWorld.elements, dx = e[12] - camera.position.x, dy = e[13] - camera.position.y, dz = e[14] - camera.position.z, d2 = dx * dx + dy * dy + dz * dz;
-  let near = d2 < (u.lodFar || 30) * (u.lodFar || 30);
-  if (near && !u.hiM) { const fr = renderer.info.render.frame; if (fr !== hiBudget.f) { hiBudget.f = fr; hiBudget.n = 2; } if (hiBudget.n > 0) { hiBudget.n--; u.hiM = u.mk(true); } else near = false; }
+  const lf = u.lodFar || 30; let near = d2 < lf * lf;
+  if (!u.hiM) { if (near) { if (hiTake()) { u.hiM = u.mk(true); hiQ.delete(h); } else { near = false; hiQ.add(h); } } else if (d2 < lf * lf * 4) hiQ.add(h); }
   if (u.hiM) u.hiM.visible = near; u.loM.visible = !near;
   return d2;
 }
@@ -571,7 +610,7 @@ function headLook(h, u, b, dt, t, idle) {
   b.lidL.rotation.x = b.lidR.rotation.x = lid * 0.95 - Math.max(0, u.lp) * 0.25;
 }
 function poseSeat(u, b, mode, t, dt) {
-  const ride = mode === 'ride', pass = mode === 'pass';
+  const ride = mode === 'ride', pass = mode === 'pass', type = mode === 'type';
   b.hips.position.set(0, HIPS_Y, 0);
   setR(b.spine, ride ? 0.22 : 0.06, 0, 0); setR(b.chest, ride ? 0.1 : 0.02, -u.steer * 0.2, 0);
   for (const s of [1, -1]) {
@@ -580,12 +619,14 @@ function poseSeat(u, b, mode, t, dt) {
     setR(b['shin' + L], ride ? 1.35 : 1.5, 0, 0);
     setR(b['foot' + L], ride ? -0.15 : 0.02, 0, -0.1 * s);
     if (pass) { setR(b['clav' + L], 0, 0, 0); setR(b['uArm' + L], -0.4, 0, 0.12 * s); setR(b['fArm' + L], -1.15, 0, 0); setR(b['hand' + L], 0, 0, -0.2 * s); }
+    // typing: forearms on the table, hands over the keys, fingers busy
+    else if (type) { setR(b['clav' + L], 0, 0, 0); setR(b['uArm' + L], -0.32, 0, 0.16 * s); setR(b['fArm' + L], -1.32 + Math.sin(t * 13 + s * 1.7 + u.phase) * 0.05, 0, -0.12 * s); setR(b['hand' + L], 0.1 + Math.max(0, Math.sin(t * 17 + s * 2.3)) * 0.12, 0, -0.1 * s); }
     else {
       const st = u.steer * s * 0.18;
       setR(b['clav' + L], 0, 0, 0.04 * s); setR(b['uArm' + L], (ride ? -1.0 : -0.95) - st, 0, (ride ? 0.3 : 0.18) * s); setR(b['fArm' + L], ride ? -0.35 : -0.55, 0, 0); setR(b['hand' + L], -0.15, 0, -0.35 * s);
     }
   }
-  setR(b.neck, ride ? -0.15 : -0.04, 0, 0); setR(b.head, ride ? -0.12 : -0.02, Math.sin(t * 0.4 + u.phase) * 0.12, 0);
+  setR(b.neck, ride ? -0.15 : type ? 0.12 : -0.04, 0, 0); setR(b.head, ride ? -0.12 : type ? 0.18 : -0.02, Math.sin(t * 0.4 + u.phase) * (type ? 0.04 : 0.12), 0);
 }
 /* animation level of detail: people far away or behind the camera are posed less often (with the time they missed) */
 const CAMF = { x: 0, z: 1 };
@@ -610,7 +651,7 @@ function animHuman(h, dt, t, speed, mode) {
     u.ly = 0; headLook(h, u, b, dt, t, true); applyEmote(h, dt);
     return;
   }
-  if (mode === 'sit' || mode === 'ride' || mode === 'pass') { poseSeat(u, b, mode, t, dt); headLook(h, u, b, dt, t, false); applyEmote(h, dt); return; }
+  if (mode === 'sit' || mode === 'ride' || mode === 'pass' || mode === 'type') { poseSeat(u, b, mode, t, dt); headLook(h, u, b, dt, t, false); applyEmote(h, dt); return; }
 
   /* ---- locomotion: smoothed speed, yaw rate, acceleration ---- */
   const yaw = h.rotation.y, fem = !!(u.look && u.look.f);

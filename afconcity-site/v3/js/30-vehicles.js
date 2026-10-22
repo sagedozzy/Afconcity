@@ -274,7 +274,7 @@ function exitVehicle(force) {
   P.x = px; P.z = pz; player.position.set(P.x, 0.04, P.z); player.rotation.set(0, v.yaw, 0);
   if (passenger) dropPassenger(false);
   v.vf = 0; v.vx = v.vz = 0; v.lean = 0; v.steer = 0; v.m.rotation.z = 0; v.col1.on = true; moveVehCollider(v);
-  playerVeh = null; sfx.engineStop();
+  playerVeh = null; sfx.engineStop(); vehOnExit(v);
   if (job && job.type === 'taxi') endTaxi('You left the bajaji. Taxi shift over.');
 }
 const vehCircle = { x: 0, z: 0 };
@@ -360,6 +360,7 @@ function damageVehicle(v, d) {
   v.hp = Math.max(0, v.hp - d);
   if (v.hp <= 0 && !v.wreck) {
     v.wreck = 1;
+    if (v.owned) { exitVehicle(true); v.m.visible = false; v.col1.on = false; vehWrecked(v); return; }
     const fee = Math.min(money(), PRICES.repair);
     exitVehicle(true);
     if (fee > 0) spend(fee, 'Repair fee', 'lost');
@@ -371,7 +372,7 @@ function damageVehicle(v, d) {
 function updateRentals(dt) {
   for (const v of rentals) {
     if (v !== playerVeh && !v.wreck) { const cx = v.x - camera.position.x, cz = v.z - camera.position.z; v.m.visible = cx * cx + cz * cz < 320 * 320; }
-    if (v === playerVeh || !v.rented || v.wreck) continue;
+    if (v === playerVeh || !v.rented || v.wreck || v.owned) continue;
     v.idle += dt;
     if (v.idle > 120 && Math.hypot(v.x - P.x, v.z - P.z) > 80) { resetRental(v); note(`Your ${VEH[v.kind].name.toLowerCase()} went back to the ${v.stand.name.toLowerCase()}.`); }
   }
@@ -381,7 +382,7 @@ function rentOrRide(v) {
   if (!v.rented) {
     const price = PRICES[v.kind];
     if (!canPay(price)) { help(`You need ${tsh(price)} to rent the ${VEH[v.kind].name.toLowerCase()}.`, 2200); sfx.deny(); return; }
-    for (const o of rentals) if (o !== v && o.rented && o !== playerVeh) resetRental(o);
+    for (const o of rentals) if (o !== v && o.rented && !o.owned && o !== playerVeh) resetRental(o);
     spend(price, `${VEH[v.kind].name} rental`, 'spent'); v.rented = true;
     if (!state.tips.drive) { state.tips.drive = 1; help('<kbd>W</kbd><kbd>S</kbd> throttle and brake, <kbd>A</kbd><kbd>D</kbd> steer, <kbd>Space</kbd> handbrake to drift, <kbd>Q</kbd> horn, <kbd>E</kbd> to get off. Mind the trafiki: the limit is 50 km/h.', 9000); }
   }

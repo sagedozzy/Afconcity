@@ -55,7 +55,7 @@ function onPeers(change) {
     if (pr === r.prev) continue;
     r.prev = pr; r.by = p.by; r.guest = p.guest;
     { const nx = clamp(numOr(pr.x, r.x), -2000, 2000), nz = clamp(numOr(pr.z, r.z), -2000, 2000); if (nx !== r.x || nz !== r.z) r.updT = performance.now(); r.x = nx; r.z = nz; } r.ry = numOr(pr.ry, r.ry); r.sp = clamp(numOr(pr.sp, 0), 0, 40);
-    r.cash = clamp(Math.floor(numOr(pr.cash, 0)), 0, 1e10); r.nick = strOr(pr.nick, 16); r.typ = pr.typ ? 1 : 0; r.down = pr.dn ? 1 : 0; r.done = !!pr.done; r.st = clamp(Math.floor(numOr(pr.st, 0)), 0, 99); r.vip = !!pr.vip; r.inside = !!pr.in; r.hm = clamp(Math.floor(numOr(pr.hm, -1)), -1, 2);
+    r.cash = clamp(Math.floor(numOr(pr.cash, 0)), 0, 1e10); r.nick = strOr(pr.nick, 16); r.typ = pr.typ ? 1 : 0; r.down = pr.dn ? 1 : 0; r.done = !!pr.done; r.st = clamp(Math.floor(numOr(pr.st, 0)), 0, 99); r.vip = !!pr.vip; r.inside = !!pr.in; r.hm = clamp(Math.floor(numOr(pr.hm, -1)), -1, 2); nyRemote(r, pr);
     if (kit !== r.kit || lk !== r.lk) { r.kit = kit; r.lk = lk; const pos = r.h.position.clone(), ry = r.h.rotation.y, par = r.h.parent; par.remove(r.h); r.h = remoteHuman(kit, p.peer, lk); r.h.position.copy(pos); r.h.rotation.y = ry; par.add(r.h); }
     const vk = (pr.v === 'bajaji' || pr.v === 'boda') ? pr.v : '', vc = numOr(pr.vc, 0x1f5fbf) & 0xffffff;
     if (vk !== r.vk || (vk && vc !== r.vc)) {
@@ -164,7 +164,7 @@ function sendPresence(force) {
   const v = playerVeh || (mode === 'ride' && ORDER.v && ORDER.kind !== 'daladala' ? { kind: ORDER.kind, col: 0x1f5fbf, yaw: ORDER.v.yaw } : null);
   const cur = {
     x: Math.round((CINE.on ? CINE.boat.position.x : P.x) * 100) / 100, z: Math.round((CINE.on ? CINE.boat.position.z : P.z) * 100) / 100, ry: Math.round((v ? v.yaw : player.rotation.y) * 100) / 100, sp: Math.round(speed * 10) / 10,
-    v: v ? v.kind : '', vc: v ? v.col : 0, kit: state.kit, lk: lookCode(state.look), nick: state.nick || '', cash: Math.round(state.cash), in: HOME.inside ? 1 : 0, hm: state.home ? (homeById(state.home.id) || { tier: -1 }).tier : -1, done: !!state.done, dn: isDown(player) ? 1 : 0, st: stampCount(), vip: state.ticket ? 1 : 0,
+    v: v ? v.kind : '', vc: v ? v.col : 0, kit: state.kit, lk: lookCode(state.look), nick: state.nick || '', cash: Math.round(state.cash), in: HOME.inside ? 1 : 0, hm: state.home ? (homeById(state.home.id) || { tier: -1 }).tier : -1, done: !!state.done, dn: isDown(player) ? 1 : 0, st: stampCount(), vip: state.ticket ? 1 : 0, gt: nyGold() ? 1 : 0, fx: NY.fxT,
     em: MP.em, emt: MP.emt, msg: MP.msg, msgt: MP.msgt, typ: MP.typ, hf: MP.hf, hft: MP.hft, ev: MP.ev, evt: MP.evt, evk: MP.evk,
     pk: COIN.myPk.slice(-40), dr: COIN.myDrops.slice(-12).map(d => [d.id, Math.round(d.x * 10) / 10, Math.round(d.z * 10) / 10, d.v]),
   };

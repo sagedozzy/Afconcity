@@ -112,7 +112,7 @@ G("state.energy = 100, 1")
 # ---------- phone
 s.key('KeyP'); s.key('KeyP', False)
 check('P opens the phone', G("PH.open") and G("mode") == 'phone' and not G("$('#phone').hidden"))
-check('the home screen has 12 apps and 5 ad spaces', G("document.querySelectorAll('#phScreen .ph-grid:not(.four) .ph-app').length") == 12 and G("document.querySelectorAll('#phScreen .ph-banner').length") == 1 and G("document.querySelectorAll('#phScreen .ph-grid.four .ph-app').length") == 4)
+check('the home screen has every app and 5 ad spaces', G("document.querySelectorAll('#phScreen .ph-grid:not(.four) .ph-app').length") == G("APPS.length") and G("document.querySelectorAll('#phScreen .ph-banner').length") == 1 and G("document.querySelectorAll('#phScreen .ph-grid.four .ph-app').length") == 4)
 bad = G("(() => { const bad = []; for (const k of Object.keys(PHONE_APPS)) { if (k === 'brand' || k === 'thread') continue; PH.app = k; try { renderPhone(); if (document.querySelector('#phScreen').textContent.includes('could not open')) bad.push(k); } catch (e) { bad.push(k + ':' + e.message); } } PH.app = 'home'; renderPhone(); return bad; })()")
 check('every app opens', not bad, bad)
 G("phoneGo('msgs'), 1")
