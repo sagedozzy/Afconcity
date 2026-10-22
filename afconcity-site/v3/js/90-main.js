@@ -1,7 +1,7 @@
 /* ===================== 90 main: player, camera, input, loop, boot ===================== */
 const cam = { yaw: 0, pitch: 0.26, dist: 4.4, curDist: 4.4, lastLook: -99, fov: 58 };
-const SETTINGS = { follow: true, sens: 1 };
-try { SETTINGS.follow = localStorage.getItem('afconcity-follow') !== 'off'; SETTINGS.sens = clamp(parseFloat(localStorage.getItem('afconcity-sens') || '1') || 1, 0.4, 2); } catch (e) {}
+const SETTINGS = { follow: true, sens: 1, vol: 0.8, shake: true, names: true, bubbles: true };
+try { SETTINGS.follow = localStorage.getItem('afconcity-follow') !== 'off'; SETTINGS.sens = clamp(parseFloat(localStorage.getItem('afconcity-sens') || '1') || 1, 0.4, 2); SETTINGS.vol = clamp(parseFloat(localStorage.getItem('afconcity-vol') || '0.8') || 0.8, 0.1, 1); SETTINGS.shake = localStorage.getItem('afconcity-shake') !== 'off'; SETTINGS.names = localStorage.getItem('afconcity-names') !== 'off'; SETTINGS.bubbles = localStorage.getItem('afconcity-bubbles') !== 'off'; } catch (e) {}
 const camTarget = new T.Vector3(START.x, 1.6, START.z);
 const moveDir = new T.Vector2(0, -1);
 const PR = 0.4;
@@ -227,6 +227,7 @@ function updateCamera(dt, t) {
     const allowed = Math.max(0.9, camRay(camTarget.x, camTarget.y, camTarget.z, ox, oy, oz, dist) - 0.3);
     cam.curDist = allowed < cam.curDist ? damp(cam.curDist, allowed, 24, dt) : damp(cam.curDist, allowed, 3, dt);
     camera.position.set(camTarget.x + ox * cam.curDist, Math.max(0.5, camTarget.y + oy * cam.curDist), camTarget.z + oz * cam.curDist);
+    if (RT.shake > 0 && !SETTINGS.shake) RT.shake = 0;
     if (RT.shake > 0) { camera.position.x += (Math.random() - 0.5) * RT.shake * 0.35; camera.position.y += (Math.random() - 0.5) * RT.shake * 0.35; RT.shake = Math.max(0, RT.shake - dt * 2.2); }
     lookV.set(camTarget.x, camTarget.y, camTarget.z); camera.lookAt(lookV);
     if (RT.tipsy > now()) camera.rotation.z += Math.sin(t * 1.1) * 0.05;
@@ -382,7 +383,7 @@ function restoreFrom(s) {
   if (!state.tmode) state.tmode = 'live';
   night = nightTarget = state.tmode === 'live' ? clockNight() : state.tmode === 'night' ? 1 : 0; RT.envN = night > 0.5 ? 1 : 0; applyLight();
   setGateOpen(state.ticket); shownCash = state.cash;
-  segSet('#segTime', state.tmode);
+  segSet('[data-seg="time"]', state.tmode);
 }
 function newGame() {
   clearSave();
@@ -474,14 +475,16 @@ function wireUI() {
   $('#btnUnstick').addEventListener('click', () => { closeOverlays(); stuckMenu(); });
   wireBigMap();
   // main menu: each item shows its panel
-  const showSP = (k) => { document.querySelectorAll('.mm-item').forEach(b => b.setAttribute('aria-current', String(b.dataset.p === k))); document.querySelectorAll('.sp').forEach(p2 => { p2.hidden = p2.dataset.p !== k; }); if (k === 'ads') renderAds($('#adsMain'), false); else AD.view = null; if (mode === 'intro') setStyling(k === 'style'); if (k === 'style') renderStyle($('#styleMain')); };
+  const showSP = (k) => { document.querySelectorAll('.mm-item').forEach(b => b.setAttribute('aria-current', String(b.dataset.p === k))); document.querySelectorAll('.sp').forEach(p2 => { p2.hidden = p2.dataset.p !== k; }); AD.view = null; if (k === 'ads') menuAdsView(); if (k === 'about') drawAboutMap(); if (k === 'friends') renderInvitePanel(); if (mode === 'intro') setStyling(k === 'style'); if (k === 'style') renderStyle($('#styleMain')); };
+  $('#btnStyleBack').addEventListener('click', () => { showSP('play'); $('#btnPlay').focus(); });
+  wireMenuExtras();
   $('#btnStyle').addEventListener('click', () => showSP('style'));
   $('#codeForm').addEventListener('submit', (e) => { e.preventDefault(); cloudLoad($('#codeInput').value, $('#codeOut')); });
   $('#codeInput').addEventListener('keydown', (e) => e.stopPropagation());
   $('#btnStyleDone').addEventListener('click', () => { showSP('play'); $('#btnPlay').focus(); });
   window.addEventListener('keydown', (e) => { if (STYLE.on && mode === 'intro' && e.key === 'Escape') { e.preventDefault(); showSP('play'); $('#btnPlay').focus(); } });
   document.querySelectorAll('.mm-item').forEach(b => { b.addEventListener('click', () => { showSP(b.dataset.p); if (b.dataset.p === 'play' && !$('#btnPlay').disabled) $('#btnPlay').focus(); }); b.addEventListener('focus', () => showSP(b.dataset.p)); });
-  const sens = $('#sens'); sens.value = SETTINGS.sens; sens.addEventListener('input', () => { SETTINGS.sens = parseFloat(sens.value) || 1; try { localStorage.setItem('afconcity-sens', String(SETTINGS.sens)); } catch (e) {} });
+  wireSettings();
   $('#btnResume').addEventListener('click', closeOverlays);
   $('#btnRestart').addEventListener('click', () => { ui.pause.hidden = true; mode = 'play'; newGame(); renderKits(); enterPlay(); });
   $('#btnRoam').addEventListener('click', () => { ui.end.hidden = true; ui.hud.hidden = false; ui.tags.hidden = false; mode = 'play'; cam.yaw = Math.PI; canvas.focus(); });
@@ -490,7 +493,7 @@ function wireUI() {
   ui.online.addEventListener('click', () => { if (MP.status !== 'live' && MP.room && MP.room.retry) MP.room.retry(); ui.players.hidden = !ui.players.hidden; ui.online.setAttribute('aria-expanded', String(!ui.players.hidden)); renderPlayers(); });
   document.querySelectorAll('[data-seg="gfx"] button').forEach(b => b.addEventListener('click', () => { gfx = b.dataset.v; try { localStorage.setItem(GFX_KEY, gfx); } catch (e) {} segSet('[data-seg="gfx"]', gfx); setShadowRes(); resizeAll(); applyNight(smooth(night)); armWatch(); }));
   document.querySelectorAll('[data-seg="follow"] button').forEach(b => b.addEventListener('click', () => { SETTINGS.follow = b.dataset.v === 'on'; try { localStorage.setItem('afconcity-follow', b.dataset.v); } catch (e) {} segSet('[data-seg="follow"]', b.dataset.v); }));
-  document.querySelectorAll('#segTime button').forEach(b => b.addEventListener('click', () => setTimeMode(b.dataset.v)));
+  document.querySelectorAll('[data-seg="time"] button').forEach(b => b.addEventListener('click', () => setTimeMode(b.dataset.v)));
   document.querySelectorAll('[data-seg="hud"] button').forEach(b => b.addEventListener('click', () => setHudPreset(b.dataset.v, mode === 'intro' || mode === 'paused')));
   $('#btnHud').addEventListener('click', () => { cycleHud(); canvas.focus(); }); $('#hudEye').addEventListener('click', () => { cycleHud(); canvas.focus(); });
   renderHudParts(); applyHudVis(); wirePhone();

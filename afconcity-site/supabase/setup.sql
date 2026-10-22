@@ -127,6 +127,7 @@ begin
     new.nick := regexp_replace(new.nick, '\m' || w || '\M', 'Fan', 'gi');
   end loop;
   if new.nick = '' then new.nick := 'Fan'; end if;
+  if to_regclass('public.nicknames') is not null and exists (select 1 from public.nicknames x where x.key = lower(regexp_replace(new.nick, '[^A-Za-z0-9]', '', 'g')) and x.uid <> new.owner) then new.nick := 'Fan'; end if;
   new.created_at := now();
   return new;
 end $$;
@@ -208,6 +209,9 @@ begin
   if r.owner <> auth.uid() and to_regprocedure('public.nyota_move(uuid,uuid)') is not null then
     execute 'select public.nyota_move($1, $2)' using r.owner, auth.uid();  -- Nyota and premium items travel with the save
   end if;
+  if r.owner <> auth.uid() and to_regprocedure('public.nick_move(uuid,uuid)') is not null then
+    execute 'select public.nick_move($1, $2)' using r.owner, auth.uid();  -- and so does a locked-in fan name
+  end if;
   return jsonb_build_object('code', r.code, 'data', r.data, 'updated_at', r.updated_at);
 end $$;
 revoke execute on function public.save_put(text, jsonb), public.save_load(text) from public, anon;
@@ -242,6 +246,8 @@ begin
   new.nick := btrim(regexp_replace(new.nick, '[[:cntrl:]]', '', 'g'));
   for w in select word from public.chat_words loop new.nick := regexp_replace(new.nick, '\m' || w || '\M', 'Fan', 'gi'); end loop;
   if new.nick = '' then new.nick := 'Fan'; end if;
+  -- a name another player has locked in shows as Fan
+  if to_regclass('public.nicknames') is not null and exists (select 1 from public.nicknames x where x.key = lower(regexp_replace(new.nick, '[^A-Za-z0-9]', '', 'g')) and x.uid <> new.uid) then new.nick := 'Fan'; end if;
   if exists (select 1 from public.chat_bans b where b.uid = new.uid) then new.nick := 'Fan'; end if;
   new.updated_at := now();
   return new;
@@ -625,3 +631,89 @@ begin
   update topups set status = 'cancelled' where status = 'pending_payment' and created_at < now() - interval '2 days';
 end $$;
 revoke execute on function public.afc_cleanup() from public, anon, authenticated;
+
+
+-- =====================================================================================================
+-- Version 4 (October 2026): unique fan names you lock in, and invite counts for the Play with friends panel
+-- =====================================================================================================
+-- key: the name with only its letters and digits, lower case, so "Zuri K" and "zuri_k" are the same name
+create table if not exists public.nicknames (
+  key text primary key,
+  nick text not null,
+  uid uuid not null unique,                 -- one locked name per player
+  claimed_at timestamptz not null default now(),
+  constraint nick_shape check (char_length(nick) between 3 and 16 and key ~ '^[a-z0-9]{3,16}$')
+);
+alter table public.nicknames enable row level security;
+drop policy if exists nicknames_read on public.nicknames;
+create policy nicknames_read on public.nicknames for select to anon, authenticated using (true);
+grant select on public.nicknames to anon, authenticated;
+revoke insert, update, delete on public.nicknames from anon, authenticated;
+
+create table if not exists public.nick_reserved (key text primary key);
+alter table public.nick_reserved enable row level security;
+insert into public.nick_reserved (key) values ('afconcity'), ('afcon'), ('admin'), ('administrator'), ('support'), ('moderator'), ('mod'), ('staff'), ('official'),
+  ('owner'), ('system'), ('caf'), ('fan'), ('guest'), ('player'), ('amina'), ('zuri'), ('mwizi'), ('trafiki'), ('police'), ('polisi'), ('anthropic'), ('claude')
+on conflict do nothing;
+
+create or replace function public.nick_key(p text) returns text language sql immutable as $$
+  select lower(regexp_replace(coalesce(p, ''), '[^A-Za-z0-9]', '', 'g'))
+$$;
+-- free | mine | taken | reserved | rude | bad
+create or replace function public.nick_status(p_nick text) returns text
+language plpgsql stable security definer set search_path = public as $$
+declare n text := btrim(regexp_replace(coalesce(p_nick, ''), '\s+', ' ', 'g')); k text := public.nick_key(n); w text; who uuid;
+begin
+  if char_length(n) < 3 or char_length(n) > 16 or n !~ '^[A-Za-z0-9][A-Za-z0-9 _.-]*[A-Za-z0-9]$' or char_length(k) < 3 then return 'bad'; end if;
+  for w in select word from chat_words loop
+    if n ~* ('\m' || w || '\M') or k = w then return 'rude'; end if;
+  end loop;
+  if exists (select 1 from nick_reserved r where r.key = k) or k ~ '^fan[0-9]*$' then return 'reserved'; end if;
+  select uid into who from nicknames where key = k;
+  if who is null then return 'free'; end if;
+  if who = auth.uid() then return 'mine'; end if;
+  return 'taken';
+end $$;
+
+create or replace function public.nick_claim(p_nick text) returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare n text := btrim(regexp_replace(coalesce(p_nick, ''), '\s+', ' ', 'g')); k text := public.nick_key(n); st text; cur public.nicknames;
+begin
+  if auth.uid() is null then raise exception 'Sign in first.' using errcode = 'P0001'; end if;
+  if exists (select 1 from chat_bans b where b.uid = auth.uid()) then raise exception 'You cannot lock in a name.' using errcode = 'P0001'; end if;
+  st := public.nick_status(n);
+  if st = 'mine' then update nicknames set nick = n where uid = auth.uid(); return jsonb_build_object('nick', n, 'status', 'mine'); end if;
+  if st <> 'free' then
+    raise exception '%', case st when 'taken' then 'Another fan has locked in that name.' when 'rude' then 'Please pick a friendlier name.'
+      when 'reserved' then 'That name is reserved.' else 'Use 3 to 16 letters or numbers.' end using errcode = 'P0001';
+  end if;
+  select * into cur from nicknames where uid = auth.uid();
+  if cur.uid is not null and cur.claimed_at > now() - interval '1 day' then raise exception 'You can change your locked name once a day.' using errcode = 'P0001'; end if;
+  delete from nicknames where uid = auth.uid();
+  begin
+    insert into nicknames (key, nick, uid) values (k, n, auth.uid());
+  exception when unique_violation then raise exception 'Another fan has locked in that name.' using errcode = 'P0001';
+  end;
+  return jsonb_build_object('nick', n, 'status', 'mine');
+end $$;
+
+create or replace function public.nick_mine() returns text language sql stable security definer set search_path = public as $$
+  select nick from nicknames where uid = auth.uid()
+$$;
+-- a save code moved to a new device takes its locked name along (unless the new device has one already)
+create or replace function public.nick_move(p_from uuid, p_to uuid) returns void
+language plpgsql security definer set search_path = public as $$
+begin
+  if p_from is null or p_to is null or p_from = p_to then return; end if;
+  if exists (select 1 from nicknames where uid = p_to) then return; end if;
+  update nicknames set uid = p_to where uid = p_from;
+end $$;
+
+create or replace function public.my_invites() returns jsonb language sql stable security definer set search_path = public as $$
+  select jsonb_build_object('joined', count(*), 'paid', count(*) filter (where qualified)) from invites where inviter = auth.uid()
+$$;
+
+revoke execute on function public.nick_move(uuid, uuid) from public, anon, authenticated;
+revoke execute on function public.nick_claim(text), public.nick_mine(), public.my_invites() from public, anon;
+grant execute on function public.nick_claim(text), public.nick_mine(), public.my_invites() to authenticated;
+grant execute on function public.nick_status(text), public.nick_key(text) to anon, authenticated;

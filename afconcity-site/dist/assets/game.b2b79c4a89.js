@@ -626,6 +626,36 @@ const footprints = [];
 const LANG_KEY = 'afc-lang';
 let LANG = (() => { try { const v = localStorage.getItem(LANG_KEY); if (v === 'en' || v === 'sw') return v; } catch (e) {} return /^sw\b/i.test(navigator.language || '') ? 'sw' : 'en'; })();
 const SW = new Map(Object.entries({
+  // main screen v2
+  "The game": "Mchezo",
+  "Touch controls": "Vidhibiti vya kugusa",
+  "Watch": "Tahadhari",
+  "Then": "Kisha",
+  "Collect 11 Fan Passport stamps and TSh 1,000,000 for a VIP ticket to the AFCON 2027 match.": "Kusanya mihuri 11 ya Pasipoti ya Shabiki na TSh 1,000,000 kwa tiketi ya VIP ya mechi ya AFCON 2027.",
+  "Eat, sleep in your room, pay rent on Saturdays. Keep savings on Pesa: pickpockets only take cash.": "Kula, lala chumbani kwako, lipa kodi kila Jumamosi. Weka akiba kwenye Pesa: wezi wa mfukoni huchukua pesa taslimu tu.",
+  "Real prices, fines and clinic bills. Knock people down and the police come after you.": "Bei halisi, faini na bili za kliniki. Ukiwagonga watu, polisi watakufuata.",
+  "Your ticket opens The Summit and Pitch Day. Then build businesses and buy your own wheels.": "Tiketi yako inafungua The Summit na Pitch Day. Kisha jenga biashara na ununue usafiri wako.",
+  "Lock it in": "Lifunge",
+  "Send your link": "Tuma kiungo chako",
+  "Your friend plays 5 minutes": "Rafiki yako acheze dakika 5",
+  "You both get paid": "Wote mnalipwa",
+  "for you and for every friend who joins": "kwako na kwa kila rafiki anayejiunga",
+  "Share": "Shiriki",
+  "Getting your link…": "Tunapata kiungo chako…",
+  "Volume": "Kiwango cha sauti",
+  "Look speed": "Kasi ya kuangalia",
+  "Screen shake": "Mtikisiko wa skrini",
+  "Names above heads": "Majina juu ya vichwa",
+  "Chat bubbles": "Viputo vya gumzo",
+  "See spaces and prices": "Angalia nafasi na bei",
+  "roadside billboards on Fumba Road": "mabango ya barabarani Fumba Road",
+  "ad spaces on every player's phone": "nafasi za matangazo kwenye simu ya kila mchezaji",
+  "radio spot at the beach bar": "tangazo la redio kwenye baa ya ufukweni",
+  "Real today": "Halisi leo",
+  "Planned (imagined designs)": "Mipango (michoro ya kubuni)",
+  "Real": "Halisi",
+  "Planned": "Mipango",
+  "‹ Back": "‹ Rudi",
   // HUD and on-screen buttons
   'Goal': 'Lengo', 'Talk to Amina': 'Ongea na Amina', 'She is waiting on the beach.': 'Anakusubiri ufukweni.',
   'Fan Passport': 'Pasipoti ya Shabiki', 'VIP ticket fund': 'Akiba ya tiketi ya VIP', 'TIME': 'SAA', 'Connecting…': 'Inaunganisha…',
@@ -5754,7 +5784,7 @@ function renderPurseFact() {
   if (state.intro) { b.textContent = `${Math.round(money() / 1000)}k`; l.textContent = 'TSh you have now'; }
   else if (v) { b.textContent = `${Math.round(have / 1000)}k`; l.textContent = 'TSh in your starting purse'; }
   else { b.textContent = `${Math.round(ABOUT_MAX / 1000 + PRICES.start / 1000)}k`; l.textContent = 'TSh to start: answer 8 quick questions'; }
-  if (lede) lede.textContent = `You step off the daladala on Fumba Road with ${v || state.intro ? tsh(state.intro ? money() : have) : `up to ${tsh(PRICES.start + ABOUT_MAX)}`}. A VIP seat for the AFCON 2027 match at AfconCity costs TSh 1,000,000, and only fans with a full Fan Passport of Zanzibar experiences can buy one. Work, explore and haggle at real Zanzibar prices.`;
+  if (lede) lede.textContent = `Start with ${v || state.intro ? tsh(state.intro ? money() : have) : `up to ${tsh(PRICES.start + ABOUT_MAX)}`}, hustle round real Fumba, fill your Fan Passport and save TSh 1,000,000 for a VIP seat at the AFCON 2027 match.`;
 }
 /* the questions, one card at a time, with the purse growing as you answer */
 function openOnboard(done) {
@@ -5838,6 +5868,7 @@ function openOnboard(done) {
 }
 /* Play: a brand-new game asks the questions first (only those not answered yet) */
 function startPlay() {
+  if (!nickPlayOk()) return;
   if (!state.intro && state.bonus === undefined) { const v = aboutRead(); if (!v || aboutCount(v.a) < ABOUT_Q.length) { openOnboard(enterPlay); return; } }
   enterPlay();
 }
@@ -6131,7 +6162,7 @@ function setNet(status, why) {
   const h = $('#mmFriendsHint'); if (h) h.textContent = live ? (n <= 1 ? 'Live · only you' : `Live · ${n} online`) : status === 'connecting' ? 'Checking…' : 'Solo';
   const po = $('#pmOnline'); if (po) po.textContent = ui.onlineText.textContent;
 }
-function displayName(r) { return strOr(r.nick, 16) || (r.by && MP.names[r.by]) || 'Fan'; }
+function displayName(r) { const n = strOr(r.nick, 16) || (r.by && MP.names[r.by]) || 'Fan'; return nickShown(n, r.by); }
 async function refreshNames() {
   if (!MP.user) return;
   const ids = [...remotes.values()].map(r => r.by).filter(Boolean);
@@ -6219,7 +6250,7 @@ function updateRemotes(dt, t) {
       r.h.position.set(r.cx, 0.04, r.cz); r.h.rotation.y = angDamp(r.h.rotation.y, r.ry, 12, dt);
     }
     if (r.tag.bubUntil && nowMs > r.tag.bubUntil) { r.tag.bub.hidden = true; r.tag.bubUntil = 0; }
-    r.tag.nm.textContent = displayName(r) + (r.typ ? ' …' : '');
+    r.tag.nm.textContent = displayName(r) + (r.typ ? ' …' : ''); r.tag.nm.classList.toggle('ok', nickOk(r.nick, r.by));
     const far = Math.hypot(r.cx - camera.position.x, r.cz - camera.position.z) > 170;
     (r.veh || r.h).visible = !r.inside;
     if (far || mode === 'intro' || r.inside) r.tag.el.style.visibility = 'hidden'; else placeTag(r.tag, r.cx, r.veh ? 2.7 : 2.25, r.cz);
@@ -6284,7 +6315,7 @@ async function initMultiplayer() {
   const cl = (window.claude && typeof window.claude.use === 'function') ? window.claude : webClaude;
   if (!cl) {
     /* a copy with no backend at all: single player, with multiplayer marked as coming soon */
-    document.querySelectorAll('.mp-claude').forEach(e => { e.hidden = true; }); document.querySelectorAll('.mp-web').forEach(e => { e.hidden = false; });
+    document.querySelectorAll('.mp-claude').forEach(e => { e.hidden = true; }); document.querySelectorAll('.mp-none').forEach(e => { e.hidden = false; });
     const pn = $('#playersNote'); if (pn) pn.textContent = 'Multiplayer is coming soon.';
     setNet('solo', 'outside'); return;
   }
@@ -6292,7 +6323,8 @@ async function initMultiplayer() {
     /* afconcity.com: everyone who opens the site shares one Fumba */
     MP.web = true;
     document.querySelectorAll('.mp-claude').forEach(e => { e.hidden = true; });
-    document.querySelectorAll('.mp-web').forEach(e => { e.hidden = false; e.textContent = 'Everyone at afconcity.com shares the same Fumba: chat, high-fives, races and dropped cash. Send friends the link and meet up at the Uptown Gate.'; });
+    document.querySelectorAll('.mp-web').forEach(e => { e.hidden = false; });
+    menuOnline();
   }
   const slow = () => { clearTimeout(MP.slowT); MP.slowT = setTimeout(() => { if (!MP.terminal && MP.status === 'connecting' && !(MP.room && MP.room.connected())) setNet('solo', 'timeout'); }, 15000); };
   slow();
@@ -6833,7 +6865,7 @@ function offerCopy(root, item) {
 }
 
 /* ---------- play stats and billboard view time ---------- */
-const GAME_VER = '2026.10.22.1';
+const GAME_VER = '2026.10.22.2';
 function avgFps() { if (!AD.fps.length) return 0; return AD.fps.reduce((a, b) => a + b, 0) / AD.fps.length; }
 const _adV = new T.Vector3();
 function updateAdStats(dt) {
@@ -7070,7 +7102,7 @@ function setTimeMode(v) {
   state.tmode = v;
   if (v === 'day' || v === 'night') setNight(v === 'night');
   else { nightTarget = clockNight(); state.night = nightTarget > 0.5; rebuildEnv(nightTarget > 0.5 ? 1 : 0); RT.envN = nightTarget > 0.5 ? 1 : 0; }
-  segSet('#segTime', v);
+  segSet('[data-seg="time"]', v);
 }
 function addMinutes(m) { state.clock = clockNow() + m; if (timeMode() === 'live') { nightTarget = clockNight(); night = nightTarget; applyLight(); } rentCheck(); }
 function updateClock(dt) {
@@ -8913,7 +8945,7 @@ function audioInit() {
   if (AU.ctx) { if (AU.ctx.state === 'suspended') AU.ctx.resume(); return; }
   try {
     const Ctx = window.AudioContext || window.webkitAudioContext; AU.ctx = new Ctx();
-    AU.master = AU.ctx.createGain(); AU.master.gain.value = AU.on ? 0.6 : 0; AU.master.connect(AU.ctx.destination);
+    AU.master = AU.ctx.createGain(); AU.master.gain.value = AU.on ? 0.75 * SETTINGS.vol : 0; AU.master.connect(AU.ctx.destination);
     const len = AU.ctx.sampleRate * 2, buf = AU.ctx.createBuffer(1, len, AU.ctx.sampleRate), d = buf.getChannelData(0);
     for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
     AU.noise = buf;
@@ -8975,7 +9007,7 @@ const sfx = {
   },
   engineStop: () => { if (!AU.engine) return; const e = AU.engine, t = AU.ctx.currentTime; e.g.gain.cancelScheduledValues(t); e.g.gain.setValueAtTime(e.g.gain.value, t); e.g.gain.exponentialRampToValueAtTime(0.0001, t + 0.3); setTimeout(() => { try { e.o1.stop(); e.o2.stop(); e.lfo.stop(); } catch (x) {} }, 400); AU.engine = null; },
 };
-function setSound(on) { AU.on = on; try { localStorage.setItem('afconcity-sound', on ? 'on' : 'off'); } catch (e) {} if (AU.master) AU.master.gain.value = on ? 0.6 : 0; segSet('[data-seg="sound"]', on ? 'on' : 'off'); }
+function setSound(on) { AU.on = on; try { localStorage.setItem('afconcity-sound', on ? 'on' : 'off'); } catch (e) {} if (AU.master) AU.master.gain.value = on ? 0.75 * SETTINGS.vol : 0; segSet('[data-seg="sound"]', on ? 'on' : 'off'); }
 /* procedural bar and fan-zone music: a light bongo-flava groove */
 const MUS = { bpm: 104, step: 0, nextT: 0 };
 const midi = n => 440 * Math.pow(2, (n - 69) / 12);
@@ -10422,10 +10454,189 @@ function initNyota() {
   ICO.star = '<path d="M12 3.5l2.6 5.3 5.8.8-4.2 4.1 1 5.8-5.2-2.7-5.2 2.7 1-5.8-4.2-4.1 5.8-.8z"/>';
   if (nyOk()) { nyLoad().then(nyWatchTopup); onWebAuth((ev) => { if (ev === 'SIGNED_IN' || ev === 'SIGNED_OUT' || ev === 'USER_UPDATED') nyLoad().then(nyWatchTopup); }); }
 }
+/* ===================== 68 main screen: locked-in fan names, how-to tabs, invites, settings, ads, about map ===================== */
+/* ---------- unique fan names: first come, first served, kept on the server ---------- */
+const NICK = { mine: '', status: '', key: '', seq: 0, timer: 0, cache: new Map(), want: new Set(), fetching: false, lastFetch: 0 };
+const nickKey = (n) => String(n || '').replace(/[^A-Za-z0-9]/g, '').toLowerCase();
+const nickOnline = () => !!(MP.web && typeof SB_CFG !== 'undefined');
+const NICK_MSG = {
+  free: { en: 'Available. Lock it in so nobody else can use it.', sw: 'Linapatikana. Lifunge ili mtu mwingine asilitumie.', c: 'ok' },
+  mine: { en: 'Locked in: this name is yours.', sw: 'Limefungwa: jina hili ni lako.', c: 'mine' },
+  taken: { en: 'Another fan has locked in this name. Try another.', sw: 'Shabiki mwingine ameshafunga jina hili. Jaribu jingine.', c: 'bad' },
+  reserved: { en: 'That name is reserved. Try another.', sw: 'Jina hilo limehifadhiwa. Jaribu jingine.', c: 'bad' },
+  rude: { en: 'Please pick a friendlier name.', sw: 'Tafadhali chagua jina la heshima.', c: 'bad' },
+  bad: { en: 'Use 3 to 16 letters or numbers to lock in a name.', sw: 'Tumia herufi au namba 3 hadi 16.', c: '' },
+  empty: { en: 'Pick a name and lock it in before anyone else does.', sw: 'Chagua jina na ulifunge kabla ya wengine.', c: '' },
+};
+function nickNote(st, text) {
+  const n = $('#nickNote'); if (!n) return;
+  const m = NICK_MSG[st]; n.textContent = text || (m ? tl(m) : ''); n.className = 'nick-note' + (m && m.c ? ' ' + m.c : '');
+  const b = $('#btnClaim'); if (b) b.hidden = st !== 'free';
+}
+async function nickCheck() {
+  if (!nickOnline()) return;
+  const v = ($('#nick').value || '').trim(), k = nickKey(v), seq = ++NICK.seq;
+  NICK.key = k;
+  if (!v) { NICK.status = ''; nickNote(NICK.mine ? 'mine' : 'empty', NICK.mine ? (LANG === 'sw' ? `Jina lako lililofungwa ni ${NICK.mine}.` : `Your locked-in name is ${NICK.mine}.`) : ''); return; }
+  if (NICK.mine && k === nickKey(NICK.mine)) { NICK.status = 'mine'; nickNote('mine'); return; }
+  try {
+    if (WEB.ready) await WEB.ready; if (!WEB.sb) return;
+    const { data, error } = await WEB.sb.rpc('nick_status', { p_nick: v });
+    if (seq !== NICK.seq) return;
+    if (error) throw error;
+    NICK.status = data; nickNote(data);
+    if (data === 'free' && NICK.mine) nickNote('free', LANG === 'sw' ? `Linapatikana. Ukilifunga, linachukua nafasi ya ${NICK.mine} (mara moja kwa siku).` : `Available. Locking it in replaces ${NICK.mine} (once a day).`);
+  } catch (e) { if (seq === NICK.seq) { NICK.status = ''; nickNote('', ''); } }
+}
+async function nickClaim() {
+  const v = ($('#nick').value || '').trim(); if (!v || !nickOnline()) return;
+  const b = $('#btnClaim'); b.disabled = true;
+  try {
+    const { data, error } = await WEB.sb.rpc('nick_claim', { p_nick: v });
+    if (error) throw error;
+    NICK.mine = data.nick; NICK.status = 'mine'; NICK.cache.set(nickKey(data.nick), { uid: WEB.uid, nick: data.nick, t: Date.now() });
+    state.nick = data.nick; $('#nick').value = data.nick; writeSave(); if (typeof ON !== 'undefined') ON.scoreKey = '';
+    nickNote('mine'); sfx.win(); track('nick_claim');
+  } catch (e) { nickNote('bad', (e && e.message) || 'Could not lock in that name.'); }
+  b.disabled = false;
+}
+async function nickLoadMine() {
+  if (!nickOnline()) return;
+  try {
+    if (WEB.ready) await WEB.ready; if (!WEB.sb || !WEB.uid) return;
+    const { data } = await WEB.sb.rpc('nick_mine');
+    NICK.mine = data || '';
+    const inp = $('#nick');
+    if (NICK.mine && inp && (!inp.value.trim() || /^fan ?\d*$/i.test(inp.value.trim()))) { inp.value = NICK.mine; state.nick = NICK.mine; }
+    nickCheck();
+  } catch (e) {}
+}
+/* Play is refused only for a name someone else has locked in */
+function nickPlayOk() {
+  if (!nickOnline()) return true;
+  const v = ($('#nick').value || '').trim();
+  if (NICK.status === 'taken' && nickKey(v) === NICK.key) { showSPPlay(); nickNote('taken'); $('#nick').focus(); sfx.deny(); return false; }
+  return true;
+}
+function showSPPlay() { const b = document.querySelector('.mm-item[data-p="play"]'); if (b && b.getAttribute('aria-current') !== 'true') b.click(); }
+/* how other players' names show: a name locked in by someone else shows as Fan; the owner's gets a tick */
+function nickLookup(k) {
+  if (!nickOnline() || k.length < 3) return undefined;
+  const c = NICK.cache.get(k);
+  if (!c || (c.miss && Date.now() - c.t > 60000)) { NICK.want.add(k); nickFetchSoon(); }
+  return c && !c.miss ? c : (c ? null : undefined);
+}
+function nickShown(n, uid) { if (!nickOnline()) return n; const c = nickLookup(nickKey(n)); return c && uid && c.uid !== uid ? 'Fan' : n; }
+function nickOk(n, uid) { if (!nickOnline() || !uid) return false; const c = nickLookup(nickKey(n)); return !!(c && c.uid === uid); }
+function nickFetchSoon() {
+  if (NICK.fetching || !NICK.want.size) return;
+  const wait = Math.max(0, 2000 - (Date.now() - NICK.lastFetch));
+  NICK.fetching = true;
+  setTimeout(async () => {
+    const keys = [...NICK.want].slice(0, 50); keys.forEach(k => NICK.want.delete(k));
+    try {
+      if (WEB.sb) {
+        const { data } = await WEB.sb.from('nicknames').select('key,nick,uid').in('key', keys);
+        const got = new Map((data || []).map(r => [r.key, r]));
+        for (const k of keys) { const r = got.get(k); NICK.cache.set(k, r ? { uid: r.uid, nick: r.nick, t: Date.now() } : { miss: true, t: Date.now() }); }
+      }
+    } catch (e) {}
+    NICK.lastFetch = Date.now(); NICK.fetching = false;
+    if (NICK.want.size) nickFetchSoon();
+  }, wait);
+}
+
+/* ---------- invites on the Play with friends panel ---------- */
+const INV = { url: '', loaded: false };
+async function renderInvitePanel() {
+  if (!MP.web) return;
+  const link = $('#invLink'), sh = $('#btnInvShare'), cp = $('#btnInvCopy'), cnt = $('#invCount');
+  try {
+    if (!INV.url) {
+      await webBackend(); if (WEB.ready) await WEB.ready; if (!WEB.sb) return;
+      const { data } = await WEB.sb.rpc('my_ref'); if (!data) return;
+      INV.url = `https://afconcity.com/?ref=${data}`;
+    }
+    link.textContent = INV.url.replace('https://', ''); sh.disabled = cp.disabled = false;
+    if (!INV.loaded) {
+      INV.loaded = true;
+      const text = () => tr(`Come play AfconCity with me: real Fumba, Zanzibar in 3D. Start with ${tsh(INVITE_PAY)} extra:`);
+      sh.addEventListener('click', async () => {
+        track('invite_share');
+        try { if (navigator.share) { await navigator.share({ title: 'AfconCity', text: text(), url: INV.url }); return; } } catch (e) { return; }
+        cp.click();
+      });
+      cp.addEventListener('click', async () => {
+        try { await navigator.clipboard.writeText(`${text()} ${INV.url}`); cp.textContent = LANG === 'sw' ? 'Imenakiliwa' : 'Copied'; setTimeout(() => { cp.textContent = LANG === 'sw' ? 'Nakili' : 'Copy'; }, 2000); track('invite_copy'); } catch (e) {}
+      });
+    }
+    const { data } = await WEB.sb.rpc('my_invites');
+    if (data && data.joined > 0) cnt.textContent = LANG === 'sw' ? `Marafiki ${data.joined} wamejiunga · umepata ${tsh(data.paid * INVITE_PAY)}. Hadi marafiki 10 kwa wiki.` : `${data.joined} friend${data.joined === 1 ? '' : 's'} joined · ${tsh(data.paid * INVITE_PAY)} earned so far. Up to 10 friends a week.`;
+  } catch (e) {}
+}
+
+/* ---------- settings: sliders and switches shared by the main screen and the pause menu ---------- */
+function applyViewSettings() { document.body.classList.toggle('no-names', !SETTINGS.names); document.body.classList.toggle('no-bubbles', !SETTINGS.bubbles); }
+function wireSettings() {
+  const save = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+  const sw = (name, key, store) => {
+    segSet(`[data-seg="${name}"]`, SETTINGS[key] ? 'on' : 'off');
+    document.querySelectorAll(`[data-seg="${name}"] button`).forEach(b => b.addEventListener('click', () => { SETTINGS[key] = b.dataset.v === 'on'; save(store, b.dataset.v); segSet(`[data-seg="${name}"]`, b.dataset.v); applyViewSettings(); }));
+  };
+  sw('shake', 'shake', 'afconcity-shake'); sw('names', 'names', 'afconcity-names'); sw('bubbles', 'bubbles', 'afconcity-bubbles');
+  const range = (name, key, store, after) => document.querySelectorAll(`[data-range="${name}"]`).forEach(r => {
+    r.value = SETTINGS[key];
+    r.addEventListener('input', () => { SETTINGS[key] = parseFloat(r.value) || SETTINGS[key]; save(store, String(SETTINGS[key])); document.querySelectorAll(`[data-range="${name}"]`).forEach(o => { if (o !== r) o.value = SETTINGS[key]; }); if (after) after(); });
+  });
+  range('sens', 'sens', 'afconcity-sens');
+  range('vol', 'vol', 'afconcity-vol', () => { if (AU.master && AU.on) AU.master.gain.value = 0.75 * SETTINGS.vol; });
+  segSet('[data-seg="time"]', state.tmode || 'live');
+  applyViewSettings();
+}
+
+/* ---------- main screen: how-to tabs, the ads view, the about map ---------- */
+function wireMenuExtras() {
+  document.querySelectorAll('[data-ht]').forEach(b => { if (b.tagName !== 'BUTTON') return; b.addEventListener('click', () => {
+    document.querySelectorAll('button[data-ht]').forEach(x => x.setAttribute('aria-selected', String(x === b)));
+    document.querySelectorAll('.ht').forEach(p => { p.hidden = p.dataset.ht !== b.dataset.ht; });
+  }); });
+  const inp = $('#nick');
+  {
+    inp.addEventListener('input', () => { clearTimeout(NICK.timer); NICK.status = ''; nickNote('', ''); NICK.timer = setTimeout(nickCheck, 450); });
+    $('#btnClaim').addEventListener('click', nickClaim);
+    inp.addEventListener('keydown', (e) => { if (e.key === 'Enter' && !$('#btnClaim').hidden) { e.preventDefault(); nickClaim(); } });
+  }
+  const a = $('#adBrandsLink'); if (a && location.hostname.endsWith('afconcity.com')) a.href = '/brands';
+}
+// called once the website backend is known (multiplayer start): names come alive only on afconcity.com
+function menuOnline() { if (!nickOnline()) return; nickLoadMine(); onWebAuth((ev) => { if (ev === 'SIGNED_IN') nickLoadMine(); }); }
+function menuAdsView() { if (mode !== 'intro' || typeof boardSlots !== 'function') return; const s = boardSlots().find(b => b.kind !== 'dala'); if (s) AD.view = boardView(s); }
+const ABOUT_PINS = () => [
+  ['real', 'Fumba Uptown', -60, 250], ['real', 'Sports City site', SC.x, SC.z], ['real', 'Fumba Road', -560, -240], ['real', 'Beach', -30, 440], ['real', 'Usiku market', 205, 105],
+  ['plan', 'Continental Mall', MALL.x, MALL.z], ['plan', 'Burj Zanzibar', BURJ.x, BURJ.z], ['plan', 'IIT Madras', IIT.x, IIT.z], ['plan', 'Hotel', HOTEL.x, HOTEL.z],
+  ['plan', 'Hospital', HOSP.x, HOSP.z], ['plan', 'ZHC towers', ZHC.x, ZHC.z], ['plan', 'Film studios', FILM.x, FILM.z], ['plan', 'Ferry pier', PIER.x, coastZ(PIER.x) + 60],
+];
+function drawAboutMap() {
+  const cv = $('#aboutMap'); if (!cv || typeof mapCanvas === 'undefined') return;
+  requestAnimationFrame(() => {
+    const dpr = Math.min(2, window.devicePixelRatio || 1), W = Math.max(300, Math.round((cv.clientWidth || 440) * dpr)), H = Math.round(W * (MAP.z1 - MAP.z0) / (MAP.x1 - MAP.x0));
+    cv.width = W; cv.height = H;
+    const c = cv.getContext('2d'); c.fillStyle = '#1b7c93'; c.fillRect(0, 0, W, H);
+    try { c.drawImage(mapCanvas, 0, 0, W, H); } catch (e) {}
+    const X = (x) => (x - MAP.x0) / (MAP.x1 - MAP.x0) * W, Z = (z) => (z - MAP.z0) / (MAP.z1 - MAP.z0) * H, r = Math.max(4, W / 110), fs = Math.max(10, Math.round(W / 42));
+    c.font = `800 ${fs}px ${FONT_D}`; c.textBaseline = 'middle';
+    for (const [k, name, x, z] of ABOUT_PINS()) {
+      const px = X(x), pz = Z(z), col = k === 'real' ? '#7fe39a' : '#f3b41b';
+      c.beginPath(); c.arc(px, pz, r, 0, TAU); c.fillStyle = col; c.fill(); c.lineWidth = Math.max(1.5, r / 3); c.strokeStyle = '#141838'; c.stroke();
+      const left = px > W * 0.72; c.textAlign = left ? 'right' : 'left';
+      const tx = px + (left ? -r * 1.6 : r * 1.6); c.lineWidth = Math.max(3, fs / 3.2); c.strokeStyle = 'rgba(10,12,30,.85)'; c.strokeText(name, tx, pz); c.fillStyle = '#f7ead0'; c.fillText(name, tx, pz);
+    }
+  });
+}
 /* ===================== 90 main: player, camera, input, loop, boot ===================== */
 const cam = { yaw: 0, pitch: 0.26, dist: 4.4, curDist: 4.4, lastLook: -99, fov: 58 };
-const SETTINGS = { follow: true, sens: 1 };
-try { SETTINGS.follow = localStorage.getItem('afconcity-follow') !== 'off'; SETTINGS.sens = clamp(parseFloat(localStorage.getItem('afconcity-sens') || '1') || 1, 0.4, 2); } catch (e) {}
+const SETTINGS = { follow: true, sens: 1, vol: 0.8, shake: true, names: true, bubbles: true };
+try { SETTINGS.follow = localStorage.getItem('afconcity-follow') !== 'off'; SETTINGS.sens = clamp(parseFloat(localStorage.getItem('afconcity-sens') || '1') || 1, 0.4, 2); SETTINGS.vol = clamp(parseFloat(localStorage.getItem('afconcity-vol') || '0.8') || 0.8, 0.1, 1); SETTINGS.shake = localStorage.getItem('afconcity-shake') !== 'off'; SETTINGS.names = localStorage.getItem('afconcity-names') !== 'off'; SETTINGS.bubbles = localStorage.getItem('afconcity-bubbles') !== 'off'; } catch (e) {}
 const camTarget = new T.Vector3(START.x, 1.6, START.z);
 const moveDir = new T.Vector2(0, -1);
 const PR = 0.4;
@@ -10651,6 +10862,7 @@ function updateCamera(dt, t) {
     const allowed = Math.max(0.9, camRay(camTarget.x, camTarget.y, camTarget.z, ox, oy, oz, dist) - 0.3);
     cam.curDist = allowed < cam.curDist ? damp(cam.curDist, allowed, 24, dt) : damp(cam.curDist, allowed, 3, dt);
     camera.position.set(camTarget.x + ox * cam.curDist, Math.max(0.5, camTarget.y + oy * cam.curDist), camTarget.z + oz * cam.curDist);
+    if (RT.shake > 0 && !SETTINGS.shake) RT.shake = 0;
     if (RT.shake > 0) { camera.position.x += (Math.random() - 0.5) * RT.shake * 0.35; camera.position.y += (Math.random() - 0.5) * RT.shake * 0.35; RT.shake = Math.max(0, RT.shake - dt * 2.2); }
     lookV.set(camTarget.x, camTarget.y, camTarget.z); camera.lookAt(lookV);
     if (RT.tipsy > now()) camera.rotation.z += Math.sin(t * 1.1) * 0.05;
@@ -10806,7 +11018,7 @@ function restoreFrom(s) {
   if (!state.tmode) state.tmode = 'live';
   night = nightTarget = state.tmode === 'live' ? clockNight() : state.tmode === 'night' ? 1 : 0; RT.envN = night > 0.5 ? 1 : 0; applyLight();
   setGateOpen(state.ticket); shownCash = state.cash;
-  segSet('#segTime', state.tmode);
+  segSet('[data-seg="time"]', state.tmode);
 }
 function newGame() {
   clearSave();
@@ -10898,14 +11110,16 @@ function wireUI() {
   $('#btnUnstick').addEventListener('click', () => { closeOverlays(); stuckMenu(); });
   wireBigMap();
   // main menu: each item shows its panel
-  const showSP = (k) => { document.querySelectorAll('.mm-item').forEach(b => b.setAttribute('aria-current', String(b.dataset.p === k))); document.querySelectorAll('.sp').forEach(p2 => { p2.hidden = p2.dataset.p !== k; }); if (k === 'ads') renderAds($('#adsMain'), false); else AD.view = null; if (mode === 'intro') setStyling(k === 'style'); if (k === 'style') renderStyle($('#styleMain')); };
+  const showSP = (k) => { document.querySelectorAll('.mm-item').forEach(b => b.setAttribute('aria-current', String(b.dataset.p === k))); document.querySelectorAll('.sp').forEach(p2 => { p2.hidden = p2.dataset.p !== k; }); AD.view = null; if (k === 'ads') menuAdsView(); if (k === 'about') drawAboutMap(); if (k === 'friends') renderInvitePanel(); if (mode === 'intro') setStyling(k === 'style'); if (k === 'style') renderStyle($('#styleMain')); };
+  $('#btnStyleBack').addEventListener('click', () => { showSP('play'); $('#btnPlay').focus(); });
+  wireMenuExtras();
   $('#btnStyle').addEventListener('click', () => showSP('style'));
   $('#codeForm').addEventListener('submit', (e) => { e.preventDefault(); cloudLoad($('#codeInput').value, $('#codeOut')); });
   $('#codeInput').addEventListener('keydown', (e) => e.stopPropagation());
   $('#btnStyleDone').addEventListener('click', () => { showSP('play'); $('#btnPlay').focus(); });
   window.addEventListener('keydown', (e) => { if (STYLE.on && mode === 'intro' && e.key === 'Escape') { e.preventDefault(); showSP('play'); $('#btnPlay').focus(); } });
   document.querySelectorAll('.mm-item').forEach(b => { b.addEventListener('click', () => { showSP(b.dataset.p); if (b.dataset.p === 'play' && !$('#btnPlay').disabled) $('#btnPlay').focus(); }); b.addEventListener('focus', () => showSP(b.dataset.p)); });
-  const sens = $('#sens'); sens.value = SETTINGS.sens; sens.addEventListener('input', () => { SETTINGS.sens = parseFloat(sens.value) || 1; try { localStorage.setItem('afconcity-sens', String(SETTINGS.sens)); } catch (e) {} });
+  wireSettings();
   $('#btnResume').addEventListener('click', closeOverlays);
   $('#btnRestart').addEventListener('click', () => { ui.pause.hidden = true; mode = 'play'; newGame(); renderKits(); enterPlay(); });
   $('#btnRoam').addEventListener('click', () => { ui.end.hidden = true; ui.hud.hidden = false; ui.tags.hidden = false; mode = 'play'; cam.yaw = Math.PI; canvas.focus(); });
@@ -10914,7 +11128,7 @@ function wireUI() {
   ui.online.addEventListener('click', () => { if (MP.status !== 'live' && MP.room && MP.room.retry) MP.room.retry(); ui.players.hidden = !ui.players.hidden; ui.online.setAttribute('aria-expanded', String(!ui.players.hidden)); renderPlayers(); });
   document.querySelectorAll('[data-seg="gfx"] button').forEach(b => b.addEventListener('click', () => { gfx = b.dataset.v; try { localStorage.setItem(GFX_KEY, gfx); } catch (e) {} segSet('[data-seg="gfx"]', gfx); setShadowRes(); resizeAll(); applyNight(smooth(night)); armWatch(); }));
   document.querySelectorAll('[data-seg="follow"] button').forEach(b => b.addEventListener('click', () => { SETTINGS.follow = b.dataset.v === 'on'; try { localStorage.setItem('afconcity-follow', b.dataset.v); } catch (e) {} segSet('[data-seg="follow"]', b.dataset.v); }));
-  document.querySelectorAll('#segTime button').forEach(b => b.addEventListener('click', () => setTimeMode(b.dataset.v)));
+  document.querySelectorAll('[data-seg="time"] button').forEach(b => b.addEventListener('click', () => setTimeMode(b.dataset.v)));
   document.querySelectorAll('[data-seg="hud"] button').forEach(b => b.addEventListener('click', () => setHudPreset(b.dataset.v, mode === 'intro' || mode === 'paused')));
   $('#btnHud').addEventListener('click', () => { cycleHud(); canvas.focus(); }); $('#hudEye').addEventListener('click', () => { cycleHud(); canvas.focus(); });
   renderHudParts(); applyHudVis(); wirePhone();

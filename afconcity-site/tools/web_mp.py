@@ -27,7 +27,7 @@ check('website backend in use (no Claude runtime)', GA("!window.claude && MP.web
 check('both players are signed in anonymously', until(GA, "!!WEB.uid && WEB.anon") and until(GB, "!!WEB.uid && WEB.anon") and GA("WEB.uid") != GB("WEB.uid"))
 check('room goes live', until(GA, "MP.status === 'live'") and until(GB, "MP.status === 'live'"))
 check('each player sees the other', until(GA, "[...remotes.values()].some(r => !r.isMe)") and until(GB, "[...remotes.values()].some(r => !r.isMe)"))
-check('multiplayer text says the website is shared', 'afconcity.com' in GA("document.querySelector('.mp-web').textContent") and GA("[...document.querySelectorAll('.mp-claude')].every(e => e.hidden)"))
+check('the website shows the invite box', GA("!document.querySelector('.invite-box').hidden") and GA("[...document.querySelectorAll('.mp-claude')].every(e => e.hidden)"))
 # movement
 GB("P.x = START.x + 30, P.z = START.z + 5, player.position.set(P.x, 0.04, P.z), 1")
 check('movement reaches the other player', until(GA, "[...remotes.values()].some(r => !r.isMe && Math.abs(r.x - (START.x + 30)) < 1)"), GA("[...remotes.values()].map(r => [Math.round(r.x), Math.round(r.z)])"))

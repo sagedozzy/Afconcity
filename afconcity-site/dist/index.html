@@ -969,6 +969,162 @@ input[type=range]{accent-color:var(--turmeric);width:200px}
   body.styling .start-panel{grid-column:2;border-radius:16px;max-height:calc(100dvh - 24px - env(safe-area-inset-top,0px) - env(safe-area-inset-bottom,0px));overflow:auto;padding:18px 18px 12px}
 }
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+
+/* ===== main screen v2: everything on one screen ===== */
+a.btn{text-decoration:none}
+.start-panel{max-height:calc(100dvh - 56px)}
+.sp{gap:14px}
+.sp-head{padding-bottom:10px}
+.sp-head h2{font-size:clamp(30px,3.4vw,42px)}
+.lede{font-size:15px;line-height:1.5}
+.facts b{font-size:26px}
+.facts div{padding:10px}
+.sp-head-row{display:flex;justify-content:space-between;align-items:flex-end;gap:12px}
+.sp-head-row>div{display:grid;gap:8px}
+.sp-back{flex:none}
+.start-actions.pin{position:sticky;bottom:-26px;z-index:3;margin:0 -28px -26px;padding:14px 28px 22px;background:linear-gradient(rgba(10,12,30,0),rgba(10,12,30,.96) 32%)}
+.nick-row{display:flex;gap:8px;align-items:center}
+.nick-row input{flex:1;min-width:0;max-width:320px}
+.nick-row .btn{flex:none}
+.nick-note{margin:0;min-height:1.35em;font:600 12.5px/1.35 var(--f-body);color:var(--muted)}
+.nick-note.ok{color:var(--cash)}
+.nick-note.mine{color:var(--turmeric)}
+.nick-note.mine::before{content:"🔒 "}
+.nick-note.bad{color:#ff9c86}
+.look-sum{padding:10px}
+.look-sum b{font-size:18px}
+.tag-name.ok::after{content:" ✓";color:var(--cash);font-weight:900}
+body.no-names .tag-name{display:none}
+body.no-bubbles .tag-bub{display:none!important}
+/* how to play */
+.tabs{display:flex;gap:6px;flex-wrap:wrap}
+.tabs button{border:0;border-radius:999px;padding:9px 16px;font:800 14px/1 var(--f-display);letter-spacing:.06em;text-transform:uppercase;background:rgba(255,255,255,.06);color:var(--sand);cursor:pointer;box-shadow:inset 0 0 0 1.5px var(--line)}
+.tabs button[aria-selected="true"]{background:var(--turmeric);color:var(--ink);box-shadow:none}
+.tabs button:focus-visible{outline:3px solid var(--sand);outline-offset:2px}
+.k-touch{display:none}
+.how2{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.how2 li{display:grid;grid-template-columns:80px 1fr;gap:12px;align-items:baseline;padding:10px 12px;border-radius:10px;background:rgba(255,255,255,.04)}
+.how2 b{font:900 19px/1 var(--f-display);letter-spacing:.06em;text-transform:uppercase}
+.how2 span{font-size:14px;line-height:1.45;color:#e2dccd}
+.how2 kbd{font-size:11px;padding:1px 5px}
+.touch-guide{list-style:none;margin:0;padding:0;gap:8px}
+.touch-guide li{display:grid;grid-template-columns:104px 1fr;gap:10px;padding:9px 12px;border-radius:10px;background:rgba(255,255,255,.04);font-size:14px}
+.touch-guide b{color:var(--turmeric)}
+@media (pointer:coarse){.k-desk{display:none}.k-touch{display:inline}.touch-guide.touch-note{display:grid}}
+/* play with friends */
+.invite-box{display:grid;gap:12px;padding:16px;border-radius:14px;background:linear-gradient(135deg,rgba(243,180,27,.14),rgba(30,155,87,.12));box-shadow:inset 0 0 0 1px rgba(243,180,27,.35)}
+.inv-pay{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin:0}
+.inv-pay b{font:900 34px/1 var(--f-display);color:var(--cash)}
+.inv-pay span{font-size:14px;color:#e8e2d4}
+.inv-link{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.inv-link code{flex:1 1 180px;min-width:0;padding:10px 12px;border-radius:10px;background:rgba(0,0,0,.28);font:700 14px/1.2 var(--f-body);color:var(--turmeric);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;user-select:all;-webkit-user-select:all}
+.inv-steps{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.inv-steps li{display:grid;gap:5px;justify-items:start;font-size:12.5px;line-height:1.3;color:#e2dccd}
+.inv-steps b{display:grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--turmeric);color:var(--ink);font:900 14px/1 var(--f-display)}
+/* settings */
+.set-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px 16px}
+.set-grid section{display:contents}
+.set-grid h3{display:none}
+.set-grid .opt-row{flex-direction:column;align-items:flex-start;gap:7px;flex-wrap:nowrap}
+.set-grid .opt-row.wide{grid-column:1/-1;flex-direction:row;align-items:center;justify-content:space-between}
+.opt-row input[type=range]{width:min(160px,100%);accent-color:var(--turmeric)}
+/* advertise */
+.ad-why{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.ad-why li{display:grid;gap:5px;align-content:start;padding:12px;border-radius:10px;background:rgba(255,255,255,.05);box-shadow:inset 0 0 0 1px var(--line)}
+.ad-why b{font:900 30px/.9 var(--f-display);color:var(--turmeric)}
+.ad-why span{font:600 12px/1.3 var(--f-body);color:var(--muted)}
+/* about the map */
+.about-map{position:relative;border-radius:12px;overflow:hidden;box-shadow:inset 0 0 0 1px var(--line);background:#1b7c93}
+#aboutMap{display:block;width:100%;height:auto;max-height:36vh;object-fit:cover}
+.am-key{position:absolute;left:8px;bottom:8px;display:flex;gap:10px;flex-wrap:wrap;margin:0;padding:6px 10px;border-radius:999px;background:rgba(10,12,30,.8);font:700 11px/1 var(--f-body);color:var(--sand)}
+.am-key span::before{content:"";display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;vertical-align:-1px;background:var(--turmeric)}
+.am-key .real::before{background:var(--cash)}
+.about-cols{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.about-cols h3{font:800 18px/1 var(--f-display);letter-spacing:.06em;text-transform:uppercase;margin:0 0 5px}
+.about-cols h3.real{color:var(--cash)}
+.about-cols h3.plan{color:var(--turmeric)}
+.about-cols p{margin:0;font-size:13.5px;line-height:1.45;color:#e2dccd}
+/* short screens (landscape phones, small laptops): tighten the menu column */
+@media (max-height:760px) and (min-width:821px){
+  .start-grid{padding-top:16px;padding-bottom:16px}
+  .start-left{gap:10px}
+  .title{font-size:clamp(44px,5.6vw,80px)}
+  .subtitle{font-size:clamp(18px,2.4vw,26px)}
+  .mm-item{padding-top:9px;padding-bottom:9px}
+  .mm-item span{font-size:21px}
+  .start-panel{padding:18px 22px;max-height:calc(100dvh - 32px)}
+  .start-actions.pin{bottom:-18px;margin:0 -22px -18px;padding:12px 22px 16px}
+  .btn-xl{font-size:19px;padding:15px 26px}
+  .facts b{font-size:22px}
+  .sp{gap:11px}
+}
+@media (max-height:520px) and (min-width:600px){
+  #start{overflow:hidden}
+  .start-grid{grid-template-columns:220px minmax(0,1fr);grid-template-rows:minmax(0,1fr);gap:14px;padding:calc(env(safe-area-inset-top,0px) + 8px) 12px calc(env(safe-area-inset-bottom,0px) + 8px);align-items:stretch;height:100%;min-height:0;max-width:none}
+  .mm{display:grid;overflow:visible;margin:4px 0 0;padding:0}
+  .mm-item{width:100%;border-radius:4px}
+  .start-panel{min-height:0;max-height:100%;overflow:auto}
+  .event-banner,.look-sum,.code-load,.sp>.fine,.lang-note{display:none!important}
+  .how2 li{grid-template-columns:70px 1fr;padding:7px 10px}
+  .how2 span{font-size:13px}
+  .set-grid{grid-template-columns:repeat(3,1fr);gap:8px 12px}
+  .seg button{padding:6px 10px;font-size:12px}
+  #aboutMap{max-height:42vh}
+  .about-cols p{font-size:12.5px}
+  .invite-box{padding:12px;gap:9px}
+  .sp-head h2{font-size:22px}
+  .sp[data-p="how"] .sp-head,.sp[data-p="settings"] .sp-head{display:none}
+  .how2{gap:5px}
+  .tabs button{padding:7px 13px;font-size:13px}
+  .start-left{gap:6px;align-content:start}
+  .start-left .eyebrow,.kanga-strip,.legal{display:none}
+  .title{font-size:40px}
+  .subtitle{font-size:15px;margin-top:2px}
+  .mm{gap:2px;margin-top:4px}
+  .mm-item{padding:6px 12px}
+  .mm-item span{font-size:16px}
+  .mm-item small{display:none}
+  .start-panel{max-height:calc(100dvh - 16px);padding:12px 14px}
+  .start-actions.pin{bottom:-12px;margin:0 -14px -12px;padding:10px 14px 12px}
+  .sp-head h2{font-size:26px}
+  .sp-head .eyebrow{display:none}
+  .facts{display:none}
+  .lede{font-size:13.5px}
+  .btn-xl{font-size:17px;padding:12px 22px}
+}
+/* phones: title, menu chips and the panel share one screen; the panel scrolls inside only if it must */
+@media (max-width:820px){
+  #start{overflow:hidden}
+  .start-grid{height:100%;min-height:0;grid-template-rows:auto minmax(0,1fr);align-content:stretch}
+  .start-left .eyebrow,.kanga-strip,.legal{display:none}
+  .title{font-size:clamp(38px,11vw,54px)}
+  .subtitle{font-size:15px}
+  .start-panel{min-height:0;max-height:100%;overflow:auto;overscroll-behavior:contain}
+  .sp{gap:11px}
+  .sp-head{gap:5px;padding-bottom:8px}
+  .sp-head h2{font-size:28px}
+  .lede{font-size:14px;line-height:1.45}
+  .facts div{padding:8px 9px;gap:3px}
+  .facts b{font-size:20px}
+  .facts span{font-size:10.5px}
+  .look-sum{grid-template-columns:36px 1fr auto;padding:8px 10px;gap:10px}
+  .look-sum>i{width:36px;height:36px}
+  .look-sum .btn{grid-column:auto}
+  .look-sum small{display:none}
+  .btn-xl{font-size:19px;padding:15px 24px}
+  .start-actions.pin{bottom:0;margin:0 -16px;padding:12px 16px calc(env(safe-area-inset-bottom,0px) + 12px)}
+  .how2 li{grid-template-columns:66px 1fr;padding:8px 10px;gap:10px}
+  .how2 b{font-size:16px}
+  .how2 span{font-size:13px}
+  .inv-pay b{font-size:28px}
+  .set-grid{gap:10px 12px}
+  .seg button{padding:7px 11px;font-size:12.5px}
+  .ad-why b{font-size:24px}
+  .about-cols{grid-template-columns:1fr;gap:8px}
+  .about-cols p{font-size:13px}
+  #aboutMap{max-height:30vh}
+  body.styling .start-grid{grid-template-rows:minmax(0,1fr);padding-top:calc(env(safe-area-inset-top,0px) + 44vh)}
+}
 </style>
 
 <canvas id="scene" tabindex="-1" aria-label="3D view of Fumba Uptown, Zanzibar"></canvas>
@@ -1115,69 +1271,90 @@ input[type=range]{accent-color:var(--turmeric);width:200px}
       <div class="sp" data-p="play">
         <p class="event-banner" id="eventBanner" hidden></p>
         <div class="sp-head"><span class="eyebrow">Road to AFCON 2027</span><h2>VIP or bust</h2></div>
-        <p class="lede" id="playLede">You step off the daladala on Fumba Road with TSh 100,000. A VIP seat for the AFCON 2027 match at AfconCity costs TSh 1,000,000, and only fans with a full Fan Passport of Zanzibar experiences can buy one. Work, explore and haggle at real Zanzibar prices.</p>
+        <p class="lede" id="playLede">Hustle round real Fumba, fill your Fan Passport and save TSh 1,000,000 for a VIP seat at the AFCON 2027 match.</p>
         <div class="facts">
           <div><b class="g" id="factCash">100k</b><span id="factCashL">TSh in your pocket</span></div>
           <div><b class="y">1M</b><span>TSh for a VIP ticket</span></div>
           <div><b>11</b><span>passport stamps to earn</span></div>
         </div>
-        <div class="field">
+        <div class="field nick-field">
           <label for="nick">Your fan name</label>
-          <input id="nick" maxlength="16" placeholder="Fan 27" autocomplete="off" spellcheck="false">
+          <div class="nick-row"><input id="nick" maxlength="16" placeholder="Fan 27" autocomplete="off" spellcheck="false" aria-describedby="nickNote"><button class="btn btn-sm" id="btnClaim" type="button" hidden>Lock it in</button></div>
+          <p class="nick-note" id="nickNote" aria-live="polite"></p>
         </div>
         <div class="look-sum">
           <i id="lookSw" aria-hidden="true"></i>
           <div><span class="eyebrow">Your look</span><b id="lookName">Nungwi Sunset</b><small id="lookDesc"></small></div>
-          <button class="btn btn-ghost" id="btnStyle" type="button">Wardrobe</button>
+          <button class="btn btn-ghost btn-sm" id="btnStyle" type="button">Wardrobe</button>
         </div>
         <details class="code-load" id="codeLoad">
           <summary>Have a save code? Carry on from another phone</summary>
           <form id="codeForm" autocomplete="off"><input id="codeInput" maxlength="12" placeholder="ABCDE-23456" aria-label="Save code" spellcheck="false" autocapitalize="characters"><button class="btn btn-sm" type="submit">Load</button></form>
           <p class="fine" id="codeOut" aria-live="polite"></p>
         </details>
-        <div class="start-actions">
+        <div class="start-actions pin">
           <button class="btn btn-xl" id="btnPlay" type="button" disabled>Loading Fumba…</button>
           <button class="btn btn-ghost" id="btnNew" type="button" hidden>New game</button>
         </div>
       </div>
 
       <div class="sp" data-p="style" hidden>
-        <div class="sp-head"><span class="eyebrow">Island wardrobe</span><h2>Dress for Fumba</h2></div>
+        <div class="sp-head sp-head-row"><div><span class="eyebrow">Island wardrobe</span><h2>Dress for Fumba</h2></div><button class="btn btn-ghost btn-sm sp-back" id="btnStyleBack" type="button" aria-label="Back to the main screen">‹ Back</button></div>
         <div id="styleMain" class="st"></div>
-        <div class="start-actions"><button class="btn btn-xl" id="btnStyleDone" type="button">Done · back to Play</button></div>
+        <div class="start-actions pin"><button class="btn btn-xl" id="btnStyleDone" type="button">Done · back to Play</button></div>
       </div>
 
       <div class="sp" data-p="how" hidden>
         <div class="sp-head"><span class="eyebrow">How to play</span><h2>Hustle, then kickoff</h2></div>
-        <ul class="how">
-          <li><b class="hl">Stamp</b><span>Fill your Fan Passport with 11 things people do on Zanzibar: ride a daladala, eat Zanzibar pizza, learn Swahili, a spice farm tour, seaweed farming, a sunset dhow, kanga and henna, and more.</span></li>
-          <li><b class="hg">Earn</b><span>Guide a walking tour for Hassan, wash cars for Fundi Rashid, carry tomato crates for Bi Mwajuma, run errands for anyone on the street (say hello with E and ask "Una kazi?"), drive a daladala route for Mzee Omari, fish off the pier, harvest seaweed by the kilo, beat the kids at beach football, cement shifts, volunteer stipends, madafu trading, bajaji fares and races, pizza runs, penalty bets and the coin rush.</span></li>
-          <li><b class="hg">Home</b><span>You start with a chumba (room) behind the daladala depot, rent paid for the first week. Sleep there to restore energy, shower, cook and change clothes. Rent is due every Jumamosi from Pesa; move up to an Uptown studio or a Burj sea-view flat. Your phone (P) orders a boda, bajaji or private daladala that drives to wherever you are, plus food delivery and jobs.</span></li>
-          <li><b class="hl">Live</b><span>Eat before you get hungry, keep savings on Pesa where pickpockets can't reach them (street stalls want cash), bargain at the market, and brake early when the rain comes. Knock people down and the police come after you.</span></li>
-          <li><b class="hr">Lose</b><span>Real prices: daladala TSh 700, Zanzibar pizza TSh 4,000, a TSh 30,000 speeding fine, clinic bills, pickpockets in red caps and cash dropped when traffic knocks you down.</span></li>
-        </ul>
-        <dl class="controls" id="controlsKeys">
-          <div><dt><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></dt><dd>Move or drive</dd></div>
-          <div><dt><kbd>Mouse</kbd></dt><dd>Look (click the game first)</dd></div>
-          <div><dt><kbd>Shift</kbd></dt><dd>Sprint</dd></div>
-          <div><dt><kbd>Space</kbd></dt><dd>Jump or handbrake</dd></div>
-          <div><dt><kbd>E</kbd></dt><dd>Talk, buy, ride</dd></div>
-          <div><dt><kbd>F</kbd></dt><dd>Shoot the ball, tackle, high-five</dd></div>
-          <div><dt><kbd>T</kbd></dt><dd>Chat</dd></div>
-          <div><dt><kbd>M</kbd></dt><dd>Map</dd></div>
-          <div><dt><kbd>P</kbd></dt><dd>Phone: rides, food, jobs, Pesa</dd></div>
-          <div><dt><kbd>H</kbd></dt><dd>Hide or show the on-screen display</dd></div>
-          <div><dt><kbd>Q</kbd></dt><dd>Horn</dd></div>
-          <div><dt><kbd>Esc</kbd></dt><dd>Pause menu</dd></div>
-          <div><dt><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd></dt><dd>Wave, dance, cheer</dd></div>
-        </dl>
-        <p class="fine touch-note">Left thumb: joystick to walk or drive. Right thumb: drag the screen to look. Buttons: E to talk, buy and ride, Jump, Run, Chat. Top right: Phone, HUD (hide the display) and Menu.</p>
+        <div class="tabs" role="tablist" aria-label="How to play">
+          <button type="button" role="tab" data-ht="game" aria-selected="true">The game</button>
+          <button type="button" role="tab" data-ht="keys" aria-selected="false"><span class="k-desk">Controls</span><span class="k-touch">Touch controls</span></button>
+        </div>
+        <div class="ht" data-ht="game" role="tabpanel">
+          <ol class="how2">
+            <li><b class="hl">Goal</b><span>Collect 11 Fan Passport stamps and TSh 1,000,000 for a VIP ticket to the AFCON 2027 match.</span></li>
+            <li><b class="hg">Earn</b><span>Talk to people (<kbd>E</kbd>) or open <i>Kazi</i> on your phone: tours, errands, daladala shifts, fishing, races.</span></li>
+            <li><b class="hg">Live</b><span>Eat, sleep in your room, pay rent on Saturdays. Keep savings on Pesa: pickpockets only take cash.</span></li>
+            <li><b class="hr">Watch</b><span>Real prices, fines and clinic bills. Knock people down and the police come after you.</span></li>
+            <li><b class="hl">Then</b><span>Your ticket opens The Summit and Pitch Day. Then build businesses and buy your own wheels.</span></li>
+          </ol>
+        </div>
+        <div class="ht" data-ht="keys" role="tabpanel" hidden>
+          <dl class="controls" id="controlsKeys">
+            <div><dt><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></dt><dd>Move or drive</dd></div>
+            <div><dt><kbd>Mouse</kbd></dt><dd>Look (click the game first)</dd></div>
+            <div><dt><kbd>Shift</kbd></dt><dd>Sprint</dd></div>
+            <div><dt><kbd>Space</kbd></dt><dd>Jump or handbrake</dd></div>
+            <div><dt><kbd>E</kbd></dt><dd>Talk, buy, ride</dd></div>
+            <div><dt><kbd>F</kbd></dt><dd>Shoot, tackle, high-five</dd></div>
+            <div><dt><kbd>T</kbd></dt><dd>Chat</dd></div>
+            <div><dt><kbd>M</kbd></dt><dd>Map</dd></div>
+            <div><dt><kbd>P</kbd></dt><dd>Phone</dd></div>
+            <div><dt><kbd>H</kbd></dt><dd>Hide the display</dd></div>
+            <div><dt><kbd>Q</kbd></dt><dd>Horn</dd></div>
+            <div><dt><kbd>Esc</kbd></dt><dd>Pause menu</dd></div>
+            <div><dt><kbd>1</kbd><kbd>2</kbd><kbd>3</kbd></dt><dd>Wave, dance, cheer</dd></div>
+          </dl>
+          <ul class="touch-guide touch-note">
+            <li><b>Left thumb</b><span>Joystick to walk or drive</span></li>
+            <li><b>Right thumb</b><span>Drag the screen to look round</span></li>
+            <li><b>E</b><span>Talk, buy and ride</span></li>
+            <li><b>Buttons</b><span>Jump, Run and Chat, bottom right</span></li>
+            <li><b>Top right</b><span>Phone, HUD and Menu</span></li>
+          </ul>
+        </div>
       </div>
 
       <div class="sp" data-p="friends" hidden>
         <div class="sp-head"><span class="eyebrow">Multiplayer</span><h2>Play with friends</h2></div>
         <p class="net-note" id="netNote"><i></i><span>Checking for other fans…</span></p>
-        <p class="lede mp-web" hidden>Multiplayer is coming soon: chat, high-fives, races and dropped cash with friends in the same Fumba streets. For now, explore, work and collect your stamps solo.</p>
+        <div class="invite-box mp-web" hidden>
+          <p class="inv-pay"><b>TSh 25,000</b><span>for you and for every friend who joins</span></p>
+          <div class="inv-link"><code id="invLink">Getting your link…</code><button class="btn btn-sm" id="btnInvShare" type="button" disabled>Share</button><button class="btn btn-ghost btn-sm" id="btnInvCopy" type="button" disabled>Copy</button></div>
+          <ol class="inv-steps"><li><b>1</b>Send your link</li><li><b>2</b>Your friend plays 5 minutes</li><li><b>3</b>You both get paid</li></ol>
+          <p class="fine" id="invCount">Up to 10 friends a week. Meet at the Uptown Gate: chat with <kbd>T</kbd>, high-five with <kbd>F</kbd>.</p>
+        </div>
+        <p class="lede mp-none" hidden>Multiplayer is coming soon: chat, high-fives, races and dropped cash with friends in the same Fumba streets. For now, explore, work and collect your stamps solo.</p>
         <ol class="steps mp-claude">
           <li>The host opens this game in Claude, presses <b>Share</b> and <b>adds each friend by email</b>. Sending the link alone is not enough.</li>
           <li>Each friend signs in to Claude with that email, then opens the link.</li>
@@ -1188,18 +1365,40 @@ input[type=range]{accent-color:var(--turmeric);width:200px}
 
       <div class="sp" data-p="settings" hidden>
         <div class="sp-head"><span class="eyebrow">Settings</span><h2>Your setup</h2></div>
-        <div class="opt-row" data-notr><span>Language · Lugha</span><div class="seg" data-seg="lang"><button type="button" data-v="en">English</button><button type="button" data-v="sw">Kiswahili</button></div></div>
-        <div class="opt-row"><span>Graphics</span><div class="seg" data-seg="gfx"><button type="button" data-v="high">High</button><button type="button" data-v="low">Fast</button></div></div>
-        <div class="opt-row"><span>Sound</span><div class="seg" data-seg="sound"><button type="button" data-v="on">On</button><button type="button" data-v="off">Off</button></div></div>
-        <div class="opt-row"><span>Camera follow</span><div class="seg" data-seg="follow"><button type="button" data-v="on">On</button><button type="button" data-v="off">Off</button></div></div>
-        <div class="opt-row"><span>On-screen display</span><div class="seg" data-seg="hud"><button type="button" data-v="full">Full</button><button type="button" data-v="min">Minimal</button><button type="button" data-v="off">Off</button></div></div>
-        <p class="fine">Fast graphics turns off soft shadows and lowers the resolution for phones and older laptops.</p>
+        <div class="set-grid">
+          <section><h3>Language and look</h3>
+            <div class="opt-row wide" data-notr><span>Language · Lugha</span><div class="seg" data-seg="lang"><button type="button" data-v="en">English</button><button type="button" data-v="sw">Kiswahili</button></div></div>
+            <div class="opt-row"><span>Graphics</span><div class="seg" data-seg="gfx"><button type="button" data-v="high">High</button><button type="button" data-v="low">Fast</button></div></div>
+            <div class="opt-row wide"><span>Time of day</span><div class="seg" data-seg="time"><button type="button" data-v="live">Live</button><button type="button" data-v="day">Day</button><button type="button" data-v="night">Night</button></div></div>
+            <div class="opt-row wide"><span>On-screen display</span><div class="seg" data-seg="hud"><button type="button" data-v="full">Full</button><button type="button" data-v="min">Minimal</button><button type="button" data-v="off">Off</button></div></div>
+          </section>
+          <section><h3>Sound and camera</h3>
+            <div class="opt-row"><span>Sound</span><div class="seg" data-seg="sound"><button type="button" data-v="on">On</button><button type="button" data-v="off">Off</button></div></div>
+            <div class="opt-row"><span>Volume</span><input type="range" data-range="vol" min="0.1" max="1" step="0.05" value="0.8" aria-label="Volume"></div>
+            <div class="opt-row"><span>Camera follow</span><div class="seg" data-seg="follow"><button type="button" data-v="on">On</button><button type="button" data-v="off">Off</button></div></div>
+            <div class="opt-row"><span>Look speed</span><input type="range" data-range="sens" min="0.4" max="2" step="0.1" value="1" aria-label="Look speed"></div>
+            <div class="opt-row"><span>Screen shake</span><div class="seg" data-seg="shake"><button type="button" data-v="on">On</button><button type="button" data-v="off">Off</button></div></div>
+          </section>
+          <section><h3>Other players</h3>
+            <div class="opt-row"><span>Names above heads</span><div class="seg" data-seg="names"><button type="button" data-v="on">On</button><button type="button" data-v="off">Off</button></div></div>
+            <div class="opt-row"><span>Chat bubbles</span><div class="seg" data-seg="bubbles"><button type="button" data-v="on">On</button><button type="button" data-v="off">Off</button></div></div>
+          </section>
+        </div>
+        <p class="fine">Fast graphics turns off soft shadows and lowers the resolution for phones and older laptops. The live clock runs a day in about 19 minutes.</p>
         <p class="fine lang-note" data-lang-note hidden>Menyu, maswali, kabati la nguo, changamoto na orodha za viongozi ziko kwa Kiswahili. Mazungumzo mengi ya wahusika bado ni ya Kiingereza.</p>
       </div>
 
       <div class="sp" data-p="ads" hidden>
         <div class="sp-head"><span class="eyebrow">For brands</span><h2>Your billboard in AfconCity</h2></div>
-        <div id="adsMain" class="ads-main"></div>
+        <p class="lede ad-pitch">Fans walk, drive and hang out in AfconCity for minutes at a time: put your brand where they look, on the road, the radio and their phones.</p>
+        <ul class="ad-why">
+          <li><b>7</b><span>roadside billboards on Fumba Road</span></li>
+          <li><b>5</b><span>ad spaces on every player's phone</span></li>
+          <li><b>1</b><span>radio spot at the beach bar</span></li>
+        </ul>
+        <div class="start-actions"><a class="btn" id="adBrandsLink" href="https://afconcity.com/brands" target="_blank" rel="noopener">See spaces and prices</a></div>
+        <p class="fine">Book online and pay with mobile money or card. Your artwork goes live for every player, with no app update.</p>
+        <div id="adsMain" class="ads-main" hidden></div>
       </div>
 
       <div class="sp" data-p="install" hidden>
@@ -1218,10 +1417,14 @@ input[type=range]{accent-color:var(--turmeric);width:200px}
       </div>
 
       <div class="sp" data-p="about" hidden>
-        <div class="sp-head"><span class="eyebrow">About</span><h2>Real Fumba, tomorrow's plans</h2></div>
-        <p class="lede">Streets, coastline, land cover and building outlines are real: OpenStreetMap contributors (ODbL) and Google Open Buildings (CC BY 4.0), via Overture Maps. AfconCity sits on the real Zanzibar Sports City site beside the Fumba road.</p>
-        <p class="lede">The empty plots hold projects from public plans for Greater Fumba and the Fumba Economic Zone: the Continental Mall of Zanzibar, Burj Zanzibar, the IIT Madras campus, a 400-bed hotel, a medical tourism hospital, ZHC housing towers, a basketball centre, a film studio, a four-lane highway and a ferry pier. Their designs and exact spots are imagined.</p>
-        <p class="fine">Prices follow 2026 Zanzibar rates (daladala TSh 700, about TSh 2,600 to the US dollar). All money is in-game only. Independent prototype, not affiliated with CAF, the Revolutionary Government of Zanzibar or any developer named.</p>
+        <div class="sp-head"><span class="eyebrow">About the map</span><h2>Real Fumba, tomorrow's plans</h2></div>
+        <div class="about-map"><canvas id="aboutMap" width="600" height="400" aria-label="Map of AfconCity: real places in green, planned projects in gold"></canvas>
+          <p class="am-key"><span class="real">Real today</span><span class="plan">Planned (imagined designs)</span></p></div>
+        <div class="about-cols">
+          <div><h3 class="real">Real</h3><p>Fumba's streets, coastline, land cover and building outlines, and the Zanzibar Sports City site beside the Fumba road.</p></div>
+          <div><h3 class="plan">Planned</h3><p>Projects from public plans for Greater Fumba: the Continental Mall, Burj Zanzibar, the IIT Madras campus, a hotel, a hospital, ZHC towers, film studios and a ferry pier.</p></div>
+        </div>
+        <p class="fine">Map data: OpenStreetMap contributors (ODbL) and Google Open Buildings (CC BY 4.0), via Overture Maps. Prices follow 2026 Zanzibar rates; all money is in-game only. Independent prototype, not affiliated with CAF, the Revolutionary Government of Zanzibar or any developer named.</p>
       </div>
     </section>
   </div>
@@ -1315,12 +1518,16 @@ input[type=range]{accent-color:var(--turmeric);width:200px}
       <div class="pm-col">
         <div class="opt-row" data-notr><span>Language · Lugha</span><div class="seg" data-seg="lang"><button type="button" data-v="en">English</button><button type="button" data-v="sw">Kiswahili</button></div></div>
         <div class="opt-row"><span>Graphics</span><div class="seg" id="segGfx" data-seg="gfx"><button type="button" data-v="high">High</button><button type="button" data-v="low">Fast</button></div></div>
-        <div class="opt-row"><span>Time of day</span><div class="seg" id="segTime"><button type="button" data-v="live">Live clock</button><button type="button" data-v="day">Day</button><button type="button" data-v="night">Night</button></div></div>
+        <div class="opt-row"><span>Time of day</span><div class="seg" id="segTime" data-seg="time"><button type="button" data-v="live">Live clock</button><button type="button" data-v="day">Day</button><button type="button" data-v="night">Night</button></div></div>
         <div class="opt-row"><span>On-screen display</span><div class="seg" data-seg="hud"><button type="button" data-v="full">Full</button><button type="button" data-v="min">Minimal</button><button type="button" data-v="off">Off</button></div></div>
         <div class="hud-parts" aria-label="Show on screen"></div>
         <div class="opt-row"><span>Sound</span><div class="seg" id="segSound" data-seg="sound"><button type="button" data-v="on">On</button><button type="button" data-v="off">Off</button></div></div>
         <div class="opt-row"><span>Camera follow</span><div class="seg" data-seg="follow"><button type="button" data-v="on">On</button><button type="button" data-v="off">Off</button></div></div>
-        <div class="opt-row"><span>Mouse sensitivity</span><input type="range" id="sens" min="0.4" max="2" step="0.1" value="1" aria-label="Mouse sensitivity"></div>
+        <div class="opt-row"><span>Volume</span><input type="range" data-range="vol" min="0.1" max="1" step="0.05" value="0.8" aria-label="Volume"></div>
+        <div class="opt-row"><span>Look speed</span><input type="range" id="sens" data-range="sens" min="0.4" max="2" step="0.1" value="1" aria-label="Look speed"></div>
+        <div class="opt-row"><span>Screen shake</span><div class="seg" data-seg="shake"><button type="button" data-v="on">On</button><button type="button" data-v="off">Off</button></div></div>
+        <div class="opt-row"><span>Names above heads</span><div class="seg" data-seg="names"><button type="button" data-v="on">On</button><button type="button" data-v="off">Off</button></div></div>
+        <div class="opt-row"><span>Chat bubbles</span><div class="seg" data-seg="bubbles"><button type="button" data-v="on">On</button><button type="button" data-v="off">Off</button></div></div>
         <p class="fine lang-note" data-lang-note hidden>Menyu, maswali, kabati la nguo, changamoto na orodha za viongozi ziko kwa Kiswahili. Mazungumzo mengi ya wahusika bado ni ya Kiingereza.</p>
         <div class="opt-block"><span>Cloud save</span><div id="cloudBox"></div></div>
         <p class="fine">Press <kbd>H</kbd> in the game to cycle Full, Minimal and Off. The live clock runs a day in about 19 minutes. Progress saves in this browser, and on afconcity.com it is also backed up online with your save code.</p>
@@ -1340,7 +1547,7 @@ input[type=range]{accent-color:var(--turmeric);width:200px}
 /* Website loader: downloads the 3D engine, the game and its textures in parallel with a real progress bar,
    then starts the game. Files carry a fingerprint in their name, so browsers keep them until the game changes. */
 (() => {
-  const M = {"three":{"u":"https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js","n":603445},"game":{"u":"/assets/game.0d16d2ffa0.js","n":1009064},"tex":{"bark":{"hi":{"u":"/assets/tex/bark.03e27f4a60.webp","n":3306},"nrm":false},"concrete":{"hi":{"u":"/assets/tex/concrete.faf4c0110a.webp","n":11170},"nrm":false},"dry":{"hi":{"u":"/assets/tex/dry.d04287f212.webp","n":317094},"nrm":false,"lo":{"u":"/assets/tex/dry-lo.a51047be39.webp","n":70582}},"frond":{"hi":{"u":"/assets/tex/frond.8bdbdac31b.webp","n":14894},"nrm":false},"grass":{"hi":{"u":"/assets/tex/grass.c497e9c3aa.webp","n":295576},"nrm":false,"lo":{"u":"/assets/tex/grass-lo.bb7db9e0ee.webp","n":65508}},"leaves":{"hi":{"u":"/assets/tex/leaves.11e079b1c2.webp","n":12860},"nrm":false},"mabati":{"hi":{"u":"/assets/tex/mabati.7923b7992b.webp","n":6522},"nrm":false},"mabatiN":{"hi":{"u":"/assets/tex/mabatiN.b3f736bc1b.webp","n":1118},"nrm":true},"paver":{"hi":{"u":"/assets/tex/paver.981382c5d3.webp","n":21364},"nrm":false},"paverN":{"hi":{"u":"/assets/tex/paverN.6a0db9335d.webp","n":62678},"nrm":true},"plaster":{"hi":{"u":"/assets/tex/plaster.368b19c68f.webp","n":3570},"nrm":false},"plasterN":{"hi":{"u":"/assets/tex/plasterN.9c5197ff4d.webp","n":78088},"nrm":true},"plaza":{"hi":{"u":"/assets/tex/plaza.c463de9481.webp","n":11180},"nrm":false},"plazaN":{"hi":{"u":"/assets/tex/plazaN.b641321b48.webp","n":46752},"nrm":true},"roadR":{"hi":{"u":"/assets/tex/roadR.d45434b8dc.webp","n":27294},"nrm":false},"roadS":{"hi":{"u":"/assets/tex/roadS.5072edcdec.webp","n":26198},"nrm":false},"roadT":{"hi":{"u":"/assets/tex/roadT.f73998c3b0.webp","n":28710},"nrm":false},"sand":{"hi":{"u":"/assets/tex/sand.1201a70f1d.webp","n":33482},"nrm":false},"sandN":{"hi":{"u":"/assets/tex/sandN.135cc55f9a.webp","n":71538},"nrm":true},"slab":{"hi":{"u":"/assets/tex/slab.4eb80ec365.webp","n":9372},"nrm":false},"soil":{"hi":{"u":"/assets/tex/soil.fbfd3f306c.webp","n":29742},"nrm":false},"tiles":{"hi":{"u":"/assets/tex/tiles.f20b9cfe65.webp","n":11138},"nrm":false},"tilesN":{"hi":{"u":"/assets/tex/tilesN.b4f338a803.webp","n":20538},"nrm":true},"tuft":{"hi":{"u":"/assets/tex/tuft.ea385b7ebf.webp","n":4746},"nrm":false}}};
+  const M = {"three":{"u":"https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js","n":603445},"game":{"u":"/assets/game.b2b79c4a89.js","n":1023300},"tex":{"bark":{"hi":{"u":"/assets/tex/bark.03e27f4a60.webp","n":3306},"nrm":false},"concrete":{"hi":{"u":"/assets/tex/concrete.faf4c0110a.webp","n":11170},"nrm":false},"dry":{"hi":{"u":"/assets/tex/dry.d04287f212.webp","n":317094},"nrm":false,"lo":{"u":"/assets/tex/dry-lo.a51047be39.webp","n":70582}},"frond":{"hi":{"u":"/assets/tex/frond.8bdbdac31b.webp","n":14894},"nrm":false},"grass":{"hi":{"u":"/assets/tex/grass.c497e9c3aa.webp","n":295576},"nrm":false,"lo":{"u":"/assets/tex/grass-lo.bb7db9e0ee.webp","n":65508}},"leaves":{"hi":{"u":"/assets/tex/leaves.11e079b1c2.webp","n":12860},"nrm":false},"mabati":{"hi":{"u":"/assets/tex/mabati.7923b7992b.webp","n":6522},"nrm":false},"mabatiN":{"hi":{"u":"/assets/tex/mabatiN.b3f736bc1b.webp","n":1118},"nrm":true},"paver":{"hi":{"u":"/assets/tex/paver.981382c5d3.webp","n":21364},"nrm":false},"paverN":{"hi":{"u":"/assets/tex/paverN.6a0db9335d.webp","n":62678},"nrm":true},"plaster":{"hi":{"u":"/assets/tex/plaster.368b19c68f.webp","n":3570},"nrm":false},"plasterN":{"hi":{"u":"/assets/tex/plasterN.9c5197ff4d.webp","n":78088},"nrm":true},"plaza":{"hi":{"u":"/assets/tex/plaza.c463de9481.webp","n":11180},"nrm":false},"plazaN":{"hi":{"u":"/assets/tex/plazaN.b641321b48.webp","n":46752},"nrm":true},"roadR":{"hi":{"u":"/assets/tex/roadR.d45434b8dc.webp","n":27294},"nrm":false},"roadS":{"hi":{"u":"/assets/tex/roadS.5072edcdec.webp","n":26198},"nrm":false},"roadT":{"hi":{"u":"/assets/tex/roadT.f73998c3b0.webp","n":28710},"nrm":false},"sand":{"hi":{"u":"/assets/tex/sand.1201a70f1d.webp","n":33482},"nrm":false},"sandN":{"hi":{"u":"/assets/tex/sandN.135cc55f9a.webp","n":71538},"nrm":true},"slab":{"hi":{"u":"/assets/tex/slab.4eb80ec365.webp","n":9372},"nrm":false},"soil":{"hi":{"u":"/assets/tex/soil.fbfd3f306c.webp","n":29742},"nrm":false},"tiles":{"hi":{"u":"/assets/tex/tiles.f20b9cfe65.webp","n":11138},"nrm":false},"tilesN":{"hi":{"u":"/assets/tex/tilesN.b4f338a803.webp","n":20538},"nrm":true},"tuft":{"hi":{"u":"/assets/tex/tuft.ea385b7ebf.webp","n":4746},"nrm":false}}};
   const $ = (s) => document.querySelector(s);
   const btn = $('#btnPlay'), note = $('#loadNote');
   const coarse = matchMedia('(pointer: coarse)').matches;

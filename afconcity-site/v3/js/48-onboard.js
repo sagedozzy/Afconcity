@@ -34,7 +34,7 @@ function renderPurseFact() {
   if (state.intro) { b.textContent = `${Math.round(money() / 1000)}k`; l.textContent = 'TSh you have now'; }
   else if (v) { b.textContent = `${Math.round(have / 1000)}k`; l.textContent = 'TSh in your starting purse'; }
   else { b.textContent = `${Math.round(ABOUT_MAX / 1000 + PRICES.start / 1000)}k`; l.textContent = 'TSh to start: answer 8 quick questions'; }
-  if (lede) lede.textContent = `You step off the daladala on Fumba Road with ${v || state.intro ? tsh(state.intro ? money() : have) : `up to ${tsh(PRICES.start + ABOUT_MAX)}`}. A VIP seat for the AFCON 2027 match at AfconCity costs TSh 1,000,000, and only fans with a full Fan Passport of Zanzibar experiences can buy one. Work, explore and haggle at real Zanzibar prices.`;
+  if (lede) lede.textContent = `Start with ${v || state.intro ? tsh(state.intro ? money() : have) : `up to ${tsh(PRICES.start + ABOUT_MAX)}`}, hustle round real Fumba, fill your Fan Passport and save TSh 1,000,000 for a VIP seat at the AFCON 2027 match.`;
 }
 /* the questions, one card at a time, with the purse growing as you answer */
 function openOnboard(done) {
@@ -118,6 +118,7 @@ function openOnboard(done) {
 }
 /* Play: a brand-new game asks the questions first (only those not answered yet) */
 function startPlay() {
+  if (!nickPlayOk()) return;
   if (!state.intro && state.bonus === undefined) { const v = aboutRead(); if (!v || aboutCount(v.a) < ABOUT_Q.length) { openOnboard(enterPlay); return; } }
   enterPlay();
 }

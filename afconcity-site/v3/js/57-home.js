@@ -25,7 +25,7 @@ function setTimeMode(v) {
   state.tmode = v;
   if (v === 'day' || v === 'night') setNight(v === 'night');
   else { nightTarget = clockNight(); state.night = nightTarget > 0.5; rebuildEnv(nightTarget > 0.5 ? 1 : 0); RT.envN = nightTarget > 0.5 ? 1 : 0; }
-  segSet('#segTime', v);
+  segSet('[data-seg="time"]', v);
 }
 function addMinutes(m) { state.clock = clockNow() + m; if (timeMode() === 'live') { nightTarget = clockNight(); night = nightTarget; applyLight(); } rentCheck(); }
 function updateClock(dt) {

@@ -25,7 +25,7 @@ function setNet(status, why) {
   const h = $('#mmFriendsHint'); if (h) h.textContent = live ? (n <= 1 ? 'Live · only you' : `Live · ${n} online`) : status === 'connecting' ? 'Checking…' : 'Solo';
   const po = $('#pmOnline'); if (po) po.textContent = ui.onlineText.textContent;
 }
-function displayName(r) { return strOr(r.nick, 16) || (r.by && MP.names[r.by]) || 'Fan'; }
+function displayName(r) { const n = strOr(r.nick, 16) || (r.by && MP.names[r.by]) || 'Fan'; return nickShown(n, r.by); }
 async function refreshNames() {
   if (!MP.user) return;
   const ids = [...remotes.values()].map(r => r.by).filter(Boolean);
@@ -113,7 +113,7 @@ function updateRemotes(dt, t) {
       r.h.position.set(r.cx, 0.04, r.cz); r.h.rotation.y = angDamp(r.h.rotation.y, r.ry, 12, dt);
     }
     if (r.tag.bubUntil && nowMs > r.tag.bubUntil) { r.tag.bub.hidden = true; r.tag.bubUntil = 0; }
-    r.tag.nm.textContent = displayName(r) + (r.typ ? ' …' : '');
+    r.tag.nm.textContent = displayName(r) + (r.typ ? ' …' : ''); r.tag.nm.classList.toggle('ok', nickOk(r.nick, r.by));
     const far = Math.hypot(r.cx - camera.position.x, r.cz - camera.position.z) > 170;
     (r.veh || r.h).visible = !r.inside;
     if (far || mode === 'intro' || r.inside) r.tag.el.style.visibility = 'hidden'; else placeTag(r.tag, r.cx, r.veh ? 2.7 : 2.25, r.cz);
@@ -178,7 +178,7 @@ async function initMultiplayer() {
   const cl = (window.claude && typeof window.claude.use === 'function') ? window.claude : webClaude;
   if (!cl) {
     /* a copy with no backend at all: single player, with multiplayer marked as coming soon */
-    document.querySelectorAll('.mp-claude').forEach(e => { e.hidden = true; }); document.querySelectorAll('.mp-web').forEach(e => { e.hidden = false; });
+    document.querySelectorAll('.mp-claude').forEach(e => { e.hidden = true; }); document.querySelectorAll('.mp-none').forEach(e => { e.hidden = false; });
     const pn = $('#playersNote'); if (pn) pn.textContent = 'Multiplayer is coming soon.';
     setNet('solo', 'outside'); return;
   }
@@ -186,7 +186,8 @@ async function initMultiplayer() {
     /* afconcity.com: everyone who opens the site shares one Fumba */
     MP.web = true;
     document.querySelectorAll('.mp-claude').forEach(e => { e.hidden = true; });
-    document.querySelectorAll('.mp-web').forEach(e => { e.hidden = false; e.textContent = 'Everyone at afconcity.com shares the same Fumba: chat, high-fives, races and dropped cash. Send friends the link and meet up at the Uptown Gate.'; });
+    document.querySelectorAll('.mp-web').forEach(e => { e.hidden = false; });
+    menuOnline();
   }
   const slow = () => { clearTimeout(MP.slowT); MP.slowT = setTimeout(() => { if (!MP.terminal && MP.status === 'connecting' && !(MP.room && MP.room.connected())) setNet('solo', 'timeout'); }, 15000); };
   slow();

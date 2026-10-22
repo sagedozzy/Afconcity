@@ -393,7 +393,7 @@ function audioInit() {
   if (AU.ctx) { if (AU.ctx.state === 'suspended') AU.ctx.resume(); return; }
   try {
     const Ctx = window.AudioContext || window.webkitAudioContext; AU.ctx = new Ctx();
-    AU.master = AU.ctx.createGain(); AU.master.gain.value = AU.on ? 0.6 : 0; AU.master.connect(AU.ctx.destination);
+    AU.master = AU.ctx.createGain(); AU.master.gain.value = AU.on ? 0.75 * SETTINGS.vol : 0; AU.master.connect(AU.ctx.destination);
     const len = AU.ctx.sampleRate * 2, buf = AU.ctx.createBuffer(1, len, AU.ctx.sampleRate), d = buf.getChannelData(0);
     for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
     AU.noise = buf;
@@ -455,7 +455,7 @@ const sfx = {
   },
   engineStop: () => { if (!AU.engine) return; const e = AU.engine, t = AU.ctx.currentTime; e.g.gain.cancelScheduledValues(t); e.g.gain.setValueAtTime(e.g.gain.value, t); e.g.gain.exponentialRampToValueAtTime(0.0001, t + 0.3); setTimeout(() => { try { e.o1.stop(); e.o2.stop(); e.lfo.stop(); } catch (x) {} }, 400); AU.engine = null; },
 };
-function setSound(on) { AU.on = on; try { localStorage.setItem('afconcity-sound', on ? 'on' : 'off'); } catch (e) {} if (AU.master) AU.master.gain.value = on ? 0.6 : 0; segSet('[data-seg="sound"]', on ? 'on' : 'off'); }
+function setSound(on) { AU.on = on; try { localStorage.setItem('afconcity-sound', on ? 'on' : 'off'); } catch (e) {} if (AU.master) AU.master.gain.value = on ? 0.75 * SETTINGS.vol : 0; segSet('[data-seg="sound"]', on ? 'on' : 'off'); }
 /* procedural bar and fan-zone music: a light bongo-flava groove */
 const MUS = { bpm: 104, step: 0, nextT: 0 };
 const midi = n => 440 * Math.pow(2, (n - 69) / 12);

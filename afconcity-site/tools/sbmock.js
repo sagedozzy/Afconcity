@@ -3,7 +3,7 @@
 (() => {
   const LS = localStorage, bc = new BroadcastChannel('sbmock');
   const uuid = () => 'u' + Math.random().toString(16).slice(2, 10) + '-' + Date.now().toString(16);
-  const EMPTY = { docs: [], chat_messages: [], chat_bans: [], scores: [], events: [], bookings: [], saves: [], refs: [], invites: [], wallets: [], nyota_owned: [], topups: [] };
+  const EMPTY = { docs: [], chat_messages: [], chat_bans: [], scores: [], events: [], bookings: [], saves: [], refs: [], invites: [], wallets: [], nyota_owned: [], topups: [], nicknames: [] };
   const NY_ITEMS = [['pass_collect', 'Business pass', 150, 7], ['paint_pearl', 'Pearl paint', 200, null], ['paint_neon', 'Neon paint', 200, null], ['fx_fireworks', 'Fireworks', 250, null], ['paint_gold', 'Gold paint', 300, null], ['tag_gold', 'Golden name tag', 400, null]].map(([id, name, price, days]) => ({ id, name, price, days }));
   const NY_PACKS = [['p100', 100, 2000], ['p550', 550, 10000], ['p1200', 1200, 20000], ['p3200', 3200, 50000]].map(([id, nyota, price]) => ({ id, nyota, price }));
   const db = () => Object.assign(JSON.parse(JSON.stringify(EMPTY)), JSON.parse(LS.getItem('sbmock.db') || '{}'));
@@ -159,6 +159,18 @@
         if (o) o.until = until; else d.nyota_owned.push({ uid: me, item: it.id, until });
         save(d); return { data: nyState(d), error: null };
       }
+      const nk = (t) => String(t || '').replace(/[^A-Za-z0-9]/g, '').toLowerCase();
+      const nStatus = (t) => { const v = String(t || '').trim().replace(/\s+/g, ' '), k = nk(v); if (v.length < 3 || v.length > 16 || !/^[A-Za-z0-9][A-Za-z0-9 _.-]*[A-Za-z0-9]$/.test(v) || k.length < 3) return 'bad'; if (/\b(shit|fuck)\b/i.test(v)) return 'rude'; if (['admin', 'support', 'afconcity', 'fan'].includes(k) || /^fan\d*$/.test(k)) return 'reserved'; const r = d.nicknames.find(x => x.key === k); return !r ? 'free' : r.uid === me ? 'mine' : 'taken'; };
+      if (n === 'nick_status') return { data: nStatus(a.p_nick), error: null };
+      if (n === 'nick_mine') { const r = d.nicknames.find(x => x.uid === me); return { data: r ? r.nick : null, error: null }; }
+      if (n === 'nick_claim') {
+        const v = String(a.p_nick || '').trim().replace(/\s+/g, ' '), st = nStatus(v);
+        if (st === 'mine') { d.nicknames.find(x => x.uid === me).nick = v; save(d); return { data: { nick: v, status: 'mine' }, error: null }; }
+        if (st !== 'free') return err({ taken: 'Another fan has locked in that name.', rude: 'Please pick a friendlier name.', reserved: 'That name is reserved.' }[st] || 'Use 3 to 16 letters or numbers.');
+        const cur = d.nicknames.find(x => x.uid === me); if (cur && Date.now() - cur.at < 864e5) return err('You can change your locked name once a day.');
+        d.nicknames = d.nicknames.filter(x => x.uid !== me); d.nicknames.push({ key: nk(v), nick: v, uid: me, at: Date.now() }); save(d); return { data: { nick: v, status: 'mine' }, error: null };
+      }
+      if (n === 'my_invites') { const rs = d.invites.filter(x => x.inviter === me); return { data: { joined: rs.length, paid: rs.filter(x => x.qualified).length }, error: null }; }
       if (n === 'analytics_summary') {
         if (!isAdmin()) return err('Only the owner can see analytics');
         const ev = d.events, players = new Set(ev.map(e => e.uid)), by = (name) => new Set(ev.filter(e => e.name === name).map(e => e.uid)).size;

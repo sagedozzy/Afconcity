@@ -83,6 +83,12 @@ The loader in `v3/web_loader.js` shows real download progress in the Play button
 - `v3/js/66-economy.js`: businesses that earn while the game is closed (up to a cap), vehicles you own (fuel, repairs, weekly insurance, towing), and the startup's daily salary. On afconcity.com the clock comes from the server, so earnings cannot be fast-forwarded. `tools/economy.py` tests it.
 - `v3/js/67-nyota.js`: **Nyota**, stars bought with Bachs on afconcity.com and spent on cosmetic items and conveniences (vehicle paint, a golden name tag, fireworks, a 7-day business pass). The balance is kept on the server (`wallets`), credited only by the payment function when Bachs confirms payment, and spent only through `nyota_buy`. Game shillings can never be bought. Players who said they are under 18 see no shop, and the server refuses their top-ups. Packs and items, with their prices, are rows in `nyota_packs` and `nyota_items`: edit them in the Supabase Table Editor. To refund, refund the payment in Bachs, then run `select nyota_refund('<top-up id>')` as the owner. `tools/nyota.py` tests the client; `supabase/test_policies.sh` tests the database rules.
 
+## Main screen and fan names
+
+- The main screen (`v3/page.html`, `v3/js/68-menu.js`) fits one screen on desktops, laptops, phones and landscape phones; only the wardrobe scrolls, with Back at the top and Done pinned. `tools/menu.py` checks every panel at four screen sizes.
+- **Fan names**: a player can lock in a name (3 to 16 letters or numbers) so nobody else can use it. Spaces, dots and capitals don't make a different name. Names are kept in the `nicknames` table and claimed only through `nick_claim`; reserved words (Admin, AfconCity, the default "Fan 27" names...) and rude words are refused, and a locked name can be changed once a day. Anyone else using a locked name shows as "Fan" on name tags, chat and leaderboards; the owner's tag gets a ✓. A locked name moves with the save code. Add reserved names as rows in `nick_reserved`.
+- **Play with friends** shows the player's invite link (Share and Copy) and how many friends have joined.
+
 ## Owner setup (one time)
 
 1. **Database.** Paste `supabase/setup.sql` into the Supabase SQL Editor and click Run. Then, under **Database → Extensions**, turn on **pg_cron** and run the file again: this schedules the nightly clean-up (chat after 30 days, events after 90, saves and scores after 12 months idle).
