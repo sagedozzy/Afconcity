@@ -392,6 +392,7 @@ function jobTarget() {
   if (ORDER.state === 'coming' || ORDER.state === 'waiting') return ORDER.pick;
   if (state.done || MIS.id) { const mt = missionTarget(); if (mt) return mt; }
   if (RT.wp && state.intro) return RT.wp;
+  { const stg = storyTarget(); if (stg) return stg; }
   if (!state.intro) return { x: NPC_BY_ID.amina.x, z: NPC_BY_ID.amina.z };
   if (state.ticket && !state.done) return { x: SC.x, z: SC.z };
   if (state.ticket) return null;
@@ -454,7 +455,7 @@ function talk(id) {
   if (id === 'amina') {
     if (!state.intro) {
       state.intro = true; mpDirty = true;
-      openMenu(Object.assign(base, { lede: `Karibu Fumba! This is Fumba Road, and AfconCity is ${((Math.hypot(SC.x - P.x, SC.z - P.z)) / 1000).toFixed(1)} km west. A VIP seat for the AFCON 2027 match costs ${tsh(PRICES.vip)}, and Salim only sells to fans with a full Fan Passport: ${REQUIRED.length} Zanzibar experiences, stamped. You have ${tsh(state.cash)}. Work, explore, and watch your pockets. The daladala stop is right here.`, items: [], close: 'Twende!' }));
+      openMenu(Object.assign(base, { lede: LANG === 'sw' ? `Karibu AfconCity! Umefika na begi tu na ndoto kubwa. Fainali Kuu ya AFCON itachezwa uwanjani, ${((Math.hypot(SC.x - P.x, SC.z - P.z)) / 1000).toFixed(1)} km magharibi. Tiketi ya VIP ni ${tsh(PRICES.vip)}, na Salim anauza tu kwa mashabiki wenye Pasipoti kamili: mihuri ${REQUIRED.length}. Una ${tsh(state.cash)}. Lakini kwanza, ishi: tafuta kitanda, pata kazi, kula na linda pesa zako. Nitakuongoza.` : `Karibu AfconCity! You arrived with a backpack and big dreams. The Grand AFCON Final kicks off at the stadium, ${((Math.hypot(SC.x - P.x, SC.z - P.z)) / 1000).toFixed(1)} km west. A VIP ticket costs ${tsh(PRICES.vip)}, and Salim only sells to fans with a full Fan Passport: ${REQUIRED.length} Zanzibar experiences. You have ${tsh(state.cash)}. But first, survive: find your bed, earn your first shillings, eat, and keep your money safe. I will guide you.`, items: [], close: 'Twende!' }));
       giveStamp('karibu');
       return;
     }
@@ -511,7 +512,7 @@ function openBar() {
 function buyTicket() {
   state.ticket = true; setGateOpen(true); mpDirty = true;
   splash('TIKETI YA VIP!', 'Gate A is open', 'gold'); sfx.win();
-  mpEvent('bought a VIP ticket for the AFCON 2027 match');
+  mpEvent('bought a VIP ticket for the Grand AFCON Final');
   writeSave();
 }
 

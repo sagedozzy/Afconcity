@@ -15,7 +15,7 @@ const bizState = () => { state.biz = state.biz && typeof state.biz === 'object' 
 function bizStash(b) {
   const s = bizState()[b.id]; if (!s) return 0;
   const t = realNow(); if (t < s.at) s.at = t; // a clock moved backwards earns nothing
-  return Math.floor(Math.min(b.cap, (t - s.at) / 3600000) * b.perHour);
+  return Math.floor(Math.min(b.cap, (t - s.at) / 3600000) * b.perHour * allyBiz());
 }
 const bizFullIn = (b) => { const s = bizState()[b.id]; if (!s) return 0; return Math.max(0, b.cap * 3600000 - (realNow() - s.at)); };
 function buyBiz(b) {
@@ -71,7 +71,7 @@ function vehStatus(v) { const d = DEAL_BY_KIND[v.kind]; return `${LANG === 'sw' 
 function openGarage() {
   const near = ownedVehs.filter(v => v === playerVeh || Math.hypot(v.x - GARAGE.x, v.z - GARAGE.z) < 22 || v.g.towed), items = [];
   for (const v of near) {
-    const d = DEAL_BY_KIND[v.kind], need = d.tank - v.g.fuel, fc = Math.round(need * FUEL_PRICE / 50) * 50, nm = tl(d.name);
+    const d = DEAL_BY_KIND[v.kind], need = d.tank - v.g.fuel, fc = Math.round(need * allyFuel(FUEL_PRICE) / 50) * 50, nm = tl(d.name);
     if (need > 0.2) items.push({ label: `${LANG === 'sw' ? 'Jaza mafuta' : 'Fill up'} · ${nm}`, desc: `${need.toFixed(1)} L × ${tsh(FUEL_PRICE)}`, price: fc, act: () => { v.g.fuel = d.tank; sfx.ding(); writeSave(); } });
     const rc = v.g.towed ? Math.round(100 * d.rate / 500) * 500 : repairCost(v);
     if (rc > 0) items.push({ label: `${v.g.towed ? (LANG === 'sw' ? 'Tengeneza na urudishe' : 'Rebuild and return') : (LANG === 'sw' ? 'Tengeneza' : 'Repair')} · ${nm}`, desc: v.g.towed ? (LANG === 'sw' ? 'Ilivutwa hapa baada ya ajali' : 'Towed here after a crash') : `${LANG === 'sw' ? 'Hali' : 'Condition'} ${Math.round(v.hp)}%`, price: rc, act: () => { v.hp = 100; v.g.hp = 100; if (v.g.towed) { v.g.towed = 0; v.wreck = 0; v.m.visible = true; v.col1.on = true; v.x = v.g.x; v.z = v.g.z; v.yaw = v.g.yaw; v.m.position.set(v.x, 0.04, v.z); v.m.rotation.set(0, v.yaw, 0); moveVehCollider(v); } sfx.ding(); writeSave(); } });

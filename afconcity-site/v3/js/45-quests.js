@@ -92,7 +92,7 @@ function openNahodha() {
     { label: 'Menai Bay sandbank safari', desc: 'Full day: snorkelling, sandbank swim, seafood lunch', price: PRICES.safari, act: () => startCruise('safari') },
     { label: 'Prison Island trip', desc: 'Giant tortoises off Stone Town: boat and entry', price: PRICES.prison, act: () => dayTrip('gereza') },
   ];
-  if (n) items.unshift({ label: `Sell your catch · ${n} fish`, desc: 'He takes it to the fish market at Malindi', price: 'Earn', act: () => { const v = fishValue(); state.fish = []; earn(v, 'Fish sold'); sfx.win(); state.stats.jobs++; help(`Sold for <b class="hg">${tsh(v)}</b>. "Samaki wazuri!"`, 3000); } });
+  if (n) items.unshift({ label: `Sell your catch · ${n} fish`, desc: 'He takes it to the fish market at Malindi', price: 'Earn', act: () => { const v = allyFish(fishValue()); state.fish = []; tally('fish'); earn(v, 'Fish sold'); sfx.win(); state.stats.jobs++; help(`Sold for <b class="hg">${tsh(v)}</b>. "Samaki wazuri!"`, 3000); } });
   if (!state.gear.line) items.push({ label: 'Mshipi: handline and 10 bait', desc: 'Fish off the end of the pier. Cash only', price: PRICES.fishKit, act: () => { state.gear.line = true; state.gear.bait += 10; help('Walk to the end of the pier and press <kbd>E</kbd> to fish.', 4000); } });
   else items.push({ label: 'Dagaa bait, 10 pieces', desc: `You have ${state.gear.bait}`, price: PRICES.bait, act: () => { state.gear.bait += 10; } });
   openMenu({ eyebrow: 'Fumba pier · boats and fishing', title: 'Nahodha Salum', lede: n ? `Nice catch! ${n} fish in your cool box, worth about ${tsh(val)} at the market.` : 'My jahazi leaves from the end of the pier. Menai Bay is calm today, and the fish are biting off the pier.', items });
@@ -101,7 +101,7 @@ function openNahodha() {
 /* ---------- daladala: TSh 700 to any stop on Fumba Road ---------- */
 function stopNear(maxD) { for (const s of STOPS) if (Math.hypot(s.x - P.x, s.z - P.z) < maxD) return s; return null; }
 function openStop(s) {
-  const items = STOPS.filter(o => o !== s).map(o => { const d = Math.hypot(o.x - s.x, o.z - s.z); return { label: o.name, desc: `${(d / 1000).toFixed(1)} km · about ${Math.max(2, Math.round(d / 220))} min`, price: PRICES.daladala, act: () => rideDaladala(s, o) }; });
+  const items = STOPS.filter(o => o !== s).map(o => { const d = Math.hypot(o.x - s.x, o.z - s.z); return { label: o.name, desc: `${(d / 1000).toFixed(1)} km · about ${Math.max(2, Math.round(d / 220))} min`, price: allyFare(PRICES.daladala), act: () => rideDaladala(s, o) }; });
   items.push({ label: 'Day trip: Jozani forest', desc: 'Red colobus monkeys, mangroves. Daladala and entry included', price: PRICES.jozani, act: () => dayTrip('jozani') });
   items.push({ label: 'Day trip: Stone Town', desc: 'Walking tour with a guide, Forodhani gardens at dusk', price: PRICES.stonetown, act: () => dayTrip('mjimkongwe') });
   openMenu({ eyebrow: 'Daladala stop · cash fares', title: s.name, lede: `The konda (conductor) shouts the route. Every stop on Fumba Road is ${tsh(PRICES.daladala)} in cash, the real 2026 fare.`, items, cash: true });
@@ -371,7 +371,7 @@ function sellCoconut(tr) {
   if (!tr.want) { help('"Asante, we are fine for now!"', 1800); return; }
   if (state.coconuts <= 0) { help('"A cold madafu would be perfect!" Mzee Hamisi sells them at the spice farm.', 3000); return; }
   state.coconuts--; tr.want = 0; tr.t = now() + rr(70, 140); state.stats.sold++;
-  earn(PRICES.coconutSell, 'Madafu'); playEmote(tr.h, 'drink'); sfx.coin(0);
+  earn(PRICES.coconutSell, 'Madafu'); tally('madafu'); playEmote(tr.h, 'drink'); sfx.coin(0);
   if (!state.coconuts) help('All your madafu are sold. Mzee Hamisi has more at the spice farm.', 3500);
 }
 

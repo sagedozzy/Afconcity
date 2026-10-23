@@ -9,7 +9,8 @@ nightable(headMat, 0.25, 3.2); nightable(tailMat, 0.25, 2.2);
 const paintCache = new Map();
 function carPaint(hex) { if (!paintCache.has(hex)) paintCache.set(hex, new T.MeshPhysicalMaterial({ color: C(hex), metalness: 0.45, roughness: 0.36, clearcoat: 1, clearcoatRoughness: 0.08, envMapIntensity: 1.15 })); return paintCache.get(hex); }
 function wheel(r, w, rimHex) {
-  const g = new T.Group();
+  // steer first, then roll about the axle: with the default order the steering axis tilted as the wheel turned, so it wobbled
+  const g = new T.Group(); g.rotation.order = 'YXZ';
   const tire = new T.Mesh(new T.CylinderGeometry(r, r, w, 20), rubber); tire.rotation.z = Math.PI / 2; tire.castShadow = true; g.add(tire);
   const rim = new T.Mesh(new T.CylinderGeometry(r * 0.62, r * 0.62, w + 0.01, 12), rimHex ? M(rimHex, { metalness: 0.8, roughness: 0.3 }) : chrome); rim.rotation.z = Math.PI / 2; g.add(rim);
   const hub = new T.Mesh(new T.BoxGeometry(w + 0.02, r * 0.25, r * 1.1), rubber); g.add(hub);
@@ -96,8 +97,16 @@ function makeVehicle(kind, hex) {
     for (const z of [0.72, -0.66]) { const w = wheel(0.32, 0.11, 0x8a8f96); w.position.set(0, 0.32, z); g.add(w); u.wheels.push({ g: w, r: 0.32 }); if (z > 0) u.steer.push(w); }
   }
   if (!tb.empty) body.add(partMesh(tb.build(), trimMat, 0, 0, 0));
+  // a soft contact shadow, so vehicles beyond the sun's shadow range still sit on the road instead of floating
+  const sp = VEH[kind]; if (sp && sp.hw) g.add(blobShadow(sp.hw * 2.5, sp.hl * 2.25));
   g.userData = u;
   return g;
+}
+let blobTex = null;
+function blobShadow(w, l) {
+  if (!blobTex) { const c = mkCanvas(64, 64), x = c.getContext('2d'), gr = x.createRadialGradient(32, 32, 4, 32, 32, 32); gr.addColorStop(0, 'rgba(0,0,0,.55)'); gr.addColorStop(0.6, 'rgba(0,0,0,.32)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); x.fillStyle = gr; x.fillRect(0, 0, 64, 64); blobTex = texOf(c, { clamp: true }); }
+  const m = new T.Mesh(new T.PlaneGeometry(w, l), new T.MeshBasicMaterial({ map: blobTex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, fog: true }));
+  m.rotation.x = -Math.PI / 2; m.position.y = 0.025; m.renderOrder = 1; m.userData.blob = true; return m;
 }
 
 /* ---------- road network for AI traffic ---------- */

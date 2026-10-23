@@ -33,6 +33,13 @@ async function refreshNames() {
   try { const ps = await MP.user.profiles(ids); for (const id of ids) if (ps[id] && ps[id].name) MP.names[id] = ps[id].name.split(' ')[0]; renderPlayers(); } catch (e) {}
 }
 function remoteHuman(kit, peer, lk) { const hsh = Math.abs(hashStr(peer)); return makeHuman(kitLook(kit, lookFrom(lk) || { f: false, s: hsh % 6, h: ['short', 'afro', 'cap'][hsh % 3] }, 10 + hsh % 89)); }
+function dropRemote(r) {
+  if (!remotes.has(r.peer)) return;
+  if (r.veh) scene.remove(r.veh); else scene.remove(r.h);
+  r.tag.el.remove(); for (const id of r.drops) COIN.drops.delete(id); remotes.delete(r.peer);
+  if (!r.isMe) sysLine(`${displayName(r)} left`);
+  renderPlayers();
+}
 function onPeers(change) {
   const seen = new Set(); let viewers = 0;
   for (const p of change.peers) {
@@ -54,14 +61,18 @@ function onPeers(change) {
     }
     if (pr === r.prev) continue;
     r.prev = pr; r.by = p.by; r.guest = p.guest;
-    { const nx = clamp(numOr(pr.x, r.x), -2000, 2000), nz = clamp(numOr(pr.z, r.z), -2000, 2000); if (nx !== r.x || nz !== r.z) r.updT = performance.now(); r.x = nx; r.z = nz; } r.ry = numOr(pr.ry, r.ry); r.sp = clamp(numOr(pr.sp, 0), 0, 40);
+    { const nx = clamp(numOr(pr.x, r.x), -2000, 2000), nz = clamp(numOr(pr.z, r.z), -2000, 2000), nry = numOr(pr.ry, r.ry), tm = numOr(pr.tm, 0);
+      if (nx !== r.x || nz !== r.z || nry !== r.ry || (tm && tm !== r.tm)) { r.updT = performance.now(); remoteSample(r, nx, nz, nry, tm); }
+      r.x = nx; r.z = nz; r.ry = nry; r.tm = tm || r.tm; } r.sp = clamp(numOr(pr.sp, 0), 0, 40); r.gone = 0;
     r.cash = clamp(Math.floor(numOr(pr.cash, 0)), 0, 1e10); r.nick = strOr(pr.nick, 16); r.typ = pr.typ ? 1 : 0; r.down = pr.dn ? 1 : 0; r.done = !!pr.done; r.st = clamp(Math.floor(numOr(pr.st, 0)), 0, 99); r.vip = !!pr.vip; r.inside = !!pr.in; r.hm = clamp(Math.floor(numOr(pr.hm, -1)), -1, 2); nyRemote(r, pr);
     if (kit !== r.kit || lk !== r.lk) { r.kit = kit; r.lk = lk; const pos = r.h.position.clone(), ry = r.h.rotation.y, par = r.h.parent; par.remove(r.h); r.h = remoteHuman(kit, p.peer, lk); r.h.position.copy(pos); r.h.rotation.y = ry; par.add(r.h); }
-    const vk = (pr.v === 'bajaji' || pr.v === 'boda') ? pr.v : '', vc = numOr(pr.vc, 0x1f5fbf) & 0xffffff;
-    if (vk !== r.vk || (vk && vc !== r.vc)) {
+    const vk = (pr.v === 'bajaji' || pr.v === 'boda' || pr.v === 'daladala' || pr.v === 'sedan') ? pr.v : '', vc = numOr(pr.vc, 0x1f5fbf) & 0xffffff, vr = pr.vr === 'p' ? 'p' : 'd';
+    r.ps = strOr(pr.ps, 6);
+    if (vk !== r.vk || (vk && (vc !== r.vc || vr !== r.vr))) {
       if (r.veh) { r.veh.remove(r.h); scene.remove(r.veh); r.veh = null; scene.add(r.h); }
       r.vk = vk; r.vc = vc;
-      if (vk) { r.veh = makeVehicle(vk, vc); scene.add(r.veh); r.h.parent.remove(r.h); r.veh.add(r.h); const s = VEH[vk].seat; r.h.position.set(s[0], s[1], s[2]); r.h.rotation.set(0, 0, 0); }
+      r.vr = vr;
+      if (vk) { r.veh = makeVehicle(vk, vc); scene.add(r.veh); r.h.parent.remove(r.h); r.veh.add(r.h); const s = (vr === 'p' && VEH[vk].pass) || VEH[vk].seat; r.h.position.set(s[0], s[1], s[2]); r.h.rotation.set(0, 0, 0); r.pose = vr === 'p' ? (vk === 'boda' ? 'pass' : 'sit') : VEH[vk].pose; }
     }
     const emt = numOr(pr.emt, 0), em = strOr(pr.em, 8);
     if (emt && emt !== r.emt) { r.emt = emt; if (EMOTE_LEN[em] && Math.abs(Date.now() - emt) < 20000) { playEmote(r.h, em); if (em === 'cheer' && Math.hypot(r.cx - P.x, r.cz - P.z) < 30) sfx.clap(); } }
@@ -83,34 +94,63 @@ function onPeers(change) {
     r.drops = ds;
   }
   for (const [peer, r] of remotes) if (!seen.has(peer)) {
-    if (r.veh) scene.remove(r.veh); else scene.remove(r.h);
-    r.tag.el.remove(); for (const id of r.drops) COIN.drops.delete(id); remotes.delete(peer);
-    if (!r.isMe) sysLine(`${displayName(r)} left`);
+    if (!r.gone) { r.gone = Date.now(); continue; }
+    if (Date.now() - r.gone < 2500) continue; // the room list blinked: give them a moment
+    dropRemote(r);
   }
   MP.viewers = viewers;
   if (!MP.terminal && MP.room) setNet(MP.room.connected() ? 'live' : MP.status === 'solo' ? 'solo' : 'connecting');
   renderPlayers();
 }
+/* remote players are drawn a fixed moment in the past (REMOTE_DELAY), between two real updates, so they glide instead of jumping.
+   Each update carries the sender's clock; the smallest gap seen between that clock and ours is the link's offset. */
+const REMOTE_DELAY = 140;
+function remoteSample(r, x, z, ry, tm) {
+  const now = Date.now();
+  let at = now;
+  if (tm) { const off = now - tm; r.off = r.off === undefined || off < r.off ? off : r.off + Math.min(off - r.off, 40) * 0.02; at = tm + r.off; }
+  const b = r.buf || (r.buf = []);
+  if (b.length && at <= b[b.length - 1].t) at = b[b.length - 1].t + 1;
+  b.push({ t: at, x, z, ry }); if (b.length > 24) b.shift();
+}
+function remotePose(r) {
+  const b = r.buf; if (!b || !b.length) return null;
+  const T0 = Date.now() - REMOTE_DELAY;
+  while (b.length > 2 && b[1].t <= T0) b.shift();
+  const a = b[0];
+  if (T0 <= a.t || b.length === 1) {
+    if (b.length === 1 || T0 <= a.t) return { x: a.x, z: a.z, ry: a.ry };
+  }
+  const c = b[1];
+  if (T0 <= c.t) { if (Math.hypot(c.x - a.x, c.z - a.z) > 25) return { x: c.x, z: c.z, ry: c.ry }; const k = (T0 - a.t) / Math.max(1, c.t - a.t); return { x: lerp(a.x, c.x, k), z: lerp(a.z, c.z, k), ry: a.ry + angWrap(c.ry - a.ry) * k }; }
+  // no newer update yet: carry on along the last direction for a short while, then wait
+  const span = Math.max(1, c.t - a.t) / 1000, vx = (c.x - a.x) / span, vz = (c.z - a.z) / span;
+  if (vx * vx + vz * vz > 900) return { x: c.x, z: c.z, ry: c.ry }; // faster than 30 m/s is a teleport, not a direction to follow
+  const e = Math.min(T0 - c.t, 300) / 1000;
+  return { x: c.x + vx * e, z: c.z + vz * e, ry: c.ry };
+}
 function updateRemotes(dt, t) {
   const nowMs = performance.now();
   for (const r of remotes.values()) {
-    /* updates arrive a few times a second: lead the last known position along the heading for a moment so movement looks continuous */
-    const lead = r.sp > 0.5 && r.updT ? Math.min(0.3, (nowMs - r.updT) / 1000) : 0;
-    const tx = r.x + Math.sin(r.ry) * r.sp * lead, tz = r.z + Math.cos(r.ry) * r.sp * lead;
-    const gap = Math.hypot(tx - r.cx, tz - r.cz);
-    if (gap > 60) { r.cx = tx; r.cz = tz; } else { r.cx = damp(r.cx, tx, r.veh ? 7 : 9, dt); r.cz = damp(r.cz, tz, r.veh ? 7 : 9, dt); }
+    if (r.gone && Date.now() - r.gone > 3000) { dropRemote(r); continue; }
+    const q = remotePose(r) || { x: r.x, z: r.z, ry: r.ry };
+    const px = r.cx, pz = r.cz;
+    if (Math.hypot(q.x - r.cx, q.z - r.cz) > 60) { r.cx = q.x; r.cz = q.z; } else { r.cx = damp(r.cx, q.x, 22, dt); r.cz = damp(r.cz, q.z, 22, dt); }
+    const moved = Math.hypot(r.cx - px, r.cz - pz) / Math.max(dt, 1e-3);
+    r.msp = damp(r.msp || 0, Math.min(moved, 30), 8, dt);
     if (r.veh) {
-      r.veh.position.set(r.cx, 0.04, r.cz); r.veh.rotation.y = angDamp(r.veh.rotation.y, r.ry, 10, dt);
-      for (const w of r.veh.userData.wheels) w.g.rotation.x += r.sp * dt / w.r;
-      animHuman(r.h, dt, t, 0, VEH[r.vk].pose);
-      if (mode === 'play' && !playerVeh && !isDown(player) && r.sp > 4 && !r.isMe && nowMs - r.hitT > 2500) {
+      r.veh.position.set(r.cx, 0.04, r.cz); r.veh.rotation.y = angDamp(r.veh.rotation.y, q.ry, 14, dt);
+      for (const w of r.veh.userData.wheels) w.g.rotation.x += r.msp * dt / w.r;
+      animHuman(r.h, dt, t, 0, r.pose || VEH[r.vk].pose);
+      if (r.vr !== 'p' && mode === 'play' && !playerVeh && !isDown(player) && r.msp > 4 && !r.isMe && nowMs - r.hitT > 2500) {
         const dx = P.x - r.cx, dz = P.z - r.cz;
-        if (dx * dx + dz * dz < 2.2) { r.hitT = nowMs; hurtPlayer(r.sp * 2.6, Math.sin(r.ry), Math.cos(r.ry), r.sp * 0.8, 'car'); note(`${displayName(r)} ran you over!`); }
+        if (dx * dx + dz * dz < 2.2) { r.hitT = nowMs; hurtPlayer(r.msp * 2.6, Math.sin(q.ry), Math.cos(q.ry), r.msp * 0.8, 'car'); note(`${displayName(r)} ran you over!`); }
       }
     } else {
       if (r.down) { if (!r.h.userData.fall) knockHuman(r.h, 0, 0, 0); updateFall(r.h, dt); if (r.h.userData.fall && r.h.userData.fall.t > 1.8) r.h.userData.fall.t = 1.8; }
-      else { if (r.h.userData.fall && r.h.userData.fall.t < 2.0) r.h.userData.fall.t = 2.0; if (!updateFall(r.h, dt)) animHuman(r.h, dt, t, Math.max(r.sp, Math.min(9, gap * 7)), 'loco'); }
-      r.h.position.set(r.cx, 0.04, r.cz); r.h.rotation.y = angDamp(r.h.rotation.y, r.ry, 12, dt);
+      else if (r.ps === 'sit') { if (r.h.userData.fall) r.h.userData.fall = null; animHuman(r.h, dt, t, 0, 'sit'); }
+      else { if (r.h.userData.fall && r.h.userData.fall.t < 2.0) r.h.userData.fall.t = 2.0; if (!updateFall(r.h, dt)) animHuman(r.h, dt, t, r.msp < 0.25 ? 0 : r.msp, 'loco'); }
+      r.h.position.set(r.cx, 0.04, r.cz); r.h.rotation.y = angDamp(r.h.rotation.y, q.ry, 14, dt);
     }
     if (r.tag.bubUntil && nowMs > r.tag.bubUntil) { r.tag.bub.hidden = true; r.tag.bubUntil = 0; }
     r.tag.nm.textContent = displayName(r) + (r.typ ? ' …' : ''); r.tag.nm.classList.toggle('ok', nickOk(r.nick, r.by));
@@ -161,10 +201,10 @@ function sendPresence(force) {
   if (!MP.room || !MP.joined || !player) return;
   const t = performance.now();
   if (!force && t - MP.lastSend < 100) return;
-  const v = playerVeh || (mode === 'ride' && ORDER.v && ORDER.kind !== 'daladala' ? { kind: ORDER.kind, col: 0x1f5fbf, yaw: ORDER.v.yaw } : null);
+  const v = playerVeh || (mode === 'ride' && ORDER.v ? { kind: ORDER.kind, col: ORDER.v.col || 0x1f5fbf, yaw: ORDER.v.yaw, vf: ORDER.v.vf, pax: true } : null);
   const cur = {
-    x: Math.round((CINE.on ? CINE.boat.position.x : P.x) * 100) / 100, z: Math.round((CINE.on ? CINE.boat.position.z : P.z) * 100) / 100, ry: Math.round((v ? v.yaw : player.rotation.y) * 100) / 100, sp: Math.round(speed * 10) / 10,
-    v: v ? v.kind : '', vc: v ? v.col : 0, kit: state.kit, lk: lookCode(state.look), nick: state.nick || '', cash: Math.round(state.cash), in: HOME.inside ? 1 : 0, hm: state.home ? (homeById(state.home.id) || { tier: -1 }).tier : -1, done: !!state.done, dn: isDown(player) ? 1 : 0, st: stampCount(), vip: state.ticket ? 1 : 0, gt: nyGold() ? 1 : 0, fx: NY.fxT,
+    x: Math.round((CINE.on ? CINE.boat.position.x : P.x) * 100) / 100, z: Math.round((CINE.on ? CINE.boat.position.z : P.z) * 100) / 100, ry: Math.round((v ? v.yaw : player.rotation.y) * 100) / 100, sp: Math.round((v ? Math.abs(v.vf || 0) : speed) * 10) / 10,
+    v: v ? v.kind : '', vc: v ? v.col : 0, vr: v && v.pax ? 'p' : 'd', ps: CINE.on ? 'sit' : '', kit: state.kit, lk: lookCode(state.look), nick: state.nick || '', cash: Math.round(state.cash), in: HOME.inside ? 1 : 0, hm: state.home ? (homeById(state.home.id) || { tier: -1 }).tier : -1, done: !!state.done, dn: isDown(player) ? 1 : 0, st: stampCount(), vip: state.ticket ? 1 : 0, gt: nyGold() ? 1 : 0, fx: NY.fxT,
     em: MP.em, emt: MP.emt, msg: MP.msg, msgt: MP.msgt, typ: MP.typ, hf: MP.hf, hft: MP.hft, ev: MP.ev, evt: MP.evt, evk: MP.evk,
     pk: COIN.myPk.slice(-40), dr: COIN.myDrops.slice(-12).map(d => [d.id, Math.round(d.x * 10) / 10, Math.round(d.z * 10) / 10, d.v]),
   };

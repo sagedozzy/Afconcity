@@ -33,7 +33,7 @@ function buildAgents() {
 }
 
 /* ---------- hunger ---------- */
-function feed(n) { state.food = clamp((state.food === undefined ? 100 : state.food) + n, 0, 100); }
+function feed(n) { if (n > 0 && state.intro) { n = allyFood(n); st2().ate = 1; tally('meals'); } state.food = clamp((state.food === undefined ? 100 : state.food) + n, 0, 100); }
 function updateHunger(dt) {
   if (state.food === undefined) state.food = 100;
   state.food = Math.max(0, state.food - dt * 0.07 * (speed > 5 ? 1.5 : 1));
@@ -145,6 +145,7 @@ function updateDala(dt) {
 }
 function endDala(abandoned) {
   const v = DALA.v, fares = job.fares;
+  if (!abandoned) tally('dala');
   job = null; sub('');
   if (playerVeh === v) exitVehicle(true);
   const paid = spend(Math.min(PRICES.hesabu, money()), 'Hesabu to Omari', 'spent');
@@ -358,6 +359,13 @@ function updateFishing(dt) {
 }
 
 /* ---------- rain showers ---------- */
+// the island's weather: time is cut into 7-minute slots; about four in ten bring a 45 to 85 second shower at a set moment
+function sharedRain(tsec) {
+  const SLOT = 420, k = Math.floor(tsec / SLOT), r = mulberry32(k * 7919 + 2027);
+  if (r() > 0.4) return { r: 0, k };
+  const start = k * SLOT + 30 + r() * 250, len = 45 + r() * 40, amt = 0.65 + r() * 0.35;
+  return { r: tsec >= start && tsec < start + len ? amt : 0, k };
+}
 const WEATHER = { rain: 0, target: 0, next: 0, until: 0, mesh: null, told: false, applied: -1, snd: null, wet: [] };
 function buildRain() {
   const n = BUILD_HQ ? 4200 : 1800, pos = new Float32Array(n * 6);
@@ -384,8 +392,8 @@ function applyWeather(r) {
 }
 function updateRain(dt) {
   const W2 = WEATHER;
-  if (W2.target === 0 && now() > W2.next) { W2.target = rr(0.65, 1); W2.until = now() + rr(45, 85); W2.next = W2.until + rr(300, 600); W2.told = false; }
-  if (W2.target > 0 && now() > W2.until) W2.target = 0;
+  // everyone shares the same showers: they follow the clock (the server's, on afconcity.com), not a dice roll on each phone
+  if (!W2.manual) { const sh = sharedRain(realNow() / 1000); W2.target = sh.r; if (sh.r && sh.k !== W2.k) { W2.k = sh.k; W2.told = false; } }
   W2.rain = W2.target > W2.rain ? Math.min(W2.target, W2.rain + dt / 6) : Math.max(W2.target, W2.rain - dt / 8);
   if (W2.rain > 0.2 && !W2.told && mode === 'play') { W2.told = true; help('<b class="hl">Mvua!</b> A tropical shower. Roads are slippery, so brake early.', 4500); }
   if (Math.abs(W2.rain - W2.applied) > 0.004 || (W2.rain === 0 && W2.applied !== 0)) { applyWeather(W2.rain); W2.applied = W2.rain; }

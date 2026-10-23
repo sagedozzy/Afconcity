@@ -83,6 +83,13 @@ The loader in `v3/web_loader.js` shows real download progress in the Play button
 - `v3/js/66-economy.js`: businesses that earn while the game is closed (up to a cap), vehicles you own (fuel, repairs, weekly insurance, towing), and the startup's daily salary. On afconcity.com the clock comes from the server, so earnings cannot be fast-forwarded. `tools/economy.py` tests it.
 - `v3/js/67-nyota.js`: **Nyota**, stars bought with Bachs on afconcity.com and spent on cosmetic items and conveniences (vehicle paint, a golden name tag, fireworks, a 7-day business pass). The balance is kept on the server (`wallets`), credited only by the payment function when Bachs confirms payment, and spent only through `nyota_buy`. Game shillings can never be bought. Players who said they are under 18 see no shop, and the server refuses their top-ups. Packs and items, with their prices, are rows in `nyota_packs` and `nyota_items`: edit them in the Supabase Table Editor. To refund, refund the payment in Bachs, then run `select nyota_refund('<top-up id>')` as the owner. `tools/nyota.py` tests the client; `supabase/test_policies.sh` tests the database rules.
 
+## The story, phones and multiplayer
+
+- `v3/js/69-story.js`: the story in four chapters. **Survive** (guided: find your bed, first job, eat, put money on Pesa), **Hustle** (Fan Passport and TSh 1,000,000), **The Grand Final** (the ticket and kickoff) and **Empire** (the Summit, Pitch Day, businesses and four alliances: Daladala Union, Fumba Fishermen, Spice Traders, Market Mamas, each with a perk). The goal card always names the next step and the radar points to it. Saves that were already well under way skip chapter 1.
+- Phones: the joystick appears under your thumb anywhere in the lower left; pushing it to the edge runs. Run is a hold button. The action button names what it does. The goal is a one-line pill (tap for details) and messages sit at the top.
+- Multiplayer: positions go out 10 times a second and other players are drawn a moment behind, between real updates, so they glide. Players stay for a grace period when the room list blinks. Passengers show seated in the vehicle. The weather follows a shared clock, so everyone sees the same showers.
+- `tools/chapters.py` tests all of the above.
+
 ## Main screen and fan names
 
 - The main screen (`v3/page.html`, `v3/js/68-menu.js`) fits one screen on desktops, laptops, phones and landscape phones; only the wardrobe scrolls, with Back at the top and Done pinned. `tools/menu.py` checks every panel at four screen sizes.

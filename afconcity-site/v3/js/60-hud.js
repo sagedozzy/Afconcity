@@ -57,8 +57,16 @@ function renderHudParts() {
     for (const [k, label] of HUD_PARTS) { const l = document.createElement('label'); l.className = 'chk'; const i = document.createElement('input'); i.type = 'checkbox'; i.name = k; i.checked = !!HUDV.parts[k]; i.addEventListener('change', () => setHudPart(k, i.checked)); l.append(i, document.createTextNode(label)); root.append(l); }
   });
 }
-function help(html, ms) { ui.help.innerHTML = html; ui.help.hidden = false; clearTimeout(helpTimer); helpTimer = setTimeout(() => { ui.help.hidden = true; }, ms || 4000); }
+function help(html, ms) { ms = ms || 4000; if (isCoarse) ms = Math.min(ms, 4500); ui.help.innerHTML = html; ui.help.hidden = false; clearTimeout(helpTimer); helpTimer = setTimeout(() => { ui.help.hidden = true; }, ms); }
 function note(text) { help(escapeHtml(text), 3200); }
+/* phones: the big action button says what it will do (Talk, Ride, Buy…) and lights up when there is something to do */
+function touchAct(it) {
+  if (!isCoarse) return;
+  const el = hudX.tAct || (hudX.tAct = $('#tAct')), tx = hudX.tActT || (hudX.tActT = $('#tActText'));
+  let w = 'E';
+  if (it && it.text) { const words = it.text.replace(/[·:,!].*$/, '').trim().split(/\s+/); w = /^(Get|Go|Pick|Skip|Order|Look)$/i.test(words[0]) && words[1] ? words[0] + ' ' + words[1] : words[0]; if (w.length > 9) w = w.slice(0, 8) + '…'; }
+  if (hudX.actW === w) return; hudX.actW = w; tx.textContent = w; el.classList.toggle('ready', w !== 'E');
+}
 function sub(html) { ui.sub.innerHTML = html || ''; }
 function splash(title, subText, kind) {
   ui.splashTitle.textContent = title; ui.splashSub.textContent = subText || ''; ui.splashSub.hidden = !subText;
@@ -186,13 +194,15 @@ function updateGoal(t) {
   } else if (orderGoal()) { const og = orderGoal(); tag = og.tag; title = og.title; desc = og.desc; }
   else if (RT.wp && state.intro) { tag = 'GPS'; title = RT.wp.label; desc = 'Follow the yellow marker on your radar. Set a new one on your phone (P).'; }
   else if (!state.intro) { title = 'Talk to Amina'; desc = 'She is right in front of you at the Uptown Gate daladala stop.'; }
-  else if (state.ticket && !state.done) { title = 'Get to kickoff'; desc = 'Walk through Gate A and stand in the centre circle.'; }
+  else if (storyGoal()) { const sg = storyGoal(); tag = sg.tag; title = sg.title; desc = sg.desc; if (sg.bar !== undefined) bar = sg.bar; }
+  else if (state.ticket && !state.done) { title = LANG === 'sw' ? 'Nenda Fainali Kuu' : 'Go to the Grand Final'; desc = LANG === 'sw' ? 'Pita Lango A na usimame katikati ya uwanja.' : 'Walk through Gate A and stand in the centre circle.'; }
   else if (state.ticket && missionGoal()) { const m2 = missionGoal(); tag = m2.tag; title = m2.title; desc = m2.desc; }
   else if (state.ticket && story().pitch) { tag = 'Free roam'; title = LANG === 'sw' ? 'Jenga himaya yako' : 'Build your empire'; desc = LANG === 'sw' ? 'Nunua biashara na magari kwenye simu (Biashara, Magari). Biashara zinaingiza pesa hata ukiwa mbali.' : 'Buy businesses and vehicles on your phone (Biashara, Magari). Businesses earn while you are away.'; }
   else if (state.ticket) { tag = 'Free roam'; title = 'Matchday night'; desc = 'Keep exploring Fumba. The richest fan online wears the crown.'; }
   else if (passportFull() && money() >= PRICES.vip) { title = 'Buy your VIP ticket'; desc = 'Salim sells them at the kiosk on the AfconCity plaza (K).'; }
   else if (passportFull()) { title = `Earn ${tsh(PRICES.vip - money())} more`; desc = EARN_HINTS[Math.floor(t / 9) % EARN_HINTS.length]; }
   else { const ns = nextStamp(); tag = 'Next stamp'; title = ns ? ns.sw : 'Fan Passport'; desc = ns ? `${ns.en}.` : ''; }
+  { const chn = chapter(); if (chn >= 2 && (tag === 'Goal' || tag === 'Next stamp' || tag === 'Free roam')) tag = chapterTag(chn) + (tag === 'Next stamp' ? ` · ${LANG === 'sw' ? 'muhuri unaofuata' : 'next stamp'}` : ''); }
   ui.goalTag.textContent = tag; ui.goalTitle.textContent = title; ui.goalDesc.textContent = desc;
   ui.goalBarWrap.hidden = bar === null; if (bar !== null) ui.goalBar.style.width = `${clamp(bar, 0, 1) * 100}%`;
   const showProg = state.intro && !state.ticket;

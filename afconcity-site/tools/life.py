@@ -93,7 +93,7 @@ v0 = G("fishValue()"); c0 = G("state.cash")
 G("(() => { const n = NPC_BY_ID.nahodha; P.x = n.x; P.z = n.z + 1.5; talk('nahodha'); pickMenu(0); return 1; })()")
 check('catch sold to Nahodha', G("state.fish.length") == 0 and G("state.cash") - c0 == v0, (v0, G("state.cash") - c0))
 # --- rain
-G("WEATHER.target = 1, WEATHER.until = now() + 60, WEATHER.rain = 0.95, 1"); s.wait(2.5)
+G("WEATHER.manual = true, WEATHER.target = 1, WEATHER.until = now() + 60, WEATHER.rain = 0.95, 1"); s.wait(2.5)
 check('rain makes the roads slippery and the sky grey', G("WEATHER.mesh.visible") and G("wetGrip()") < 0.8 and G("scene.fog.far") < 800 and G("skyU.uRain.value") > 0.5, (G("wetGrip()"), G("scene.fog.far")))
 G("WEATHER.target = 0, WEATHER.rain = 0.001, 1"); s.wait(2.0)
 check("rain clears", G("scene.fog.far") > (1600 if G("HQ()") else 850) and not G("WEATHER.mesh.visible"), G("scene.fog.far"))

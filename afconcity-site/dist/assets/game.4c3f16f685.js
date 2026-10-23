@@ -2796,8 +2796,8 @@ function buildBody(look, hi) {
   const neck = L.neck || (kit ? 'crew' : L.style === 'button' ? 'collar' : '');
 
   /* torso */
-  const TP = f ? [[0.855, 0.146, 0.094, -0.006], [0.90, 0.186, 0.114, -0.016], [0.96, 0.182, 0.110, -0.012], [1.03, 0.146, 0.092, 0.0], [1.09, 0.120, 0.082, 0.002], [1.16, 0.132, 0.090, 0.010], [1.24, 0.148, 0.098, 0.014], [1.31, 0.152, 0.094, 0.010], [1.37, 0.152, 0.085, 0.002], [1.415, 0.143, 0.077, -0.006], [1.445, 0.098, 0.062, -0.008], [1.465, 0.056, 0.048, -0.006]]
-    : [[0.855, 0.142, 0.092, -0.004], [0.90, 0.158, 0.102, -0.012], [0.96, 0.156, 0.099, -0.008], [1.03, 0.150, 0.095, 0.0], [1.10, 0.156, 0.098, 0.004], [1.18, 0.172, 0.106, 0.010], [1.26, 0.188, 0.112, 0.013], [1.33, 0.198, 0.108, 0.008], [1.385, 0.198, 0.095, 0.0], [1.425, 0.172, 0.082, -0.006], [1.45, 0.108, 0.066, -0.008], [1.465, 0.064, 0.054, -0.006]];
+  const TP = f ? [[0.855, 0.146, 0.094, -0.006], [0.90, 0.186, 0.114, -0.016], [0.96, 0.182, 0.110, -0.012], [1.03, 0.146, 0.092, 0.0], [1.09, 0.120, 0.082, 0.002], [1.16, 0.132, 0.090, 0.010], [1.24, 0.148, 0.098, 0.014], [1.31, 0.152, 0.094, 0.010], [1.37, 0.152, 0.085, 0.002], [1.42, 0.143, 0.077, -0.006], [1.455, 0.114, 0.068, -0.008], [1.482, 0.074, 0.056, -0.006]]
+    : [[0.855, 0.142, 0.092, -0.004], [0.90, 0.158, 0.102, -0.012], [0.96, 0.156, 0.099, -0.008], [1.03, 0.150, 0.095, 0.0], [1.10, 0.156, 0.098, 0.004], [1.18, 0.172, 0.106, 0.010], [1.26, 0.188, 0.112, 0.013], [1.33, 0.198, 0.108, 0.008], [1.385, 0.198, 0.095, 0.0], [1.432, 0.176, 0.085, -0.006], [1.462, 0.13, 0.073, -0.008], [1.488, 0.084, 0.062, -0.006]];
   const bustF = (y) => f ? 0.066 * Math.exp(-(((y - 1.272) / 0.058) ** 2)) : 0.014 * Math.exp(-(((y - 1.31) / 0.05) ** 2));
   const TW = [[0.95, W('hips', 1)], [1.07, W('spine', 1)], [1.19, W('spine', 1)], [1.29, W('chest', 1)]];
   // an untucked shirt hangs over the waistband
@@ -2823,7 +2823,7 @@ function buildBody(look, hi) {
     return shirtP;
   };
   const lowerCol = (a, ca) => (kitLow && Math.abs(ca) > 0.95) ? kitTrim : lowerP;
-  const baseY = hi ? [0.855, 0.88, 0.905, 0.94, 0.975, 1.01, 1.05, 1.09, 1.13, 1.165, 1.2, 1.225, 1.25, 1.275, 1.3, 1.325, 1.35, 1.375, 1.4, 1.42, 1.44, 1.455, 1.465] : [0.855, 0.9, 1.0, 1.08, 1.18, 1.28, 1.37, 1.42, 1.455, 1.465];
+  const baseY = hi ? [0.855, 0.88, 0.905, 0.94, 0.975, 1.01, 1.05, 1.09, 1.13, 1.165, 1.2, 1.225, 1.25, 1.275, 1.3, 1.325, 1.35, 1.375, 1.4, 1.42, 1.44, 1.455, 1.468, 1.478, 1.486] : [0.855, 0.9, 1.0, 1.08, 1.18, 1.28, 1.37, 1.42, 1.455, 1.475, 1.486];
   const tys = baseY.filter(y => Math.abs(y - hemY) > 0.007).concat(hi ? [hemY - 0.004, hemY - 0.002, hemY] : [hemY - 0.002, hemY]).sort((p, q) => p - q);
   const rings = [];
   for (const y of tys) {
@@ -2838,7 +2838,7 @@ function buildBody(look, hi) {
   /* neck */
   {
     const nr = [[1.40, 0.056, 0.058, -0.004, W('chest', 1)], [1.46, 0.052, 0.055, -0.002, W('chest', 0.45, 'neck', 0.55)], [1.515, 0.048, 0.051, 0.004, W('neck', 0.75, 'head', 0.25)], [1.575, 0.047, 0.05, 0.012, W('head', 1)]];
-    addLoft(sg, nr.map(([y, rx, rz, z, w]) => ({ y, x: 0, z, rx: rx * (f ? 0.86 : 1.05), rz: rz * (f ? 0.88 : 1.04), w, col: skin, r: R_SKIN })), LSEG + 2);
+    addLoft(sg, nr.map(([y, rx, rz, z, w]) => ({ y, x: 0, z, rx: rx * (f ? 0.93 : 1.08), rz: rz * (f ? 0.94 : 1.06), w, col: skin, r: R_SKIN })), LSEG + 2);
     if (neck === 'jacket') sg.add(new T.TorusGeometry(0.06, hi ? 0.01 : 0.013, 6, hi ? 20 : 10, TAU * 0.78), mat4(0, 1.452, -0.004, 0, 1, 1, 1.8, Math.PI / 2 - 0.2, Math.PI / 2 - TAU * 0.89), C(L.inner || 0xf6f3ec), W('chest', 0.7, 'neck', 0.3), R_CLOTH);
     if (neck === 'collar' || kit) {
       // a collar stands up round the back of the neck and falls open at the front
@@ -2959,7 +2959,7 @@ function buildBody(look, hi) {
   }
   /* head and face */
   const hw = W('head', 1), hk = f ? 0.955 : 1;
-  sg.add(headShell(hi ? 28 : 12, hi ? 22 : 9, 1, f), null, skin, hw, R_SKIN);
+  sg.add(headShell(hi ? 36 : 14, hi ? 28 : 10, 1, f), null, skin, hw, R_SKIN);
   // ears lie close to the head
   for (const s of [1, -1]) sg.add(new T.SphereGeometry(1, hi ? 10 : 5, hi ? 8 : 4), mat4(0.0875 * s * hk, 1.651, -0.006, s * 0.42, 0.0085, 0.025, 0.017), skin.clone().multiplyScalar(0.93), hw, R_SKIN);
   if (hi) {
@@ -3102,7 +3102,7 @@ function buildBody(look, hi) {
   }
   if (L.beard) {
     const bc = C(L.beard), bj = hairColorJitter(bc);
-    shell(1.03, (X, Y, Z) => ((Y < -0.3 && Z > -0.25) || (Y < -0.08 && Math.abs(X) > 0.62 && Z > -0.15 && Z < 0.7)) && !(Math.abs(X) < 0.32 && Y > -0.62 && Z > 0.6), bj, 0.9);
+    shell(1.018, (X, Y, Z) => ((Y < -0.52 && Z > -0.1) || (Y < -0.3 && Math.abs(X) > 0.72 && Z > -0.05 && Z < 0.62)) && !(Math.abs(X) < 0.3 && Y > -0.7 && Z > 0.62), bj, 0.92);
     if (hi) sg.add(rb(0.044, 0.008, 0.012, 0.004), mat4(0, 1.6115, 0.104, 0, 1, 1, 1, 0.2), bc, hw, 0.9);
   }
   return sg.build();
@@ -3862,7 +3862,8 @@ nightable(headMat, 0.25, 3.2); nightable(tailMat, 0.25, 2.2);
 const paintCache = new Map();
 function carPaint(hex) { if (!paintCache.has(hex)) paintCache.set(hex, new T.MeshPhysicalMaterial({ color: C(hex), metalness: 0.45, roughness: 0.36, clearcoat: 1, clearcoatRoughness: 0.08, envMapIntensity: 1.15 })); return paintCache.get(hex); }
 function wheel(r, w, rimHex) {
-  const g = new T.Group();
+  // steer first, then roll about the axle: with the default order the steering axis tilted as the wheel turned, so it wobbled
+  const g = new T.Group(); g.rotation.order = 'YXZ';
   const tire = new T.Mesh(new T.CylinderGeometry(r, r, w, 20), rubber); tire.rotation.z = Math.PI / 2; tire.castShadow = true; g.add(tire);
   const rim = new T.Mesh(new T.CylinderGeometry(r * 0.62, r * 0.62, w + 0.01, 12), rimHex ? M(rimHex, { metalness: 0.8, roughness: 0.3 }) : chrome); rim.rotation.z = Math.PI / 2; g.add(rim);
   const hub = new T.Mesh(new T.BoxGeometry(w + 0.02, r * 0.25, r * 1.1), rubber); g.add(hub);
@@ -3949,8 +3950,16 @@ function makeVehicle(kind, hex) {
     for (const z of [0.72, -0.66]) { const w = wheel(0.32, 0.11, 0x8a8f96); w.position.set(0, 0.32, z); g.add(w); u.wheels.push({ g: w, r: 0.32 }); if (z > 0) u.steer.push(w); }
   }
   if (!tb.empty) body.add(partMesh(tb.build(), trimMat, 0, 0, 0));
+  // a soft contact shadow, so vehicles beyond the sun's shadow range still sit on the road instead of floating
+  const sp = VEH[kind]; if (sp && sp.hw) g.add(blobShadow(sp.hw * 2.5, sp.hl * 2.25));
   g.userData = u;
   return g;
+}
+let blobTex = null;
+function blobShadow(w, l) {
+  if (!blobTex) { const c = mkCanvas(64, 64), x = c.getContext('2d'), gr = x.createRadialGradient(32, 32, 4, 32, 32, 32); gr.addColorStop(0, 'rgba(0,0,0,.55)'); gr.addColorStop(0.6, 'rgba(0,0,0,.32)'); gr.addColorStop(1, 'rgba(0,0,0,0)'); x.fillStyle = gr; x.fillRect(0, 0, 64, 64); blobTex = texOf(c, { clamp: true }); }
+  const m = new T.Mesh(new T.PlaneGeometry(w, l), new T.MeshBasicMaterial({ map: blobTex, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2, fog: true }));
+  m.rotation.x = -Math.PI / 2; m.position.y = 0.025; m.renderOrder = 1; m.userData.blob = true; return m;
 }
 
 /* ---------- road network for AI traffic ---------- */
@@ -4635,6 +4644,7 @@ function jobTarget() {
   if (ORDER.state === 'coming' || ORDER.state === 'waiting') return ORDER.pick;
   if (state.done || MIS.id) { const mt = missionTarget(); if (mt) return mt; }
   if (RT.wp && state.intro) return RT.wp;
+  { const stg = storyTarget(); if (stg) return stg; }
   if (!state.intro) return { x: NPC_BY_ID.amina.x, z: NPC_BY_ID.amina.z };
   if (state.ticket && !state.done) return { x: SC.x, z: SC.z };
   if (state.ticket) return null;
@@ -4697,7 +4707,7 @@ function talk(id) {
   if (id === 'amina') {
     if (!state.intro) {
       state.intro = true; mpDirty = true;
-      openMenu(Object.assign(base, { lede: `Karibu Fumba! This is Fumba Road, and AfconCity is ${((Math.hypot(SC.x - P.x, SC.z - P.z)) / 1000).toFixed(1)} km west. A VIP seat for the AFCON 2027 match costs ${tsh(PRICES.vip)}, and Salim only sells to fans with a full Fan Passport: ${REQUIRED.length} Zanzibar experiences, stamped. You have ${tsh(state.cash)}. Work, explore, and watch your pockets. The daladala stop is right here.`, items: [], close: 'Twende!' }));
+      openMenu(Object.assign(base, { lede: LANG === 'sw' ? `Karibu AfconCity! Umefika na begi tu na ndoto kubwa. Fainali Kuu ya AFCON itachezwa uwanjani, ${((Math.hypot(SC.x - P.x, SC.z - P.z)) / 1000).toFixed(1)} km magharibi. Tiketi ya VIP ni ${tsh(PRICES.vip)}, na Salim anauza tu kwa mashabiki wenye Pasipoti kamili: mihuri ${REQUIRED.length}. Una ${tsh(state.cash)}. Lakini kwanza, ishi: tafuta kitanda, pata kazi, kula na linda pesa zako. Nitakuongoza.` : `Karibu AfconCity! You arrived with a backpack and big dreams. The Grand AFCON Final kicks off at the stadium, ${((Math.hypot(SC.x - P.x, SC.z - P.z)) / 1000).toFixed(1)} km west. A VIP ticket costs ${tsh(PRICES.vip)}, and Salim only sells to fans with a full Fan Passport: ${REQUIRED.length} Zanzibar experiences. You have ${tsh(state.cash)}. But first, survive: find your bed, earn your first shillings, eat, and keep your money safe. I will guide you.`, items: [], close: 'Twende!' }));
       giveStamp('karibu');
       return;
     }
@@ -4754,7 +4764,7 @@ function openBar() {
 function buyTicket() {
   state.ticket = true; setGateOpen(true); mpDirty = true;
   splash('TIKETI YA VIP!', 'Gate A is open', 'gold'); sfx.win();
-  mpEvent('bought a VIP ticket for the AFCON 2027 match');
+  mpEvent('bought a VIP ticket for the Grand AFCON Final');
   writeSave();
 }
 
@@ -4918,7 +4928,7 @@ function openNahodha() {
     { label: 'Menai Bay sandbank safari', desc: 'Full day: snorkelling, sandbank swim, seafood lunch', price: PRICES.safari, act: () => startCruise('safari') },
     { label: 'Prison Island trip', desc: 'Giant tortoises off Stone Town: boat and entry', price: PRICES.prison, act: () => dayTrip('gereza') },
   ];
-  if (n) items.unshift({ label: `Sell your catch · ${n} fish`, desc: 'He takes it to the fish market at Malindi', price: 'Earn', act: () => { const v = fishValue(); state.fish = []; earn(v, 'Fish sold'); sfx.win(); state.stats.jobs++; help(`Sold for <b class="hg">${tsh(v)}</b>. "Samaki wazuri!"`, 3000); } });
+  if (n) items.unshift({ label: `Sell your catch · ${n} fish`, desc: 'He takes it to the fish market at Malindi', price: 'Earn', act: () => { const v = allyFish(fishValue()); state.fish = []; tally('fish'); earn(v, 'Fish sold'); sfx.win(); state.stats.jobs++; help(`Sold for <b class="hg">${tsh(v)}</b>. "Samaki wazuri!"`, 3000); } });
   if (!state.gear.line) items.push({ label: 'Mshipi: handline and 10 bait', desc: 'Fish off the end of the pier. Cash only', price: PRICES.fishKit, act: () => { state.gear.line = true; state.gear.bait += 10; help('Walk to the end of the pier and press <kbd>E</kbd> to fish.', 4000); } });
   else items.push({ label: 'Dagaa bait, 10 pieces', desc: `You have ${state.gear.bait}`, price: PRICES.bait, act: () => { state.gear.bait += 10; } });
   openMenu({ eyebrow: 'Fumba pier · boats and fishing', title: 'Nahodha Salum', lede: n ? `Nice catch! ${n} fish in your cool box, worth about ${tsh(val)} at the market.` : 'My jahazi leaves from the end of the pier. Menai Bay is calm today, and the fish are biting off the pier.', items });
@@ -4927,7 +4937,7 @@ function openNahodha() {
 /* ---------- daladala: TSh 700 to any stop on Fumba Road ---------- */
 function stopNear(maxD) { for (const s of STOPS) if (Math.hypot(s.x - P.x, s.z - P.z) < maxD) return s; return null; }
 function openStop(s) {
-  const items = STOPS.filter(o => o !== s).map(o => { const d = Math.hypot(o.x - s.x, o.z - s.z); return { label: o.name, desc: `${(d / 1000).toFixed(1)} km · about ${Math.max(2, Math.round(d / 220))} min`, price: PRICES.daladala, act: () => rideDaladala(s, o) }; });
+  const items = STOPS.filter(o => o !== s).map(o => { const d = Math.hypot(o.x - s.x, o.z - s.z); return { label: o.name, desc: `${(d / 1000).toFixed(1)} km · about ${Math.max(2, Math.round(d / 220))} min`, price: allyFare(PRICES.daladala), act: () => rideDaladala(s, o) }; });
   items.push({ label: 'Day trip: Jozani forest', desc: 'Red colobus monkeys, mangroves. Daladala and entry included', price: PRICES.jozani, act: () => dayTrip('jozani') });
   items.push({ label: 'Day trip: Stone Town', desc: 'Walking tour with a guide, Forodhani gardens at dusk', price: PRICES.stonetown, act: () => dayTrip('mjimkongwe') });
   openMenu({ eyebrow: 'Daladala stop · cash fares', title: s.name, lede: `The konda (conductor) shouts the route. Every stop on Fumba Road is ${tsh(PRICES.daladala)} in cash, the real 2026 fare.`, items, cash: true });
@@ -5197,7 +5207,7 @@ function sellCoconut(tr) {
   if (!tr.want) { help('"Asante, we are fine for now!"', 1800); return; }
   if (state.coconuts <= 0) { help('"A cold madafu would be perfect!" Mzee Hamisi sells them at the spice farm.', 3000); return; }
   state.coconuts--; tr.want = 0; tr.t = now() + rr(70, 140); state.stats.sold++;
-  earn(PRICES.coconutSell, 'Madafu'); playEmote(tr.h, 'drink'); sfx.coin(0);
+  earn(PRICES.coconutSell, 'Madafu'); tally('madafu'); playEmote(tr.h, 'drink'); sfx.coin(0);
   if (!state.coconuts) help('All your madafu are sold. Mzee Hamisi has more at the spice farm.', 3500);
 }
 
@@ -5278,7 +5288,7 @@ function buildAgents() {
 }
 
 /* ---------- hunger ---------- */
-function feed(n) { state.food = clamp((state.food === undefined ? 100 : state.food) + n, 0, 100); }
+function feed(n) { if (n > 0 && state.intro) { n = allyFood(n); st2().ate = 1; tally('meals'); } state.food = clamp((state.food === undefined ? 100 : state.food) + n, 0, 100); }
 function updateHunger(dt) {
   if (state.food === undefined) state.food = 100;
   state.food = Math.max(0, state.food - dt * 0.07 * (speed > 5 ? 1.5 : 1));
@@ -5390,6 +5400,7 @@ function updateDala(dt) {
 }
 function endDala(abandoned) {
   const v = DALA.v, fares = job.fares;
+  if (!abandoned) tally('dala');
   job = null; sub('');
   if (playerVeh === v) exitVehicle(true);
   const paid = spend(Math.min(PRICES.hesabu, money()), 'Hesabu to Omari', 'spent');
@@ -5603,6 +5614,13 @@ function updateFishing(dt) {
 }
 
 /* ---------- rain showers ---------- */
+// the island's weather: time is cut into 7-minute slots; about four in ten bring a 45 to 85 second shower at a set moment
+function sharedRain(tsec) {
+  const SLOT = 420, k = Math.floor(tsec / SLOT), r = mulberry32(k * 7919 + 2027);
+  if (r() > 0.4) return { r: 0, k };
+  const start = k * SLOT + 30 + r() * 250, len = 45 + r() * 40, amt = 0.65 + r() * 0.35;
+  return { r: tsec >= start && tsec < start + len ? amt : 0, k };
+}
 const WEATHER = { rain: 0, target: 0, next: 0, until: 0, mesh: null, told: false, applied: -1, snd: null, wet: [] };
 function buildRain() {
   const n = BUILD_HQ ? 4200 : 1800, pos = new Float32Array(n * 6);
@@ -5629,8 +5647,8 @@ function applyWeather(r) {
 }
 function updateRain(dt) {
   const W2 = WEATHER;
-  if (W2.target === 0 && now() > W2.next) { W2.target = rr(0.65, 1); W2.until = now() + rr(45, 85); W2.next = W2.until + rr(300, 600); W2.told = false; }
-  if (W2.target > 0 && now() > W2.until) W2.target = 0;
+  // everyone shares the same showers: they follow the clock (the server's, on afconcity.com), not a dice roll on each phone
+  if (!W2.manual) { const sh = sharedRain(realNow() / 1000); W2.target = sh.r; if (sh.r && sh.k !== W2.k) { W2.k = sh.k; W2.told = false; } }
   W2.rain = W2.target > W2.rain ? Math.min(W2.target, W2.rain + dt / 6) : Math.max(W2.target, W2.rain - dt / 8);
   if (W2.rain > 0.2 && !W2.told && mode === 'play') { W2.told = true; help('<b class="hl">Mvua!</b> A tropical shower. Roads are slippery, so brake early.', 4500); }
   if (Math.abs(W2.rain - W2.applied) > 0.004 || (W2.rain === 0 && W2.applied !== 0)) { applyWeather(W2.rain); W2.applied = W2.rain; }
@@ -5784,7 +5802,7 @@ function renderPurseFact() {
   if (state.intro) { b.textContent = `${Math.round(money() / 1000)}k`; l.textContent = 'TSh you have now'; }
   else if (v) { b.textContent = `${Math.round(have / 1000)}k`; l.textContent = 'TSh in your starting purse'; }
   else { b.textContent = `${Math.round(ABOUT_MAX / 1000 + PRICES.start / 1000)}k`; l.textContent = 'TSh to start: answer 8 quick questions'; }
-  if (lede) lede.textContent = `Start with ${v || state.intro ? tsh(state.intro ? money() : have) : `up to ${tsh(PRICES.start + ABOUT_MAX)}`}, hustle round real Fumba, fill your Fan Passport and save TSh 1,000,000 for a VIP seat at the AFCON 2027 match.`;
+  if (lede) lede.textContent = `Start with ${v || state.intro ? tsh(state.intro ? money() : have) : `up to ${tsh(PRICES.start + ABOUT_MAX)}`}, survive in AfconCity, hustle for a ticket to the Grand AFCON Final, then build your empire.`;
 }
 /* the questions, one card at a time, with the purse growing as you answer */
 function openOnboard(done) {
@@ -6004,22 +6022,31 @@ async function webSignOut() {
 }
 
 /* ---------- room: everyone on the website shares one Fumba ---------- */
-const MOVE_KEYS = new Set(['x', 'z', 'ry', 'sp', 'v', 'vc']);
+const MOVE_KEYS = new Set(['x', 'z', 'ry', 'sp', 'v', 'vc', 'vr', 'ps', 'tm']);
+const PEER_GRACE = 15000; // a player missing from the room's list this long has really left (blips are shorter)
 function webRoom() {
   if (WEB.room) return WEB.room;
   const myPeer = 'p' + rid();
-  const state = {}, moves = {}, merged = new Map(), conn = [], peersCbs = [], chatCbs = [];
-  let ch = null, live = false, trackT = 0, trackTimer = 0, moveT = 0, moveTimer = 0, pendingMove = null;
+  const state = {}, moves = {}, merged = new Map(), seenAt = {}, conn = [], peersCbs = [], chatCbs = [];
+  let staleT = 0, ch = null, live = false, trackT = 0, trackTimer = 0, moveT = 0, moveTimer = 0, pendingMove = null;
   const peersNow = () => {
-    const out = [], st = ch ? ch.presenceState() : {};
+    const out = [], st = ch ? ch.presenceState() : {}, now = Date.now();
     for (const key of Object.keys(st)) {
       const metas = st[key]; if (!metas || !metas.length) continue;
       const m = metas[metas.length - 1], mv = moves[key];
       let e = merged.get(key);
       if (!e || e.m !== m || e.mv !== mv) { e = { m, mv, obj: Object.assign({}, m, mv || {}) }; merged.set(key, e); }
+      seenAt[key] = now;
       out.push({ kind: 'viewer', peer: key, by: m.by || '', isMe: !!WEB.uid && m.by === WEB.uid, sameTab: key === myPeer, guest: false, presence: e.obj });
     }
-    for (const k of [...merged.keys()]) if (!st[k]) { merged.delete(k); delete moves[k]; }
+    /* the room's list briefly drops players when their connection hiccups: keep them (and their moves) for a while */
+    for (const [k, e] of merged) {
+      if (st[k]) continue;
+      if (now - (seenAt[k] || 0) > PEER_GRACE) { merged.delete(k); delete moves[k]; delete seenAt[k]; continue; }
+      const mv = moves[k]; if (e.mv !== mv) { e.mv = mv; e.obj = Object.assign({}, e.m, mv || {}); }
+      out.push({ kind: 'viewer', peer: k, by: e.m.by || '', isMe: !!WEB.uid && e.m.by === WEB.uid, sameTab: k === myPeer, guest: false, presence: e.obj, stale: true });
+      if (!staleT) staleT = setTimeout(() => { staleT = 0; emitPeers(); }, 2000); // look again soon, so a player who really left is let go
+    }
     return out;
   };
   const emitPeers = () => { const peers = peersNow(); for (const f of peersCbs) { try { f({ peers }); } catch (e) { console.error(e); } } };
@@ -6034,7 +6061,7 @@ function webRoom() {
   const sendMove = () => {
     clearTimeout(moveTimer); moveTimer = 0; if (!ch || !live || !pendingMove) return;
     moveT = performance.now();
-    ch.send({ type: 'broadcast', event: 'mv', payload: Object.assign({ p: myPeer }, pendingMove) }).catch(() => {});
+    ch.send({ type: 'broadcast', event: 'mv', payload: Object.assign({ p: myPeer }, pendingMove, { tm: Date.now() }) }).catch(() => {});
     pendingMove = null;
   };
   /* a stalled or dropped connection is retried with growing gaps (4 s up to a minute), and at once when the phone comes back online */
@@ -6051,6 +6078,8 @@ function webRoom() {
   const join = () => {
     const mine = ch = WEB.sb.channel(SB_CFG.room, { config: { presence: { key: myPeer }, broadcast: { self: false, ack: false } } });
     ch.on('presence', { event: 'sync' }, emitPeers);
+    // a real goodbye (tab closed) still leaves a few seconds for a quick reconnect, not the full grace
+    ch.on('presence', { event: 'leave' }, (ev) => { const k = ev && ev.key; if (k && seenAt[k]) seenAt[k] = Math.min(seenAt[k], Date.now() - PEER_GRACE + 3500); emitPeers(); setTimeout(emitPeers, 3700); });
     /* a newcomer only gets each player's last presence, so re-send where we are right now */
     ch.on('presence', { event: 'join' }, (ev) => {
       if (!ev || ev.key === myPeer || !live) return;
@@ -6062,7 +6091,7 @@ function webRoom() {
       const p = msg && msg.payload; if (!p || typeof p.p !== 'string' || p.p === myPeer) return;
       const cur = Object.assign({}, moves[p.p] || {});
       for (const k of MOVE_KEYS) if (k in p) cur[k] = p[k];
-      moves[p.p] = cur; emitPeers();
+      moves[p.p] = cur; seenAt[p.p] = Date.now(); emitPeers();
     });
     ch.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, (p) => {
       const r = p && p.new; if (!r) return;
@@ -6082,13 +6111,13 @@ function webRoom() {
     retry: kick,
     onConnection(cb) { conn.push(cb); if (!ch) join(); else cb(live); },
     onPeers(cb) { peersCbs.push(cb); if (!ch) join(); else cb({ peers: peersNow() }); },
-    /* the game sends small patches; movement goes out as a light broadcast (up to 5 a second), everything else as presence */
+    /* the game sends small patches; movement goes out as a light broadcast (up to 10 a second), everything else as presence */
     async presence(patch) {
       let moved = false, other = false;
       for (const k in patch) { state[k] = patch[k]; if (MOVE_KEYS.has(k)) moved = true; else other = true; }
       if (moved) {
         pendingMove = pendingMove || {}; for (const k of MOVE_KEYS) if (k in patch) pendingMove[k] = patch[k];
-        const wait = 200 - (performance.now() - moveT); if (wait <= 0) sendMove(); else if (!moveTimer) moveTimer = setTimeout(sendMove, wait);
+        const wait = 100 - (performance.now() - moveT); if (wait <= 0) sendMove(); else if (!moveTimer) moveTimer = setTimeout(sendMove, wait);
       }
       /* presence also carries the position, refreshed every few seconds while moving, so the room's memory never goes stale */
       const since = performance.now() - trackT;
@@ -6170,6 +6199,13 @@ async function refreshNames() {
   try { const ps = await MP.user.profiles(ids); for (const id of ids) if (ps[id] && ps[id].name) MP.names[id] = ps[id].name.split(' ')[0]; renderPlayers(); } catch (e) {}
 }
 function remoteHuman(kit, peer, lk) { const hsh = Math.abs(hashStr(peer)); return makeHuman(kitLook(kit, lookFrom(lk) || { f: false, s: hsh % 6, h: ['short', 'afro', 'cap'][hsh % 3] }, 10 + hsh % 89)); }
+function dropRemote(r) {
+  if (!remotes.has(r.peer)) return;
+  if (r.veh) scene.remove(r.veh); else scene.remove(r.h);
+  r.tag.el.remove(); for (const id of r.drops) COIN.drops.delete(id); remotes.delete(r.peer);
+  if (!r.isMe) sysLine(`${displayName(r)} left`);
+  renderPlayers();
+}
 function onPeers(change) {
   const seen = new Set(); let viewers = 0;
   for (const p of change.peers) {
@@ -6191,14 +6227,18 @@ function onPeers(change) {
     }
     if (pr === r.prev) continue;
     r.prev = pr; r.by = p.by; r.guest = p.guest;
-    { const nx = clamp(numOr(pr.x, r.x), -2000, 2000), nz = clamp(numOr(pr.z, r.z), -2000, 2000); if (nx !== r.x || nz !== r.z) r.updT = performance.now(); r.x = nx; r.z = nz; } r.ry = numOr(pr.ry, r.ry); r.sp = clamp(numOr(pr.sp, 0), 0, 40);
+    { const nx = clamp(numOr(pr.x, r.x), -2000, 2000), nz = clamp(numOr(pr.z, r.z), -2000, 2000), nry = numOr(pr.ry, r.ry), tm = numOr(pr.tm, 0);
+      if (nx !== r.x || nz !== r.z || nry !== r.ry || (tm && tm !== r.tm)) { r.updT = performance.now(); remoteSample(r, nx, nz, nry, tm); }
+      r.x = nx; r.z = nz; r.ry = nry; r.tm = tm || r.tm; } r.sp = clamp(numOr(pr.sp, 0), 0, 40); r.gone = 0;
     r.cash = clamp(Math.floor(numOr(pr.cash, 0)), 0, 1e10); r.nick = strOr(pr.nick, 16); r.typ = pr.typ ? 1 : 0; r.down = pr.dn ? 1 : 0; r.done = !!pr.done; r.st = clamp(Math.floor(numOr(pr.st, 0)), 0, 99); r.vip = !!pr.vip; r.inside = !!pr.in; r.hm = clamp(Math.floor(numOr(pr.hm, -1)), -1, 2); nyRemote(r, pr);
     if (kit !== r.kit || lk !== r.lk) { r.kit = kit; r.lk = lk; const pos = r.h.position.clone(), ry = r.h.rotation.y, par = r.h.parent; par.remove(r.h); r.h = remoteHuman(kit, p.peer, lk); r.h.position.copy(pos); r.h.rotation.y = ry; par.add(r.h); }
-    const vk = (pr.v === 'bajaji' || pr.v === 'boda') ? pr.v : '', vc = numOr(pr.vc, 0x1f5fbf) & 0xffffff;
-    if (vk !== r.vk || (vk && vc !== r.vc)) {
+    const vk = (pr.v === 'bajaji' || pr.v === 'boda' || pr.v === 'daladala' || pr.v === 'sedan') ? pr.v : '', vc = numOr(pr.vc, 0x1f5fbf) & 0xffffff, vr = pr.vr === 'p' ? 'p' : 'd';
+    r.ps = strOr(pr.ps, 6);
+    if (vk !== r.vk || (vk && (vc !== r.vc || vr !== r.vr))) {
       if (r.veh) { r.veh.remove(r.h); scene.remove(r.veh); r.veh = null; scene.add(r.h); }
       r.vk = vk; r.vc = vc;
-      if (vk) { r.veh = makeVehicle(vk, vc); scene.add(r.veh); r.h.parent.remove(r.h); r.veh.add(r.h); const s = VEH[vk].seat; r.h.position.set(s[0], s[1], s[2]); r.h.rotation.set(0, 0, 0); }
+      r.vr = vr;
+      if (vk) { r.veh = makeVehicle(vk, vc); scene.add(r.veh); r.h.parent.remove(r.h); r.veh.add(r.h); const s = (vr === 'p' && VEH[vk].pass) || VEH[vk].seat; r.h.position.set(s[0], s[1], s[2]); r.h.rotation.set(0, 0, 0); r.pose = vr === 'p' ? (vk === 'boda' ? 'pass' : 'sit') : VEH[vk].pose; }
     }
     const emt = numOr(pr.emt, 0), em = strOr(pr.em, 8);
     if (emt && emt !== r.emt) { r.emt = emt; if (EMOTE_LEN[em] && Math.abs(Date.now() - emt) < 20000) { playEmote(r.h, em); if (em === 'cheer' && Math.hypot(r.cx - P.x, r.cz - P.z) < 30) sfx.clap(); } }
@@ -6220,34 +6260,63 @@ function onPeers(change) {
     r.drops = ds;
   }
   for (const [peer, r] of remotes) if (!seen.has(peer)) {
-    if (r.veh) scene.remove(r.veh); else scene.remove(r.h);
-    r.tag.el.remove(); for (const id of r.drops) COIN.drops.delete(id); remotes.delete(peer);
-    if (!r.isMe) sysLine(`${displayName(r)} left`);
+    if (!r.gone) { r.gone = Date.now(); continue; }
+    if (Date.now() - r.gone < 2500) continue; // the room list blinked: give them a moment
+    dropRemote(r);
   }
   MP.viewers = viewers;
   if (!MP.terminal && MP.room) setNet(MP.room.connected() ? 'live' : MP.status === 'solo' ? 'solo' : 'connecting');
   renderPlayers();
 }
+/* remote players are drawn a fixed moment in the past (REMOTE_DELAY), between two real updates, so they glide instead of jumping.
+   Each update carries the sender's clock; the smallest gap seen between that clock and ours is the link's offset. */
+const REMOTE_DELAY = 140;
+function remoteSample(r, x, z, ry, tm) {
+  const now = Date.now();
+  let at = now;
+  if (tm) { const off = now - tm; r.off = r.off === undefined || off < r.off ? off : r.off + Math.min(off - r.off, 40) * 0.02; at = tm + r.off; }
+  const b = r.buf || (r.buf = []);
+  if (b.length && at <= b[b.length - 1].t) at = b[b.length - 1].t + 1;
+  b.push({ t: at, x, z, ry }); if (b.length > 24) b.shift();
+}
+function remotePose(r) {
+  const b = r.buf; if (!b || !b.length) return null;
+  const T0 = Date.now() - REMOTE_DELAY;
+  while (b.length > 2 && b[1].t <= T0) b.shift();
+  const a = b[0];
+  if (T0 <= a.t || b.length === 1) {
+    if (b.length === 1 || T0 <= a.t) return { x: a.x, z: a.z, ry: a.ry };
+  }
+  const c = b[1];
+  if (T0 <= c.t) { if (Math.hypot(c.x - a.x, c.z - a.z) > 25) return { x: c.x, z: c.z, ry: c.ry }; const k = (T0 - a.t) / Math.max(1, c.t - a.t); return { x: lerp(a.x, c.x, k), z: lerp(a.z, c.z, k), ry: a.ry + angWrap(c.ry - a.ry) * k }; }
+  // no newer update yet: carry on along the last direction for a short while, then wait
+  const span = Math.max(1, c.t - a.t) / 1000, vx = (c.x - a.x) / span, vz = (c.z - a.z) / span;
+  if (vx * vx + vz * vz > 900) return { x: c.x, z: c.z, ry: c.ry }; // faster than 30 m/s is a teleport, not a direction to follow
+  const e = Math.min(T0 - c.t, 300) / 1000;
+  return { x: c.x + vx * e, z: c.z + vz * e, ry: c.ry };
+}
 function updateRemotes(dt, t) {
   const nowMs = performance.now();
   for (const r of remotes.values()) {
-    /* updates arrive a few times a second: lead the last known position along the heading for a moment so movement looks continuous */
-    const lead = r.sp > 0.5 && r.updT ? Math.min(0.3, (nowMs - r.updT) / 1000) : 0;
-    const tx = r.x + Math.sin(r.ry) * r.sp * lead, tz = r.z + Math.cos(r.ry) * r.sp * lead;
-    const gap = Math.hypot(tx - r.cx, tz - r.cz);
-    if (gap > 60) { r.cx = tx; r.cz = tz; } else { r.cx = damp(r.cx, tx, r.veh ? 7 : 9, dt); r.cz = damp(r.cz, tz, r.veh ? 7 : 9, dt); }
+    if (r.gone && Date.now() - r.gone > 3000) { dropRemote(r); continue; }
+    const q = remotePose(r) || { x: r.x, z: r.z, ry: r.ry };
+    const px = r.cx, pz = r.cz;
+    if (Math.hypot(q.x - r.cx, q.z - r.cz) > 60) { r.cx = q.x; r.cz = q.z; } else { r.cx = damp(r.cx, q.x, 22, dt); r.cz = damp(r.cz, q.z, 22, dt); }
+    const moved = Math.hypot(r.cx - px, r.cz - pz) / Math.max(dt, 1e-3);
+    r.msp = damp(r.msp || 0, Math.min(moved, 30), 8, dt);
     if (r.veh) {
-      r.veh.position.set(r.cx, 0.04, r.cz); r.veh.rotation.y = angDamp(r.veh.rotation.y, r.ry, 10, dt);
-      for (const w of r.veh.userData.wheels) w.g.rotation.x += r.sp * dt / w.r;
-      animHuman(r.h, dt, t, 0, VEH[r.vk].pose);
-      if (mode === 'play' && !playerVeh && !isDown(player) && r.sp > 4 && !r.isMe && nowMs - r.hitT > 2500) {
+      r.veh.position.set(r.cx, 0.04, r.cz); r.veh.rotation.y = angDamp(r.veh.rotation.y, q.ry, 14, dt);
+      for (const w of r.veh.userData.wheels) w.g.rotation.x += r.msp * dt / w.r;
+      animHuman(r.h, dt, t, 0, r.pose || VEH[r.vk].pose);
+      if (r.vr !== 'p' && mode === 'play' && !playerVeh && !isDown(player) && r.msp > 4 && !r.isMe && nowMs - r.hitT > 2500) {
         const dx = P.x - r.cx, dz = P.z - r.cz;
-        if (dx * dx + dz * dz < 2.2) { r.hitT = nowMs; hurtPlayer(r.sp * 2.6, Math.sin(r.ry), Math.cos(r.ry), r.sp * 0.8, 'car'); note(`${displayName(r)} ran you over!`); }
+        if (dx * dx + dz * dz < 2.2) { r.hitT = nowMs; hurtPlayer(r.msp * 2.6, Math.sin(q.ry), Math.cos(q.ry), r.msp * 0.8, 'car'); note(`${displayName(r)} ran you over!`); }
       }
     } else {
       if (r.down) { if (!r.h.userData.fall) knockHuman(r.h, 0, 0, 0); updateFall(r.h, dt); if (r.h.userData.fall && r.h.userData.fall.t > 1.8) r.h.userData.fall.t = 1.8; }
-      else { if (r.h.userData.fall && r.h.userData.fall.t < 2.0) r.h.userData.fall.t = 2.0; if (!updateFall(r.h, dt)) animHuman(r.h, dt, t, Math.max(r.sp, Math.min(9, gap * 7)), 'loco'); }
-      r.h.position.set(r.cx, 0.04, r.cz); r.h.rotation.y = angDamp(r.h.rotation.y, r.ry, 12, dt);
+      else if (r.ps === 'sit') { if (r.h.userData.fall) r.h.userData.fall = null; animHuman(r.h, dt, t, 0, 'sit'); }
+      else { if (r.h.userData.fall && r.h.userData.fall.t < 2.0) r.h.userData.fall.t = 2.0; if (!updateFall(r.h, dt)) animHuman(r.h, dt, t, r.msp < 0.25 ? 0 : r.msp, 'loco'); }
+      r.h.position.set(r.cx, 0.04, r.cz); r.h.rotation.y = angDamp(r.h.rotation.y, q.ry, 14, dt);
     }
     if (r.tag.bubUntil && nowMs > r.tag.bubUntil) { r.tag.bub.hidden = true; r.tag.bubUntil = 0; }
     r.tag.nm.textContent = displayName(r) + (r.typ ? ' …' : ''); r.tag.nm.classList.toggle('ok', nickOk(r.nick, r.by));
@@ -6298,10 +6367,10 @@ function sendPresence(force) {
   if (!MP.room || !MP.joined || !player) return;
   const t = performance.now();
   if (!force && t - MP.lastSend < 100) return;
-  const v = playerVeh || (mode === 'ride' && ORDER.v && ORDER.kind !== 'daladala' ? { kind: ORDER.kind, col: 0x1f5fbf, yaw: ORDER.v.yaw } : null);
+  const v = playerVeh || (mode === 'ride' && ORDER.v ? { kind: ORDER.kind, col: ORDER.v.col || 0x1f5fbf, yaw: ORDER.v.yaw, vf: ORDER.v.vf, pax: true } : null);
   const cur = {
-    x: Math.round((CINE.on ? CINE.boat.position.x : P.x) * 100) / 100, z: Math.round((CINE.on ? CINE.boat.position.z : P.z) * 100) / 100, ry: Math.round((v ? v.yaw : player.rotation.y) * 100) / 100, sp: Math.round(speed * 10) / 10,
-    v: v ? v.kind : '', vc: v ? v.col : 0, kit: state.kit, lk: lookCode(state.look), nick: state.nick || '', cash: Math.round(state.cash), in: HOME.inside ? 1 : 0, hm: state.home ? (homeById(state.home.id) || { tier: -1 }).tier : -1, done: !!state.done, dn: isDown(player) ? 1 : 0, st: stampCount(), vip: state.ticket ? 1 : 0, gt: nyGold() ? 1 : 0, fx: NY.fxT,
+    x: Math.round((CINE.on ? CINE.boat.position.x : P.x) * 100) / 100, z: Math.round((CINE.on ? CINE.boat.position.z : P.z) * 100) / 100, ry: Math.round((v ? v.yaw : player.rotation.y) * 100) / 100, sp: Math.round((v ? Math.abs(v.vf || 0) : speed) * 10) / 10,
+    v: v ? v.kind : '', vc: v ? v.col : 0, vr: v && v.pax ? 'p' : 'd', ps: CINE.on ? 'sit' : '', kit: state.kit, lk: lookCode(state.look), nick: state.nick || '', cash: Math.round(state.cash), in: HOME.inside ? 1 : 0, hm: state.home ? (homeById(state.home.id) || { tier: -1 }).tier : -1, done: !!state.done, dn: isDown(player) ? 1 : 0, st: stampCount(), vip: state.ticket ? 1 : 0, gt: nyGold() ? 1 : 0, fx: NY.fxT,
     em: MP.em, emt: MP.emt, msg: MP.msg, msgt: MP.msgt, typ: MP.typ, hf: MP.hf, hft: MP.hft, ev: MP.ev, evt: MP.evt, evk: MP.evk,
     pk: COIN.myPk.slice(-40), dr: COIN.myDrops.slice(-12).map(d => [d.id, Math.round(d.x * 10) / 10, Math.round(d.z * 10) / 10, d.v]),
   };
@@ -6865,7 +6934,7 @@ function offerCopy(root, item) {
 }
 
 /* ---------- play stats and billboard view time ---------- */
-const GAME_VER = '2026.10.22.2';
+const GAME_VER = '2026.10.23.1';
 function avgFps() { if (!AD.fps.length) return 0; return AD.fps.reduce((a, b) => a + b, 0) / AD.fps.length; }
 const _adV = new T.Vector3();
 function updateAdStats(dt) {
@@ -8440,7 +8509,7 @@ function updatePorter() {
   if (!job.crate && Math.hypot(tk.x - P.x, tk.z - P.z) < 4.2) { job.crate = true; const c = SIM.crates.find(q => q.visible); if (c) c.visible = false; sfx.ding(); }
   else if (job.crate && Math.hypot(mj.x - P.x, mj.z - P.z) < 3.2) {
     job.crate = false; job.left--; sfx.coin(0);
-    if (job.left <= 0) { job = null; state.stats.jobs++; earn(PAY.porter, 'Porter pay'); splash('ASANTE!', `Crates done · +${tsh(PAY.porter)}`, 'gold'); sfx.win(); setTimeout(() => { for (const c of SIM.crates) c.visible = true; }, 20000); }
+    if (job.left <= 0) { job = null; state.stats.jobs++; earn(PAY.porter, 'Porter pay'); tally('porter'); splash('ASANTE!', `Crates done · +${tsh(PAY.porter)}`, 'gold'); sfx.win(); setTimeout(() => { for (const c of SIM.crates) c.visible = true; }, 20000); }
   }
 }
 function simTimer() { return job && (job.type === 'errand' || job.type === 'wash' || job.type === 'porter' || job.type === 'tour') ? job.limit - (now() - job.t0) : null; }
@@ -8609,8 +8678,16 @@ function renderHudParts() {
     for (const [k, label] of HUD_PARTS) { const l = document.createElement('label'); l.className = 'chk'; const i = document.createElement('input'); i.type = 'checkbox'; i.name = k; i.checked = !!HUDV.parts[k]; i.addEventListener('change', () => setHudPart(k, i.checked)); l.append(i, document.createTextNode(label)); root.append(l); }
   });
 }
-function help(html, ms) { ui.help.innerHTML = html; ui.help.hidden = false; clearTimeout(helpTimer); helpTimer = setTimeout(() => { ui.help.hidden = true; }, ms || 4000); }
+function help(html, ms) { ms = ms || 4000; if (isCoarse) ms = Math.min(ms, 4500); ui.help.innerHTML = html; ui.help.hidden = false; clearTimeout(helpTimer); helpTimer = setTimeout(() => { ui.help.hidden = true; }, ms); }
 function note(text) { help(escapeHtml(text), 3200); }
+/* phones: the big action button says what it will do (Talk, Ride, Buy…) and lights up when there is something to do */
+function touchAct(it) {
+  if (!isCoarse) return;
+  const el = hudX.tAct || (hudX.tAct = $('#tAct')), tx = hudX.tActT || (hudX.tActT = $('#tActText'));
+  let w = 'E';
+  if (it && it.text) { const words = it.text.replace(/[·:,!].*$/, '').trim().split(/\s+/); w = /^(Get|Go|Pick|Skip|Order|Look)$/i.test(words[0]) && words[1] ? words[0] + ' ' + words[1] : words[0]; if (w.length > 9) w = w.slice(0, 8) + '…'; }
+  if (hudX.actW === w) return; hudX.actW = w; tx.textContent = w; el.classList.toggle('ready', w !== 'E');
+}
 function sub(html) { ui.sub.innerHTML = html || ''; }
 function splash(title, subText, kind) {
   ui.splashTitle.textContent = title; ui.splashSub.textContent = subText || ''; ui.splashSub.hidden = !subText;
@@ -8738,13 +8815,15 @@ function updateGoal(t) {
   } else if (orderGoal()) { const og = orderGoal(); tag = og.tag; title = og.title; desc = og.desc; }
   else if (RT.wp && state.intro) { tag = 'GPS'; title = RT.wp.label; desc = 'Follow the yellow marker on your radar. Set a new one on your phone (P).'; }
   else if (!state.intro) { title = 'Talk to Amina'; desc = 'She is right in front of you at the Uptown Gate daladala stop.'; }
-  else if (state.ticket && !state.done) { title = 'Get to kickoff'; desc = 'Walk through Gate A and stand in the centre circle.'; }
+  else if (storyGoal()) { const sg = storyGoal(); tag = sg.tag; title = sg.title; desc = sg.desc; if (sg.bar !== undefined) bar = sg.bar; }
+  else if (state.ticket && !state.done) { title = LANG === 'sw' ? 'Nenda Fainali Kuu' : 'Go to the Grand Final'; desc = LANG === 'sw' ? 'Pita Lango A na usimame katikati ya uwanja.' : 'Walk through Gate A and stand in the centre circle.'; }
   else if (state.ticket && missionGoal()) { const m2 = missionGoal(); tag = m2.tag; title = m2.title; desc = m2.desc; }
   else if (state.ticket && story().pitch) { tag = 'Free roam'; title = LANG === 'sw' ? 'Jenga himaya yako' : 'Build your empire'; desc = LANG === 'sw' ? 'Nunua biashara na magari kwenye simu (Biashara, Magari). Biashara zinaingiza pesa hata ukiwa mbali.' : 'Buy businesses and vehicles on your phone (Biashara, Magari). Businesses earn while you are away.'; }
   else if (state.ticket) { tag = 'Free roam'; title = 'Matchday night'; desc = 'Keep exploring Fumba. The richest fan online wears the crown.'; }
   else if (passportFull() && money() >= PRICES.vip) { title = 'Buy your VIP ticket'; desc = 'Salim sells them at the kiosk on the AfconCity plaza (K).'; }
   else if (passportFull()) { title = `Earn ${tsh(PRICES.vip - money())} more`; desc = EARN_HINTS[Math.floor(t / 9) % EARN_HINTS.length]; }
   else { const ns = nextStamp(); tag = 'Next stamp'; title = ns ? ns.sw : 'Fan Passport'; desc = ns ? `${ns.en}.` : ''; }
+  { const chn = chapter(); if (chn >= 2 && (tag === 'Goal' || tag === 'Next stamp' || tag === 'Free roam')) tag = chapterTag(chn) + (tag === 'Next stamp' ? ` · ${LANG === 'sw' ? 'muhuri unaofuata' : 'next stamp'}` : ''); }
   ui.goalTag.textContent = tag; ui.goalTitle.textContent = title; ui.goalDesc.textContent = desc;
   ui.goalBarWrap.hidden = bar === null; if (bar !== null) ui.goalBar.style.width = `${clamp(bar, 0, 1) * 100}%`;
   const showProg = state.intro && !state.ticket;
@@ -10069,7 +10148,7 @@ const bizState = () => { state.biz = state.biz && typeof state.biz === 'object' 
 function bizStash(b) {
   const s = bizState()[b.id]; if (!s) return 0;
   const t = realNow(); if (t < s.at) s.at = t; // a clock moved backwards earns nothing
-  return Math.floor(Math.min(b.cap, (t - s.at) / 3600000) * b.perHour);
+  return Math.floor(Math.min(b.cap, (t - s.at) / 3600000) * b.perHour * allyBiz());
 }
 const bizFullIn = (b) => { const s = bizState()[b.id]; if (!s) return 0; return Math.max(0, b.cap * 3600000 - (realNow() - s.at)); };
 function buyBiz(b) {
@@ -10125,7 +10204,7 @@ function vehStatus(v) { const d = DEAL_BY_KIND[v.kind]; return `${LANG === 'sw' 
 function openGarage() {
   const near = ownedVehs.filter(v => v === playerVeh || Math.hypot(v.x - GARAGE.x, v.z - GARAGE.z) < 22 || v.g.towed), items = [];
   for (const v of near) {
-    const d = DEAL_BY_KIND[v.kind], need = d.tank - v.g.fuel, fc = Math.round(need * FUEL_PRICE / 50) * 50, nm = tl(d.name);
+    const d = DEAL_BY_KIND[v.kind], need = d.tank - v.g.fuel, fc = Math.round(need * allyFuel(FUEL_PRICE) / 50) * 50, nm = tl(d.name);
     if (need > 0.2) items.push({ label: `${LANG === 'sw' ? 'Jaza mafuta' : 'Fill up'} · ${nm}`, desc: `${need.toFixed(1)} L × ${tsh(FUEL_PRICE)}`, price: fc, act: () => { v.g.fuel = d.tank; sfx.ding(); writeSave(); } });
     const rc = v.g.towed ? Math.round(100 * d.rate / 500) * 500 : repairCost(v);
     if (rc > 0) items.push({ label: `${v.g.towed ? (LANG === 'sw' ? 'Tengeneza na urudishe' : 'Rebuild and return') : (LANG === 'sw' ? 'Tengeneza' : 'Repair')} · ${nm}`, desc: v.g.towed ? (LANG === 'sw' ? 'Ilivutwa hapa baada ya ajali' : 'Towed here after a crash') : `${LANG === 'sw' ? 'Hali' : 'Condition'} ${Math.round(v.hp)}%`, price: rc, act: () => { v.hp = 100; v.g.hp = 100; if (v.g.towed) { v.g.towed = 0; v.wreck = 0; v.m.visible = true; v.col1.on = true; v.x = v.g.x; v.z = v.g.z; v.yaw = v.g.yaw; v.m.position.set(v.x, 0.04, v.z); v.m.rotation.set(0, v.yaw, 0); moveVehCollider(v); } sfx.ding(); writeSave(); } });
@@ -10633,6 +10712,117 @@ function drawAboutMap() {
     }
   });
 }
+/* ===================== 69 story: from nomad to mogul ===================== */
+/* Chapter 1 Survive: you arrive with a backpack and no plan; four guided steps (bed, first job, food, Pesa) with an arrow on the radar.
+   Chapter 2 Hustle: the Fan Passport and TSh 1,000,000 for a ticket to the Grand AFCON Final.
+   Chapter 3 The Grand Final: walk into the stadium for kickoff.
+   Chapter 4 Empire: the Summit and Pitch Day, businesses, vehicles, and alliances with the island's trades. */
+const CH_NAME = { 1: { en: 'Survive', sw: 'Kuishi' }, 2: { en: 'Hustle', sw: 'Pambana' }, 3: { en: 'The Grand Final', sw: 'Fainali Kuu' }, 4: { en: 'Empire', sw: 'Himaya' } };
+const st2 = () => { if (!state.st2 || typeof state.st2 !== 'object') state.st2 = { bed: 0, ate: 0, tally: {}, allies: {}, ch: 0 }; if (!state.st2.tally) state.st2.tally = {}; if (!state.st2.allies) state.st2.allies = {}; return state.st2; };
+function tally(k, n) { const t = st2().tally; t[k] = (t[k] || 0) + (n || 1); }
+const tallyOf = (k) => st2().tally[k] || 0;
+// players who were already well under way before the story arrived skip the survival steps
+const veteran = () => state.stats && (state.stats.jobs >= 3 || stampCount() >= 4 || !!state.ticket);
+const SURVIVE = [
+  { id: 'bed', title: { en: 'Find your bed', sw: 'Tafuta kitanda chako' }, desc: { en: 'Your chumba (room) is behind the daladala depot, rent paid for this week. Walk in and see it.', sw: 'Chumba chako kiko nyuma ya kituo cha daladala, kodi imelipwa wiki hii. Ingia ukione.' },
+    done: () => st2().bed || HOME.inside, at: () => { const h = homeById('chumba'); return h ? { x: h.b[0], z: h.b[1] } : null; } },
+  { id: 'job', title: { en: 'Earn your first shillings', sw: 'Pata shilingi zako za kwanza' }, desc: { en: 'Pick a quick job: wash cars for Fundi Rashid, carry crates for Bi Mwajuma, or check Kazi on your phone.', sw: 'Chagua kazi fupi: osha magari kwa Fundi Rashid, beba makreti kwa Bi Mwajuma, au angalia Kazi kwenye simu.' },
+    done: () => state.stats.jobs >= 1, at: () => nearestOf(['rashid', 'mwajuma', 'musa', 'hassan']) },
+  { id: 'eat', title: { en: 'Eat something', sw: 'Kula kitu' }, desc: { en: 'A hungry hustler is a slow one. Get Zanzibar pizza from Mama Ashura at the Usiku market, or order on your phone (Chakula).', sw: 'Mpambanaji mwenye njaa ni mzito. Nunua pizza ya Zanzibar kwa Mama Ashura sokoni Usiku, au agiza kwenye simu (Chakula).' },
+    done: () => st2().ate, at: () => nearestOf(['ashura', 'mama']) },
+  { id: 'save', title: { en: 'Keep your money safe', sw: 'Linda pesa zako' }, desc: { en: 'Pickpockets take cash, not Pesa. Put your money on Pesa at a green Wakala kiosk.', sw: 'Wezi wa mfukoni huchukua pesa taslimu, si Pesa. Weka pesa kwenye Pesa kwenye kibanda kijani cha Wakala.' },
+    done: () => state.bank > 0, at: () => { let b = null, bd = 1e9; for (const a of AGENTS) { const d = Math.hypot(a.x - P.x, a.z - P.z); if (d < bd) { bd = d; b = a; } } return b ? { x: b.x, z: b.z } : null; } },
+];
+function nearestOf(ids) { let b = null, bd = 1e9; for (const id of ids) { const n = NPC_BY_ID[id]; if (!n) continue; const d = Math.hypot(n.x - P.x, n.z - P.z); if (d < bd) { bd = d; b = n; } } return b ? { x: b.ix !== undefined ? b.ix : b.x, z: b.iz !== undefined ? b.iz : b.z } : null; }
+const surviveStep = () => SURVIVE.find(s => !s.done());
+const survived = () => veteran() || st2().skip || !surviveStep();
+function chapter() { if (!state.intro) return 0; if (state.done) return 4; if (state.ticket) return 3; return survived() ? 2 : 1; }
+const chapterTag = (c) => `${LANG === 'sw' ? 'Sura' : 'Chapter'} ${c} · ${tl(CH_NAME[c])}`;
+
+/* ---------- alliances: the island's trades take you in once you have worked with them ---------- */
+const ALLIES = [
+  { id: 'union', who: 'omari', name: { en: 'Daladala Union', sw: 'Chama cha Daladala' }, need: () => tallyOf('dala') >= 2, needText: { en: 'Drive 2 daladala shifts for Mzee Omari', sw: 'Endesha zamu 2 za daladala kwa Mzee Omari' }, prog: () => `${Math.min(2, tallyOf('dala'))}/2`,
+    perk: { en: 'Public daladala rides are free, and fuel for your own vehicles costs 10% less.', sw: 'Daladala za umma ni bure, na mafuta ya magari yako ni nafuu kwa 10%.' } },
+  { id: 'fish', who: 'nahodha', name: { en: 'Fumba Fishermen', sw: 'Wavuvi wa Fumba' }, need: () => tallyOf('fish') >= 3, needText: { en: 'Sell 3 catches to Nahodha Salum', sw: 'Uza samaki mara 3 kwa Nahodha Salum' }, prog: () => `${Math.min(3, tallyOf('fish'))}/3`,
+    perk: { en: 'Every catch sells for 20% more.', sw: 'Kila samaki anauzwa kwa 20% zaidi.' } },
+  { id: 'spice', who: 'hamisi', name: { en: 'Spice Traders', sw: 'Wafanyabiashara wa Viungo' }, need: () => hasStamp('viungo') && tallyOf('madafu') >= 3, needText: { en: 'Do the spice farm tour and sell 3 madafu', sw: 'Fanya ziara ya shamba la viungo na uze madafu 3' }, prog: () => `${hasStamp('viungo') ? 1 : 0}/1 · ${Math.min(3, tallyOf('madafu'))}/3`,
+    perk: { en: 'Your businesses earn 10% more.', sw: 'Biashara zako zinaingiza 10% zaidi.' } },
+  { id: 'mamas', who: 'ashura', name: { en: 'Market Mamas', sw: 'Mama wa Soko' }, need: () => tallyOf('meals') >= 3 && tallyOf('porter') >= 1, needText: { en: 'Eat at the market 3 times and carry crates once for Bi Mwajuma', sw: 'Kula sokoni mara 3 na ubebe makreti mara moja kwa Bi Mwajuma' }, prog: () => `${Math.min(3, tallyOf('meals'))}/3 · ${Math.min(1, tallyOf('porter'))}/1`,
+    perk: { en: 'Food fills you up 50% more.', sw: 'Chakula kinashibisha 50% zaidi.' } },
+];
+const ally = (id) => !!st2().allies[id];
+function allyNext() { return chapter() === 4 ? ALLIES.find(a => !ally(a.id) && a.need()) || null : null; }
+function joinAlly(a) {
+  st2().allies[a.id] = Date.now(); writeSave(); sfx.win();
+  splash(LANG === 'sw' ? 'MSHIRIKA MPYA' : 'NEW ALLIANCE', tl(a.name), 'gold');
+  help(`<b class="hl">${escapeHtml(tl(a.name))}</b>: ${escapeHtml(tl(a.perk))}`, 6000);
+  track('ally', { id: a.id });
+}
+function storyInteraction() {
+  const a = allyNext(); if (!a) return null;
+  const n = NPC_BY_ID[a.who]; if (!n) return null;
+  const x = n.ix !== undefined ? n.ix : n.x, z = n.iz !== undefined ? n.iz : n.z;
+  if (Math.hypot(x - P.x, z - P.z) > (n.ir || 3.4)) return null;
+  return { text: (LANG === 'sw' ? 'Jiunge: ' : 'Join the ') + tl(a.name), act: () => joinAlly(a) };
+}
+// perks used by the rest of the game
+const allyFare = (n) => (ally('union') ? 0 : n);
+const allyFuel = (n) => Math.round(n * (ally('union') ? 0.9 : 1));
+const allyFish = (n) => Math.round(n * (ally('fish') ? 1.2 : 1));
+const allyBiz = () => (ally('spice') ? 1.1 : 1);
+const allyFood = (n) => n * (ally('mamas') ? 1.5 : 1);
+
+/* ---------- the goal card and the radar ---------- */
+function storyGoal() {
+  const c = chapter();
+  if (c === 1) {
+    const s = surviveStep(); if (!s) return null;
+    const i = SURVIVE.indexOf(s);
+    return { tag: chapterTag(1), title: tl(s.title), desc: tl(s.desc), bar: i / SURVIVE.length };
+  }
+  if (c === 4 && !MIS.id && !MIS.goal && !missionGoal()) {
+    const a = allyNext();
+    if (a) return { tag: chapterTag(4), title: (LANG === 'sw' ? 'Jiunge na ' : 'Join the ') + tl(a.name), desc: `${LANG === 'sw' ? 'Ongea na' : 'Talk to'} ${NPC_BY_ID[a.who].name}. ${tl(a.perk)}` };
+    const open = ALLIES.filter(x => !ally(x.id));
+    if (open.length && story().pitch) { const x = open[0]; return { tag: chapterTag(4), title: tl(x.name), desc: `${tl(x.needText)} (${x.prog()}). ${tl(x.perk)}` }; }
+    if (!open.length) return { tag: chapterTag(4), title: LANG === 'sw' ? 'Upeo mpya' : 'New horizons', desc: LANG === 'sw' ? 'Umepata washirika wote wanne. Mji Mkongwe na Nungwi vinafunguka katika toleo lijalo: endelea kukuza himaya yako.' : 'All four alliances are yours. Stone Town and Nungwi open in the next update: keep growing your empire.' };
+  }
+  return null;
+}
+function storyTarget() {
+  const c = chapter();
+  if (c === 1) { const s = surviveStep(); return s ? s.at() : null; }
+  if (c === 4 && !MIS.id) { const a = allyNext(); if (a) { const n = NPC_BY_ID[a.who]; return n ? { x: n.x, z: n.z } : null; } }
+  return null;
+}
+/* ---------- chapter changes: a title card and a message from Amina ---------- */
+const CH_MSG = {
+  1: { en: 'You made it to AfconCity. No bed, no job, no ticket yet. First things first: find your room behind the depot. I will text you as you go.', sw: 'Umefika AfconCity. Huna kitanda, kazi wala tiketi bado. Kwanza: tafuta chumba chako nyuma ya kituo. Nitakutumia ujumbe njiani.' },
+  2: { en: 'You can look after yourself now. Next: fill your Fan Passport and save TSh 1,000,000. Salim sells the Grand Final tickets at the plaza kiosk.', sw: 'Sasa unaweza kujitunza. Ifuatayo: jaza Pasipoti ya Shabiki na uweke akiba ya TSh 1,000,000. Salim anauza tiketi za Fainali Kuu kwenye kibanda cha uwanjani.' },
+  3: { en: 'You have your ticket! The Grand AFCON Final is at the stadium. Walk through Gate A for kickoff.', sw: 'Una tiketi yako! Fainali Kuu ya AFCON iko uwanjani. Pita Lango A kwa mchezo.' },
+  4: { en: 'What a final! Now build your empire: the Tech Summit is calling, businesses are for sale, and the island\'s trades are looking for partners.', sw: 'Fainali iliyoje! Sasa jenga himaya yako: mkutano wa teknolojia unakuita, biashara zinauzwa, na wafanyabiashara wa kisiwa wanatafuta washirika.' },
+};
+function updateStory(dt) {
+  if (mode !== 'play' || !state.intro) return;
+  const s = st2();
+  if (HOME.inside && !s.bed) s.bed = 1;
+  const c = chapter();
+  if (c !== s.ch) {
+    const first = !s.ch; s.ch = c; writeSave();
+    if (first && c > 1) return; // an older save: no title card, just carry on
+    setTimeout(() => {
+      if (mode !== 'play') return;
+      splash(`${LANG === 'sw' ? 'SURA' : 'CHAPTER'} ${c}`, tl(CH_NAME[c]).toUpperCase(), 'gold');
+      phoneMsg('amina', tl(CH_MSG[c]));
+    }, c === 1 ? 2500 : 1200);
+  }
+  // a step done in chapter 1: a short cheer
+  if (c === 1) {
+    const i = SURVIVE.findIndex(x => !x.done());
+    if (s.step !== undefined && i !== s.step && i > s.step) { sfx.ding(); help(`<b class="hg">✓</b> ${escapeHtml(tl(SURVIVE[i - 1].title))}`, 2200); }
+    s.step = i;
+  }
+}
 /* ===================== 90 main: player, camera, input, loop, boot ===================== */
 const cam = { yaw: 0, pitch: 0.26, dist: 4.4, curDist: 4.4, lastLook: -99, fov: 58 };
 const SETTINGS = { follow: true, sens: 1, vol: 0.8, shake: true, names: true, bubbles: true };
@@ -10750,7 +10940,9 @@ function unstick() {
 const keys = new Set();
 const joy = { x: 0, y: 0, id: null, cx: 0, cy: 0 };
 const drag = { id: null, x: 0, y: 0, moved: 0 };
-let runToggle = false, jumpTap = false, pointerLocked = false;
+let runToggle = false, runHold = false, jumpTap = false, pointerLocked = false;
+/* phones: pushing the joystick right to the edge runs; easing off walks again (a little slack so it does not flicker) */
+function joySprint() { if (joy.id === null) { joy.sprint = false; return false; } const m = Math.hypot(joy.x, joy.y); joy.sprint = joy.sprint ? m > 0.8 : m > 0.93; return joy.sprint; }
 function readInput() {
   let x = 0, y = 0;
   if (keys.has('KeyW') || keys.has('ArrowUp')) y += 1;
@@ -10759,7 +10951,7 @@ function readInput() {
   if (keys.has('KeyA') || keys.has('ArrowLeft')) x -= 1;
   x += joy.x; y += joy.y;
   const jump = keys.has('Space') || jumpTap; jumpTap = false;
-  return { x: clamp(x, -1, 1), y: clamp(y, -1, 1), run: keys.has('ShiftLeft') || keys.has('ShiftRight') || runToggle, jump: !playerVeh && jump, hand: !!playerVeh && (keys.has('Space') || $('#tJump').classList.contains('act')) };
+  return { x: clamp(x, -1, 1), y: clamp(y, -1, 1), run: keys.has('ShiftLeft') || keys.has('ShiftRight') || runToggle || runHold || joySprint(), jump: !playerVeh && jump, hand: !!playerVeh && (keys.has('Space') || $('#tJump').classList.contains('act')) };
 }
 
 /* ---------- interactions ---------- */
@@ -10776,7 +10968,7 @@ function findInteraction() {
     return null;
   }
   for (const th of thieves) if ((th.state === 'flee' || th.state === 'rush') && Math.hypot(th.x - P.x, th.z - P.z) < 4 && !isDown(th.h)) return { text: 'Tackle the thief!', act: tackle };
-  const mi = missionInteraction() || garageInteraction() || bizInteraction(); if (mi) return mi;
+  const mi = storyInteraction() || missionInteraction() || garageInteraction() || bizInteraction(); if (mi) return mi;
   let best = null, bd = 1e9;
   for (const n of NPCS) { const ax = n.ix !== undefined ? n.ix : n.x, az = n.iz !== undefined ? n.iz : n.z, r = n.ir || 3.2, d = Math.hypot(ax - P.x, az - P.z); if (d < r && d < bd) { bd = d; best = n; } }
   if (best) return { text: VERB[best.id] || `Talk to ${best.name}`, act: () => talk(best.id), npc: best.id };
@@ -10929,7 +11121,7 @@ function frame(nowMs) {
   else if (mode === 'kickoff') { updateKickoff(dt); animHuman(player, dt, t, 0, 'loco'); }
   updateLOD(dt); updateRemotes(dt, t); eventsTick(dt); hiWarm(raw);
   /* the pause menu freezes the world: no chases, rides, thieves or timers move behind it */
-  if (mode !== 'paused') { updateCars(dt, t); updateWalkers(dt, t); updateThieves(dt, t); updateRentals(dt); updateCoins(dt, t); updateJobs(dt, t); updateQuests(dt, t); updateMissions(dt); updateEconomy(dt); updateLife(dt, t); updateClock(dt); updateEnergy(dt); updatePhone(dt); updateSim(dt, t); updateHomeDoors(t); updateAdStats(dt); updateCranes(t); }
+  if (mode !== 'paused') { updateCars(dt, t); updateWalkers(dt, t); updateThieves(dt, t); updateRentals(dt); updateCoins(dt, t); updateJobs(dt, t); updateQuests(dt, t); updateMissions(dt); updateEconomy(dt); updateStory(dt); updateLife(dt, t); updateClock(dt); updateEnergy(dt); updatePhone(dt); updateSim(dt, t); updateHomeDoors(t); updateAdStats(dt); updateCranes(t); }
   playerHead.set(P.x, (player ? player.position.y : 0) + 1.62, P.z);
   for (const n of NPCS) {
     const h = npcObjs[n.id], d = Math.hypot(P.x - n.x, P.z - n.z); h.visible = mode === 'intro' || Math.hypot(camera.position.x - n.x, camera.position.z - n.z) < 260; if (d > 200) continue;
@@ -10946,11 +11138,11 @@ function frame(nowMs) {
     if (state.ticket && !state.done && Math.hypot(P.x - SC.x, P.z - SC.z) < 7 && !playerVeh) startKickoff();
     if (!state.ticket && !playerVeh && Math.hypot(P.x - GATE.x, P.z - GATE.z) < 8 && !RT.gateNag) { RT.gateNag = true; talk('steward'); setTimeout(() => { RT.gateNag = false; }, 12000); }
     curInter = findInteraction(); curSec = findSecondary();
-    ui.prompt.hidden = !curInter; if (curInter) ui.promptText.textContent = curInter.text;
+    ui.prompt.hidden = !curInter; if (curInter) ui.promptText.textContent = curInter.text; touchAct(curInter || curSec);
     ui.prompt2.hidden = !curSec; if (curSec) ui.prompt2Text.textContent = curSec.text;
     saveTimer += dt; if (saveTimer > 5) { saveTimer = 0; writeSave(); }
   } else if (mode === 'ride') { curInter = { text: 'Skip to the end of the ride', act: skipRide }; curSec = null; ui.prompt.hidden = false; ui.promptText.textContent = curInter.text; ui.prompt2.hidden = true; }
-  else { ui.prompt.hidden = true; ui.prompt2.hidden = true; }
+  else { ui.prompt.hidden = true; ui.prompt2.hidden = true; touchAct(null); }
   setPromptRoom();
   checkHighFives(performance.now());
   if (night > 0.05 && crowd && crowd.visible) {
@@ -11132,6 +11324,8 @@ function wireUI() {
   document.querySelectorAll('[data-seg="hud"] button').forEach(b => b.addEventListener('click', () => setHudPreset(b.dataset.v, mode === 'intro' || mode === 'paused')));
   $('#btnHud').addEventListener('click', () => { cycleHud(); canvas.focus(); }); $('#hudEye').addEventListener('click', () => { cycleHud(); canvas.focus(); });
   renderHudParts(); applyHudVis(); wirePhone();
+  // phones: the goal is a one-line pill; tap it for the details
+  { const g = document.querySelector('.hud .goal'); g.addEventListener('click', (e) => { if (isCoarse && !e.target.closest('button')) g.classList.toggle('open'); }); }
   document.querySelectorAll('[data-seg="sound"] button').forEach(b => b.addEventListener('click', () => { audioInit(); setSound(b.dataset.v === 'on'); }));
   segSet('[data-seg="gfx"]', gfx); segSet('[data-seg="sound"]', AU.on ? 'on' : 'off'); segSet('[data-seg="follow"]', SETTINGS.follow ? 'on' : 'off');
   ui.chatbox.addEventListener('submit', (e) => { e.preventDefault(); sendChat(ui.chatInput.value); ui.chatInput.value = ''; closeChat(); });
@@ -11159,7 +11353,10 @@ function wireUI() {
   document.addEventListener('gesturestart', (e) => e.preventDefault());
   tJump.addEventListener('pointerdown', (e) => { e.preventDefault(); jumpTap = true; tJump.classList.add('act'); });
   const tjUp = () => tJump.classList.remove('act'); tJump.addEventListener('pointerup', tjUp); tJump.addEventListener('pointercancel', tjUp); tJump.addEventListener('pointerleave', tjUp);
-  const tRun = $('#tRun'); tap(tRun, () => { runToggle = !runToggle; tRun.setAttribute('aria-pressed', String(runToggle)); });
+  // Run is held, not toggled: let go and you walk again
+  const tRun = $('#tRun');
+  tRun.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); try { tRun.setPointerCapture(e.pointerId); } catch (err) {} runHold = true; tRun.classList.add('act'); });
+  const runUp = () => { runHold = false; tRun.classList.remove('act'); }; tRun.addEventListener('pointerup', runUp); tRun.addEventListener('pointercancel', runUp); tRun.addEventListener('lostpointercapture', runUp);
 
   window.addEventListener('keydown', (e) => {
     if (mode === 'intro' || mode === 'sleep') return;
@@ -11203,12 +11400,20 @@ function wireUI() {
   const endDrag = (e) => { if (e.pointerId === drag.id) drag.id = null; };
   canvas.addEventListener('pointerup', endDrag); canvas.addEventListener('pointercancel', endDrag);
   canvas.addEventListener('wheel', (e) => { e.preventDefault(); cam.dist = clamp(cam.dist + e.deltaY * 0.01, 2.2, 14); }, { passive: false });
-  const joyEl = $('#joy'), knob = $('#joyKnob');
-  const joyMove = (e) => { const R = 48; let dx = e.clientX - joy.cx, dy = e.clientY - joy.cy; const d = Math.hypot(dx, dy); if (d > R) { dx *= R / d; dy *= R / d; } joy.x = dx / R; joy.y = -dy / R; knob.style.transform = `translate(${dx}px,${dy}px)`; };
-  joyEl.addEventListener('pointerdown', (e) => { if (joy.id !== null && joy.id !== e.pointerId) return; joy.id = e.pointerId; try { joyEl.setPointerCapture(e.pointerId); } catch (err) {} const r = joyEl.getBoundingClientRect(); joy.cx = r.left + r.width / 2; joy.cy = r.top + r.height / 2; joyMove(e); e.preventDefault(); });
-  joyEl.addEventListener('pointermove', (e) => { if (e.pointerId === joy.id) joyMove(e); });
-  const joyEnd = (e) => { if (e.pointerId !== joy.id) return; joy.id = null; joy.x = joy.y = 0; knob.style.transform = ''; };
-  joyEl.addEventListener('pointerup', joyEnd); joyEl.addEventListener('pointercancel', joyEnd); joyEl.addEventListener('lostpointercapture', joyEnd);
+  /* floating joystick: put your thumb down anywhere in the lower left and the stick appears under it */
+  const joyEl = $('#joy'), knob = $('#joyKnob'), zone = $('#joyZone');
+  const R = 52;
+  const joyMove = (e) => { let dx = e.clientX - joy.cx, dy = e.clientY - joy.cy; const d = Math.hypot(dx, dy); if (d > R) { dx *= R / d; dy *= R / d; } joy.x = dx / R; joy.y = -dy / R; knob.style.transform = `translate(${dx}px,${dy}px)`; joyEl.classList.toggle('run', joySprint() && !RT.tired); };
+  zone.addEventListener('pointerdown', (e) => {
+    if (joy.id !== null && joy.id !== e.pointerId) return;
+    joy.id = e.pointerId; try { zone.setPointerCapture(e.pointerId); } catch (err) {}
+    const half = joyEl.offsetWidth / 2 || 68, cx = clamp(e.clientX, half + 6, innerWidth - half - 6), cy = clamp(e.clientY, half + 6, innerHeight - half - 6);
+    joy.cx = cx; joy.cy = cy; joyEl.style.left = `${cx - half}px`; joyEl.style.top = `${cy - half}px`; joyEl.style.bottom = 'auto'; joyEl.classList.add('on');
+    joyMove(e); e.preventDefault();
+  });
+  zone.addEventListener('pointermove', (e) => { if (e.pointerId === joy.id) joyMove(e); });
+  const joyEnd = (e) => { if (e.pointerId !== joy.id) return; joy.id = null; joy.x = joy.y = 0; joy.sprint = false; knob.style.transform = ''; joyEl.style.left = joyEl.style.top = joyEl.style.bottom = ''; joyEl.classList.remove('on', 'run'); };
+  zone.addEventListener('pointerup', joyEnd); zone.addEventListener('pointercancel', joyEnd); zone.addEventListener('lostpointercapture', joyEnd);
   window.addEventListener('resize', resizeAll);
 }
 

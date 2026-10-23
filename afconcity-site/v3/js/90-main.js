@@ -115,7 +115,9 @@ function unstick() {
 const keys = new Set();
 const joy = { x: 0, y: 0, id: null, cx: 0, cy: 0 };
 const drag = { id: null, x: 0, y: 0, moved: 0 };
-let runToggle = false, jumpTap = false, pointerLocked = false;
+let runToggle = false, runHold = false, jumpTap = false, pointerLocked = false;
+/* phones: pushing the joystick right to the edge runs; easing off walks again (a little slack so it does not flicker) */
+function joySprint() { if (joy.id === null) { joy.sprint = false; return false; } const m = Math.hypot(joy.x, joy.y); joy.sprint = joy.sprint ? m > 0.8 : m > 0.93; return joy.sprint; }
 function readInput() {
   let x = 0, y = 0;
   if (keys.has('KeyW') || keys.has('ArrowUp')) y += 1;
@@ -124,7 +126,7 @@ function readInput() {
   if (keys.has('KeyA') || keys.has('ArrowLeft')) x -= 1;
   x += joy.x; y += joy.y;
   const jump = keys.has('Space') || jumpTap; jumpTap = false;
-  return { x: clamp(x, -1, 1), y: clamp(y, -1, 1), run: keys.has('ShiftLeft') || keys.has('ShiftRight') || runToggle, jump: !playerVeh && jump, hand: !!playerVeh && (keys.has('Space') || $('#tJump').classList.contains('act')) };
+  return { x: clamp(x, -1, 1), y: clamp(y, -1, 1), run: keys.has('ShiftLeft') || keys.has('ShiftRight') || runToggle || runHold || joySprint(), jump: !playerVeh && jump, hand: !!playerVeh && (keys.has('Space') || $('#tJump').classList.contains('act')) };
 }
 
 /* ---------- interactions ---------- */
@@ -141,7 +143,7 @@ function findInteraction() {
     return null;
   }
   for (const th of thieves) if ((th.state === 'flee' || th.state === 'rush') && Math.hypot(th.x - P.x, th.z - P.z) < 4 && !isDown(th.h)) return { text: 'Tackle the thief!', act: tackle };
-  const mi = missionInteraction() || garageInteraction() || bizInteraction(); if (mi) return mi;
+  const mi = storyInteraction() || missionInteraction() || garageInteraction() || bizInteraction(); if (mi) return mi;
   let best = null, bd = 1e9;
   for (const n of NPCS) { const ax = n.ix !== undefined ? n.ix : n.x, az = n.iz !== undefined ? n.iz : n.z, r = n.ir || 3.2, d = Math.hypot(ax - P.x, az - P.z); if (d < r && d < bd) { bd = d; best = n; } }
   if (best) return { text: VERB[best.id] || `Talk to ${best.name}`, act: () => talk(best.id), npc: best.id };
@@ -294,7 +296,7 @@ function frame(nowMs) {
   else if (mode === 'kickoff') { updateKickoff(dt); animHuman(player, dt, t, 0, 'loco'); }
   updateLOD(dt); updateRemotes(dt, t); eventsTick(dt); hiWarm(raw);
   /* the pause menu freezes the world: no chases, rides, thieves or timers move behind it */
-  if (mode !== 'paused') { updateCars(dt, t); updateWalkers(dt, t); updateThieves(dt, t); updateRentals(dt); updateCoins(dt, t); updateJobs(dt, t); updateQuests(dt, t); updateMissions(dt); updateEconomy(dt); updateLife(dt, t); updateClock(dt); updateEnergy(dt); updatePhone(dt); updateSim(dt, t); updateHomeDoors(t); updateAdStats(dt); updateCranes(t); }
+  if (mode !== 'paused') { updateCars(dt, t); updateWalkers(dt, t); updateThieves(dt, t); updateRentals(dt); updateCoins(dt, t); updateJobs(dt, t); updateQuests(dt, t); updateMissions(dt); updateEconomy(dt); updateStory(dt); updateLife(dt, t); updateClock(dt); updateEnergy(dt); updatePhone(dt); updateSim(dt, t); updateHomeDoors(t); updateAdStats(dt); updateCranes(t); }
   playerHead.set(P.x, (player ? player.position.y : 0) + 1.62, P.z);
   for (const n of NPCS) {
     const h = npcObjs[n.id], d = Math.hypot(P.x - n.x, P.z - n.z); h.visible = mode === 'intro' || Math.hypot(camera.position.x - n.x, camera.position.z - n.z) < 260; if (d > 200) continue;
@@ -311,11 +313,11 @@ function frame(nowMs) {
     if (state.ticket && !state.done && Math.hypot(P.x - SC.x, P.z - SC.z) < 7 && !playerVeh) startKickoff();
     if (!state.ticket && !playerVeh && Math.hypot(P.x - GATE.x, P.z - GATE.z) < 8 && !RT.gateNag) { RT.gateNag = true; talk('steward'); setTimeout(() => { RT.gateNag = false; }, 12000); }
     curInter = findInteraction(); curSec = findSecondary();
-    ui.prompt.hidden = !curInter; if (curInter) ui.promptText.textContent = curInter.text;
+    ui.prompt.hidden = !curInter; if (curInter) ui.promptText.textContent = curInter.text; touchAct(curInter || curSec);
     ui.prompt2.hidden = !curSec; if (curSec) ui.prompt2Text.textContent = curSec.text;
     saveTimer += dt; if (saveTimer > 5) { saveTimer = 0; writeSave(); }
   } else if (mode === 'ride') { curInter = { text: 'Skip to the end of the ride', act: skipRide }; curSec = null; ui.prompt.hidden = false; ui.promptText.textContent = curInter.text; ui.prompt2.hidden = true; }
-  else { ui.prompt.hidden = true; ui.prompt2.hidden = true; }
+  else { ui.prompt.hidden = true; ui.prompt2.hidden = true; touchAct(null); }
   setPromptRoom();
   checkHighFives(performance.now());
   if (night > 0.05 && crowd && crowd.visible) {
@@ -497,6 +499,8 @@ function wireUI() {
   document.querySelectorAll('[data-seg="hud"] button').forEach(b => b.addEventListener('click', () => setHudPreset(b.dataset.v, mode === 'intro' || mode === 'paused')));
   $('#btnHud').addEventListener('click', () => { cycleHud(); canvas.focus(); }); $('#hudEye').addEventListener('click', () => { cycleHud(); canvas.focus(); });
   renderHudParts(); applyHudVis(); wirePhone();
+  // phones: the goal is a one-line pill; tap it for the details
+  { const g = document.querySelector('.hud .goal'); g.addEventListener('click', (e) => { if (isCoarse && !e.target.closest('button')) g.classList.toggle('open'); }); }
   document.querySelectorAll('[data-seg="sound"] button').forEach(b => b.addEventListener('click', () => { audioInit(); setSound(b.dataset.v === 'on'); }));
   segSet('[data-seg="gfx"]', gfx); segSet('[data-seg="sound"]', AU.on ? 'on' : 'off'); segSet('[data-seg="follow"]', SETTINGS.follow ? 'on' : 'off');
   ui.chatbox.addEventListener('submit', (e) => { e.preventDefault(); sendChat(ui.chatInput.value); ui.chatInput.value = ''; closeChat(); });
@@ -524,7 +528,10 @@ function wireUI() {
   document.addEventListener('gesturestart', (e) => e.preventDefault());
   tJump.addEventListener('pointerdown', (e) => { e.preventDefault(); jumpTap = true; tJump.classList.add('act'); });
   const tjUp = () => tJump.classList.remove('act'); tJump.addEventListener('pointerup', tjUp); tJump.addEventListener('pointercancel', tjUp); tJump.addEventListener('pointerleave', tjUp);
-  const tRun = $('#tRun'); tap(tRun, () => { runToggle = !runToggle; tRun.setAttribute('aria-pressed', String(runToggle)); });
+  // Run is held, not toggled: let go and you walk again
+  const tRun = $('#tRun');
+  tRun.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); try { tRun.setPointerCapture(e.pointerId); } catch (err) {} runHold = true; tRun.classList.add('act'); });
+  const runUp = () => { runHold = false; tRun.classList.remove('act'); }; tRun.addEventListener('pointerup', runUp); tRun.addEventListener('pointercancel', runUp); tRun.addEventListener('lostpointercapture', runUp);
 
   window.addEventListener('keydown', (e) => {
     if (mode === 'intro' || mode === 'sleep') return;
@@ -568,12 +575,20 @@ function wireUI() {
   const endDrag = (e) => { if (e.pointerId === drag.id) drag.id = null; };
   canvas.addEventListener('pointerup', endDrag); canvas.addEventListener('pointercancel', endDrag);
   canvas.addEventListener('wheel', (e) => { e.preventDefault(); cam.dist = clamp(cam.dist + e.deltaY * 0.01, 2.2, 14); }, { passive: false });
-  const joyEl = $('#joy'), knob = $('#joyKnob');
-  const joyMove = (e) => { const R = 48; let dx = e.clientX - joy.cx, dy = e.clientY - joy.cy; const d = Math.hypot(dx, dy); if (d > R) { dx *= R / d; dy *= R / d; } joy.x = dx / R; joy.y = -dy / R; knob.style.transform = `translate(${dx}px,${dy}px)`; };
-  joyEl.addEventListener('pointerdown', (e) => { if (joy.id !== null && joy.id !== e.pointerId) return; joy.id = e.pointerId; try { joyEl.setPointerCapture(e.pointerId); } catch (err) {} const r = joyEl.getBoundingClientRect(); joy.cx = r.left + r.width / 2; joy.cy = r.top + r.height / 2; joyMove(e); e.preventDefault(); });
-  joyEl.addEventListener('pointermove', (e) => { if (e.pointerId === joy.id) joyMove(e); });
-  const joyEnd = (e) => { if (e.pointerId !== joy.id) return; joy.id = null; joy.x = joy.y = 0; knob.style.transform = ''; };
-  joyEl.addEventListener('pointerup', joyEnd); joyEl.addEventListener('pointercancel', joyEnd); joyEl.addEventListener('lostpointercapture', joyEnd);
+  /* floating joystick: put your thumb down anywhere in the lower left and the stick appears under it */
+  const joyEl = $('#joy'), knob = $('#joyKnob'), zone = $('#joyZone');
+  const R = 52;
+  const joyMove = (e) => { let dx = e.clientX - joy.cx, dy = e.clientY - joy.cy; const d = Math.hypot(dx, dy); if (d > R) { dx *= R / d; dy *= R / d; } joy.x = dx / R; joy.y = -dy / R; knob.style.transform = `translate(${dx}px,${dy}px)`; joyEl.classList.toggle('run', joySprint() && !RT.tired); };
+  zone.addEventListener('pointerdown', (e) => {
+    if (joy.id !== null && joy.id !== e.pointerId) return;
+    joy.id = e.pointerId; try { zone.setPointerCapture(e.pointerId); } catch (err) {}
+    const half = joyEl.offsetWidth / 2 || 68, cx = clamp(e.clientX, half + 6, innerWidth - half - 6), cy = clamp(e.clientY, half + 6, innerHeight - half - 6);
+    joy.cx = cx; joy.cy = cy; joyEl.style.left = `${cx - half}px`; joyEl.style.top = `${cy - half}px`; joyEl.style.bottom = 'auto'; joyEl.classList.add('on');
+    joyMove(e); e.preventDefault();
+  });
+  zone.addEventListener('pointermove', (e) => { if (e.pointerId === joy.id) joyMove(e); });
+  const joyEnd = (e) => { if (e.pointerId !== joy.id) return; joy.id = null; joy.x = joy.y = 0; joy.sprint = false; knob.style.transform = ''; joyEl.style.left = joyEl.style.top = joyEl.style.bottom = ''; joyEl.classList.remove('on', 'run'); };
+  zone.addEventListener('pointerup', joyEnd); zone.addEventListener('pointercancel', joyEnd); zone.addEventListener('lostpointercapture', joyEnd);
   window.addEventListener('resize', resizeAll);
 }
 

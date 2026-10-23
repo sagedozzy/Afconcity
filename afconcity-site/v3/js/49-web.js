@@ -130,22 +130,31 @@ async function webSignOut() {
 }
 
 /* ---------- room: everyone on the website shares one Fumba ---------- */
-const MOVE_KEYS = new Set(['x', 'z', 'ry', 'sp', 'v', 'vc']);
+const MOVE_KEYS = new Set(['x', 'z', 'ry', 'sp', 'v', 'vc', 'vr', 'ps', 'tm']);
+const PEER_GRACE = 15000; // a player missing from the room's list this long has really left (blips are shorter)
 function webRoom() {
   if (WEB.room) return WEB.room;
   const myPeer = 'p' + rid();
-  const state = {}, moves = {}, merged = new Map(), conn = [], peersCbs = [], chatCbs = [];
-  let ch = null, live = false, trackT = 0, trackTimer = 0, moveT = 0, moveTimer = 0, pendingMove = null;
+  const state = {}, moves = {}, merged = new Map(), seenAt = {}, conn = [], peersCbs = [], chatCbs = [];
+  let staleT = 0, ch = null, live = false, trackT = 0, trackTimer = 0, moveT = 0, moveTimer = 0, pendingMove = null;
   const peersNow = () => {
-    const out = [], st = ch ? ch.presenceState() : {};
+    const out = [], st = ch ? ch.presenceState() : {}, now = Date.now();
     for (const key of Object.keys(st)) {
       const metas = st[key]; if (!metas || !metas.length) continue;
       const m = metas[metas.length - 1], mv = moves[key];
       let e = merged.get(key);
       if (!e || e.m !== m || e.mv !== mv) { e = { m, mv, obj: Object.assign({}, m, mv || {}) }; merged.set(key, e); }
+      seenAt[key] = now;
       out.push({ kind: 'viewer', peer: key, by: m.by || '', isMe: !!WEB.uid && m.by === WEB.uid, sameTab: key === myPeer, guest: false, presence: e.obj });
     }
-    for (const k of [...merged.keys()]) if (!st[k]) { merged.delete(k); delete moves[k]; }
+    /* the room's list briefly drops players when their connection hiccups: keep them (and their moves) for a while */
+    for (const [k, e] of merged) {
+      if (st[k]) continue;
+      if (now - (seenAt[k] || 0) > PEER_GRACE) { merged.delete(k); delete moves[k]; delete seenAt[k]; continue; }
+      const mv = moves[k]; if (e.mv !== mv) { e.mv = mv; e.obj = Object.assign({}, e.m, mv || {}); }
+      out.push({ kind: 'viewer', peer: k, by: e.m.by || '', isMe: !!WEB.uid && e.m.by === WEB.uid, sameTab: k === myPeer, guest: false, presence: e.obj, stale: true });
+      if (!staleT) staleT = setTimeout(() => { staleT = 0; emitPeers(); }, 2000); // look again soon, so a player who really left is let go
+    }
     return out;
   };
   const emitPeers = () => { const peers = peersNow(); for (const f of peersCbs) { try { f({ peers }); } catch (e) { console.error(e); } } };
@@ -160,7 +169,7 @@ function webRoom() {
   const sendMove = () => {
     clearTimeout(moveTimer); moveTimer = 0; if (!ch || !live || !pendingMove) return;
     moveT = performance.now();
-    ch.send({ type: 'broadcast', event: 'mv', payload: Object.assign({ p: myPeer }, pendingMove) }).catch(() => {});
+    ch.send({ type: 'broadcast', event: 'mv', payload: Object.assign({ p: myPeer }, pendingMove, { tm: Date.now() }) }).catch(() => {});
     pendingMove = null;
   };
   /* a stalled or dropped connection is retried with growing gaps (4 s up to a minute), and at once when the phone comes back online */
@@ -177,6 +186,8 @@ function webRoom() {
   const join = () => {
     const mine = ch = WEB.sb.channel(SB_CFG.room, { config: { presence: { key: myPeer }, broadcast: { self: false, ack: false } } });
     ch.on('presence', { event: 'sync' }, emitPeers);
+    // a real goodbye (tab closed) still leaves a few seconds for a quick reconnect, not the full grace
+    ch.on('presence', { event: 'leave' }, (ev) => { const k = ev && ev.key; if (k && seenAt[k]) seenAt[k] = Math.min(seenAt[k], Date.now() - PEER_GRACE + 3500); emitPeers(); setTimeout(emitPeers, 3700); });
     /* a newcomer only gets each player's last presence, so re-send where we are right now */
     ch.on('presence', { event: 'join' }, (ev) => {
       if (!ev || ev.key === myPeer || !live) return;
@@ -188,7 +199,7 @@ function webRoom() {
       const p = msg && msg.payload; if (!p || typeof p.p !== 'string' || p.p === myPeer) return;
       const cur = Object.assign({}, moves[p.p] || {});
       for (const k of MOVE_KEYS) if (k in p) cur[k] = p[k];
-      moves[p.p] = cur; emitPeers();
+      moves[p.p] = cur; seenAt[p.p] = Date.now(); emitPeers();
     });
     ch.on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'chat_messages' }, (p) => {
       const r = p && p.new; if (!r) return;
@@ -208,13 +219,13 @@ function webRoom() {
     retry: kick,
     onConnection(cb) { conn.push(cb); if (!ch) join(); else cb(live); },
     onPeers(cb) { peersCbs.push(cb); if (!ch) join(); else cb({ peers: peersNow() }); },
-    /* the game sends small patches; movement goes out as a light broadcast (up to 5 a second), everything else as presence */
+    /* the game sends small patches; movement goes out as a light broadcast (up to 10 a second), everything else as presence */
     async presence(patch) {
       let moved = false, other = false;
       for (const k in patch) { state[k] = patch[k]; if (MOVE_KEYS.has(k)) moved = true; else other = true; }
       if (moved) {
         pendingMove = pendingMove || {}; for (const k of MOVE_KEYS) if (k in patch) pendingMove[k] = patch[k];
-        const wait = 200 - (performance.now() - moveT); if (wait <= 0) sendMove(); else if (!moveTimer) moveTimer = setTimeout(sendMove, wait);
+        const wait = 100 - (performance.now() - moveT); if (wait <= 0) sendMove(); else if (!moveTimer) moveTimer = setTimeout(sendMove, wait);
       }
       /* presence also carries the position, refreshed every few seconds while moving, so the room's memory never goes stale */
       const since = performance.now() - trackT;

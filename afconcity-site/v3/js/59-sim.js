@@ -427,7 +427,7 @@ function updatePorter() {
   if (!job.crate && Math.hypot(tk.x - P.x, tk.z - P.z) < 4.2) { job.crate = true; const c = SIM.crates.find(q => q.visible); if (c) c.visible = false; sfx.ding(); }
   else if (job.crate && Math.hypot(mj.x - P.x, mj.z - P.z) < 3.2) {
     job.crate = false; job.left--; sfx.coin(0);
-    if (job.left <= 0) { job = null; state.stats.jobs++; earn(PAY.porter, 'Porter pay'); splash('ASANTE!', `Crates done · +${tsh(PAY.porter)}`, 'gold'); sfx.win(); setTimeout(() => { for (const c of SIM.crates) c.visible = true; }, 20000); }
+    if (job.left <= 0) { job = null; state.stats.jobs++; earn(PAY.porter, 'Porter pay'); tally('porter'); splash('ASANTE!', `Crates done · +${tsh(PAY.porter)}`, 'gold'); sfx.win(); setTimeout(() => { for (const c of SIM.crates) c.visible = true; }, 20000); }
   }
 }
 function simTimer() { return job && (job.type === 'errand' || job.type === 'wash' || job.type === 'porter' || job.type === 'tour') ? job.limit - (now() - job.t0) : null; }

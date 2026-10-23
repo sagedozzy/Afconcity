@@ -47,7 +47,7 @@ window.__soak = {
   clock() { addMinutes(Math.floor(R() * 600)); return 'clock ' + clockText(); },
   time() { const m = pickA(['live', 'day', 'night']); setTimeMode(m); return 'tmode ' + m; },
   hud() { cycleHud(); return 'hud'; },
-  rain() { WEATHER.target = WEATHER.target > 0.5 ? 0 : 1; WEATHER.until = now() + 60; return 'rain ' + WEATHER.target; },
+  rain() { WEATHER.manual = true; WEATHER.target = WEATHER.target > 0.5 ? 0 : 1; WEATHER.until = now() + 60; return 'rain ' + WEATHER.target; },
   save() { writeSave(); return 'save'; },
   restore() { const sv = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null'); if (!sv || mode !== 'play') return 'restore skipped'; if (playerVeh) exitVehicle(true); restoreFrom(sv); return 'restore ok'; },
   stuck() { if (mode !== 'play') return 'stuck skipped'; closeOverlays(); stuckMenu(); return 'stuckMenu -> ' + mode; },

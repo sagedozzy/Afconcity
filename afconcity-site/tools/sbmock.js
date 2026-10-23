@@ -109,7 +109,7 @@
         if (m.t === 'pg') fire('postgres_changes', m.event, { table: m.table, eventType: m.event, new: m.event === 'DELETE' ? {} : m.row, old: m.event === 'DELETE' ? m.row : {} });
         if (m.ch !== name || m.local) return;
         if (m.t === 'presence') { const isNew = !state[m.key]; state[m.key] = [m.meta]; if (isNew) fire('presence', 'join', { key: m.key }); fire('presence', 'sync'); }
-        if (m.t === 'leave') { delete state[m.key]; fire('presence', 'sync'); }
+        if (m.t === 'leave') { delete state[m.key]; fire('presence', 'leave', { key: m.key }); fire('presence', 'sync'); }
         if (m.t === 'hello' && key && state[key]) bc.postMessage({ t: 'presence', ch: name, key, meta: state[key][0] });
         if (m.t === 'bc') fire('broadcast', m.event, { event: m.event, payload: m.payload });
       };

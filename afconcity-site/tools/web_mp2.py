@@ -46,7 +46,7 @@ GB("P.x = %d + 1.2, P.z = %d, player.position.set(P.x, 0.04, P.z), 1" % tuple(wa
 until(GA, "!!nearestRemote(5)", 15); until(GB, "!!nearestRemote(5)", 15)
 c0 = GA("state.cash")
 GA("highFive(nearestRemote(5)), 1"); GB("highFive(nearestRemote(5)), 1")
-check('high-five pays both players', until(GA, "state.cash > %d" % c0, 10), GA("state.cash") - c0)
+check('high-five pays both players', until(GA, "state.cash > %d" % c0, 10), [GA("state.cash") - c0, GA("JSON.stringify([...remotes.values()].map(r => [r.peer, r.hf, r.isMe])) + ' me ' + MP.myPeer + ' hf ' + MP.hf"), GB("JSON.stringify([...remotes.values()].map(r => [r.peer, r.hf, r.isMe])) + ' me ' + MP.myPeer + ' hf ' + MP.hf")])
 # dropped cash is visible to the other player
 GA("(() => { dropCash && dropCash(5000); return 1; })()")
 check('dropped cash shows for the other player', until(GB, "[...COIN.drops.values()].some(d => d.owner)", 8), GB("COIN.drops.size"))
