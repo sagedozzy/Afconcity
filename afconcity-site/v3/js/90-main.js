@@ -60,9 +60,10 @@ function updateOnFoot(dt, t, inp) {
   else RT.stamina = Math.min(100, RT.stamina + 13 * dt * (state.food < 25 ? 0.45 : 1) * ((state.energy === undefined ? 100 : state.energy) < 25 ? 0.6 : 1));
   if (RT.tired && RT.stamina > 40) RT.tired = false;
   const sprinting = wantSprint && !RT.tired && !worn;
-  // joystick: a light push walks, a full push jogs; keyboard always jogs
-  const base = mag < 0.55 && (joy.id !== null) ? SPD.walk : SPD.jog;
-  let top = mag > 0.05 ? (sprinting ? (boost ? SPD.boost : SPD.sprint) : base) * Math.max(mag, 0.6) : 0;
+  // Scale touch movement continuously, avoiding a sudden jump from walking to jogging.
+  const touchMag = clamp((mag - 0.05) / 0.95, 0, 1);
+  const touchSpeed = touchMag <= 0.5 ? SPD.walk * touchMag * 2 : lerp(SPD.walk, SPD.jog, (touchMag - 0.5) * 2);
+  let top = mag > 0.05 ? (sprinting ? (boost ? SPD.boost : SPD.sprint) * (joy.id !== null ? touchMag : mag) : joy.id !== null ? touchSpeed : SPD.jog * mag) : 0;
   // turn toward the wanted heading; a sharp change of direction pivots on the spot instead of skating
   if (mag > 0.05) {
     const want = Math.atan2(dx, dz), diff = Math.abs(angWrap(want - player.rotation.y));
@@ -566,7 +567,6 @@ function wireUI() {
     keys.add(code);
   });
   window.addEventListener('keyup', (e) => keys.delete(e.code));
-  window.addEventListener('blur', () => keys.clear());
   document.addEventListener('pointerlockchange', () => { pointerLocked = document.pointerLockElement === canvas; canvas.classList.toggle('locked', pointerLocked); });
   canvas.addEventListener('click', () => { if (mode === 'play' && !isCoarse && !pointerLocked && canvas.requestPointerLock) { try { const r = canvas.requestPointerLock(); if (r && r.catch) r.catch(() => {}); } catch (e) {} } });
   document.addEventListener('mousemove', (e) => { if (!pointerLocked) return; cam.yaw -= e.movementX * 0.0025 * SETTINGS.sens; cam.pitch = clamp(cam.pitch + e.movementY * 0.002 * SETTINGS.sens, -0.35, 1.15); cam.lastLook = now(); });
@@ -583,12 +583,17 @@ function wireUI() {
     if (joy.id !== null && joy.id !== e.pointerId) return;
     joy.id = e.pointerId; try { zone.setPointerCapture(e.pointerId); } catch (err) {}
     const half = joyEl.offsetWidth / 2 || 68, cx = clamp(e.clientX, half + 6, innerWidth - half - 6), cy = clamp(e.clientY, half + 6, innerHeight - half - 6);
-    joy.cx = cx; joy.cy = cy; joyEl.style.left = `${cx - half}px`; joyEl.style.top = `${cy - half}px`; joyEl.style.bottom = 'auto'; joyEl.classList.add('on');
+    // The visual stick must stay on screen, but its neutral point is the actual touch.
+    joy.cx = e.clientX; joy.cy = e.clientY; joyEl.style.left = `${cx - half}px`; joyEl.style.top = `${cy - half}px`; joyEl.style.bottom = 'auto'; joyEl.classList.add('on');
     joyMove(e); e.preventDefault();
   });
   zone.addEventListener('pointermove', (e) => { if (e.pointerId === joy.id) joyMove(e); });
   const joyEnd = (e) => { if (e.pointerId !== joy.id) return; joy.id = null; joy.x = joy.y = 0; joy.sprint = false; knob.style.transform = ''; joyEl.style.left = joyEl.style.top = joyEl.style.bottom = ''; joyEl.classList.remove('on', 'run'); };
   zone.addEventListener('pointerup', joyEnd); zone.addEventListener('pointercancel', joyEnd); zone.addEventListener('lostpointercapture', joyEnd);
+  // A browser interruption can swallow pointerup; never keep moving on return.
+  const clearControls = () => { keys.clear(); drag.id = null; runHold = false; jumpTap = false; tRun.classList.remove('act'); tJump.classList.remove('act'); if (joy.id !== null) joyEnd({ pointerId: joy.id }); };
+  window.addEventListener('blur', clearControls);
+  document.addEventListener('visibilitychange', () => { if (document.hidden) clearControls(); });
   window.addEventListener('resize', resizeAll);
 }
 
