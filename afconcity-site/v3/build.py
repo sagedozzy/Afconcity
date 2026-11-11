@@ -48,6 +48,10 @@ if mode == 'web':
     sw = open(os.path.join(HERE, 'web_sw.js'), encoding='utf-8').read().replace('__VERSION__', ver).replace('__ASSETS__', json.dumps(assets))
     open(os.path.join(out, 'sw.js'), 'w', encoding='utf-8').write(sw)
     for f in sorted(os.listdir(os.path.join(ROOT, 'web'))): shutil.copy(os.path.join(ROOT, 'web', f), os.path.join(out, f))
+    # Keep the derived ODbL database and source credits available with the game.
+    map_out = os.path.join(out, 'map-data'); os.makedirs(map_out, exist_ok=True)
+    for f in ['world.json', 'fumba-osm-snapshot.json', 'README.md']:
+        shutil.copy(os.path.join(ROOT, 'osm2', f), os.path.join(map_out, f))
     low = game['n'] + 603445 + sum((t.get('lo') or t['hi'])['n'] for t in texm.values() if not t['nrm'])
     high = game['n'] + 603445 + sum(t['hi']['n'] for t in texm.values())
     print('built web: page %d KB, game %d KB, first download %.1f MB on phones (Fast) / %.1f MB on High' % (os.path.getsize(os.path.join(out, 'index.html')) // 1024, game['n'] // 1024, low / 1048576, high / 1048576))

@@ -30,7 +30,7 @@ function stepPlayer(dx, dz) {
   P.x = stepP.x; P.z = stepP.z;
   if ((stepP.x < BOUNDS.x0 + 1.5 || stepP.x > BOUNDS.x1 - 1.5 || stepP.z < BOUNDS.z0 + 1.5) && now() > (RT.edgeT || 0)) { RT.edgeT = now() + 15; help('That is the edge of the map for now. More of Zanzibar is coming.', 3000); }
 }
-function groundY(x, z) { const c = coastZ(x); if (z > c - 1.2) { if (onPier(x, z)) return PIER_Y; if (z > c && onTide(x, z)) return tideY(x, z) + 0.04; } const s = nearRoad(x, z, 2.4); if (s && (s.c === 'T' || s.c === 'R') && segDist(x, z, s.x0, s.z0, s.x1, s.z1) > s.hw + 0.15 && !pointInStadium(x, z, 8)) return 0.19; return 0.04; }
+function groundY(x, z) { const c = coastZ(x); if (z > c - 1.2) { if (onPier(x, z)) return PIER_Y; if (z > c && onTide(x, z)) return tideY(x, z) + 0.04; } const s = nearRoad(x, z, 2.4); if (s && s.sidewalk !== false && (s.c === 'T' || s.c === 'R') && segDist(x, z, s.x0, s.z0, s.x1, s.z1) > s.hw + 0.15 && !pointInStadium(x, z, 8)) return 0.19; return 0.04; }
 let baseY = 0.04;
 const playerHead = new T.Vector3(), playerLook = new T.Vector3();
 function buildPlayer() {
@@ -177,8 +177,9 @@ function camRay(ax, ay, az, dx, dy, dz, L) {
   camSeen.clear();
   for (let ix = Math.floor((Math.min(ax, ex) - 1) / CELL); ix <= Math.floor((Math.max(ax, ex) + 1) / CELL); ix++) for (let iz = Math.floor((Math.min(az, ez) - 1) / CELL); iz <= Math.floor((Math.max(az, ez) + 1) / CELL); iz++) {
     for (const c of (cgrid.get(ck(ix, iz)) || EMPTY)) {
-      if (!c.on || c.t !== 0 || c.tag === 'small' || c.tag === 'veh' || camSeen.has(c)) continue;
+      if (!c.on || (c.t !== 0 && c.t !== 2) || c.tag === 'small' || c.tag === 'veh' || camSeen.has(c)) continue;
       camSeen.add(c);
+      if (c.t === 2) { best = footprintRay(c, ax, ay, az, dx, dy, dz, best, pad); continue; }
       const rx = ax - c.x, rz = az - c.z, u0 = rx * c.c + rz * c.s, v0 = -rx * c.s + rz * c.c, du = dx * c.c + dz * c.s, dv = -dx * c.s + dz * c.c, hw = c.hw + pad, hd = c.hd + pad;
       if (Math.abs(u0) < hw && Math.abs(v0) < hd) continue; // hugging this wall: ignore it
       let t0 = 0, t1 = best;
@@ -602,6 +603,8 @@ const nextFrame = () => new Promise(r => requestAnimationFrame(() => r()));
 async function start(data) {
   if (booted) return; booted = true;
   const sd = $('#startDays'); if (sd) sd.textContent = DAYS;
+  const md = $('#mapDataNote');
+  if (md && WORLD.meta) md.textContent = `OpenStreetMap snapshot: ${WORLD.meta.snapshot}. ${WORLD.meta.mappedFootprints} matched building footprints and ${WORLD.meta.mappedRoads} road paths. Some older roads remain where mapping is incomplete.`;
   /* the progress bar: on the website the loader fills the first part while downloading, the boot steps fill the rest */
   const STEPS = 10, base = window.__afcLoad ? window.__afcLoad.base : 0;
   let stepN = 0;

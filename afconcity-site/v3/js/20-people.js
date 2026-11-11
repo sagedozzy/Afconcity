@@ -70,6 +70,7 @@ function personBlocked(x, z, r) {
   for (const c of list) {
     if (!c.on) continue;
     if (c.t === 0) { const dx = x - c.x, dz = z - c.z, u = dx * c.c + dz * c.s, v = -dx * c.s + dz * c.c; if (Math.abs(u) < c.hw + r && Math.abs(v) < c.hd + r) return true; }
+    else if (c.t === 2) { if (polygonContact(x, z, c.p).d < r) return true; }
     else { const dx = x - c.x, dz = z - c.z, rr2 = c.r + r; if (dx * dx + dz * dz < rr2 * rr2) return true; }
   }
   return false;

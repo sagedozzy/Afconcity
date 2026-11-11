@@ -182,33 +182,35 @@ function offsetLine(pts, off) {
   return out;
 }
 function buildRoads() {
-  const builders = {};
+  const builders = {}, specs = {};
   WORLD.roads.forEach((r, ri) => {
-    const spec = ROAD[r.c]; if (!spec) return;
-    const b = builders[r.c] || (builders[r.c] = new Builder()), col = new T.Color(1, 1, 1), hw = spec.w / 2, y = spec.y;
+    if (!ROAD[r.c]) return; const spec = roadSpec(r);
+    const key = r.c + ':' + spec.tex; specs[key] = spec;
+    const b = builders[key] || (builders[key] = new Builder()), col = new T.Color(1, 1, 1), hw = spec.w / 2, y = spec.y;
     const L = offsetLine(r.p, hw), Rr = offsetLine(r.p, -hw);
     let acc = 0;
     for (let i = 0; i < r.p.length - 1; i++) {
       const seg = Math.hypot(r.p[i + 1][0] - r.p[i][0], r.p[i + 1][1] - r.p[i][1]);
       const v0 = acc / spec.tile, v1 = (acc + seg) / spec.tile, us = r.c === 'F' ? spec.w / 2 : 1;
       upQuad(b, [L[i][0], y, L[i][1]], [Rr[i][0], y, Rr[i][1]], [Rr[i + 1][0], y, Rr[i + 1][1]], [L[i + 1][0], y, L[i + 1][1]], col, [[0, v0], [us, v0], [us, v1], [0, v1]]);
-      roadSegs.push({ ri, x0: r.p[i][0], z0: r.p[i][1], x1: r.p[i + 1][0], z1: r.p[i + 1][1], hw, c: r.c, minx: Math.min(r.p[i][0], r.p[i + 1][0]) - hw, maxx: Math.max(r.p[i][0], r.p[i + 1][0]) + hw, minz: Math.min(r.p[i][1], r.p[i + 1][1]) - hw, maxz: Math.max(r.p[i][1], r.p[i + 1][1]) + hw });
+      indexRoadSegment({ ri, sidewalk: !spec.unpaved && r.sidewalk !== 'no', x0: r.p[i][0], z0: r.p[i][1], x1: r.p[i + 1][0], z1: r.p[i + 1][1], hw, c: r.c, minx: Math.min(r.p[i][0], r.p[i + 1][0]) - hw, maxx: Math.max(r.p[i][0], r.p[i + 1][0]) + hw, minz: Math.min(r.p[i][1], r.p[i + 1][1]) - hw, maxz: Math.max(r.p[i][1], r.p[i + 1][1]) + hw });
       acc += seg;
     }
     const disc = new T.CircleGeometry(hw, 16); disc.rotateX(-Math.PI / 2);
     if (r.c !== 'F') for (const p of [r.p[0], r.p[r.p.length - 1]]) b.add(disc, mat4(p[0], y - 0.002, p[1], 0), col, { uv: 'box', tile: 512 });
+    disc.dispose();
   });
   for (const k in builders) {
-    const spec = ROAD[k], tex = TEX[spec.tex].clone(); tex.needsUpdate = true;
-    if (k === 'K') tex.repeat.set(0.6, 1);
-    const m = new T.Mesh(builders[k].build(), new T.MeshStandardMaterial({ map: tex, color: 0xffffff, roughness: k === 'F' ? 0.85 : 0.9, normalMap: k === 'F' && TEX.paverN ? TEX.paverN : null, polygonOffset: true, polygonOffsetFactor: -spec.order, polygonOffsetUnits: -spec.order * 4 }));
-    if (k === 'K') { m.material.transparent = false; }
+    const spec = specs[k], tex = TEX[spec.tex].clone(); tex.needsUpdate = true;
+    if (spec.tex === 'soil') tex.repeat.set(0.6, 1);
+    const m = new T.Mesh(builders[k].build(), new T.MeshStandardMaterial({ map: tex, color: 0xffffff, roughness: spec.tex === 'paver' ? 0.85 : 0.9, normalMap: spec.tex === 'paver' && TEX.paverN ? TEX.paverN : null, polygonOffset: true, polygonOffsetFactor: -spec.order, polygonOffsetUnits: -spec.order * 4 }));
+    if (spec.tex === 'soil') { m.material.transparent = false; }
     m.receiveShadow = true; scene.add(m);
   }
   buildSidewalks();
 }
 function nearRoad(x, z, pad, exceptRi) {
-  for (const s of roadSegs) {
+  for (const s of roadCandidates(x, z, pad)) {
     if (s.ri === exceptRi || x < s.minx - pad || x > s.maxx + pad || z < s.minz - pad || z > s.maxz + pad) continue;
     if (segDist(x, z, s.x0, s.z0, s.x1, s.z1) < s.hw + pad) return s;
   }
@@ -219,7 +221,8 @@ function buildSidewalks() {
   const top = new Builder(), curbB = new Builder(), cc = new T.Color(1, 1, 1), curbC = C(0xb9b4aa), H = 0.15, W = 2.3;
   WORLD.roads.forEach((r, ri) => {
     if (r.c !== 'T' && r.c !== 'R') return;
-    const hw = ROAD[r.c].w / 2;
+    const spec = roadSpec(r); if (spec.unpaved || r.sidewalk === 'no') return;
+    const hw = spec.w / 2;
     if (!r.p.some(([x, z]) => x > BOUNDS.x0 - 120 && x < BOUNDS.x1 + 120 && z > BOUNDS.z0 - 120 && z < coastZ(x) + 10)) return;
     for (const side of [1, -1]) {
       const inner = offsetLine(r.p, side * (hw + 0.12)), outer = offsetLine(r.p, side * (hw + W));
@@ -255,7 +258,8 @@ function buildLamps() {
   const lamps = [];
   for (const r of WORLD.roads) {
     if (r.c !== 'T' && r.c !== 'R') continue;
-    const hw = ROAD[r.c].w / 2, sp = r.c === 'T' ? 32 : 42;
+    const spec = roadSpec(r); if (spec.unpaved) continue;
+    const hw = spec.w / 2, sp = r.c === 'T' ? 32 : 42;
     let acc = 0;
     for (let i = 0; i < r.p.length - 1; i++) {
       const [x0, z0] = r.p[i], [x1, z1] = r.p[i + 1], dx = x1 - x0, dz = z1 - z0, L = Math.hypot(dx, dz);
@@ -359,8 +363,10 @@ function buildBuildings() {
   const cellsB = new Map(), cellB = (x, z) => { const k = Math.floor(x / 320) + ',' + Math.floor(z / 320); if (!cellsB.has(k)) cellsB.set(k, { wall: new Builder(), tile: new Builder(), mab: new Builder(), trim: new Builder(), glassL: new Builder(), glassD: new Builder(), door: new Builder() }); return cellsB.get(k); };
   let B = null;
   const white = C(0xf8f5ef), teak = C(0x6b3e22), dark = C(0x2a2d33), black = C(0x18191c), steel = C(0x9aa0a8);
-  for (const [x, z, w0, d0, ang, kind] of WORLD.blds) {
+  for (const record of WORLD.blds) {
+    const [x, z, w0, d0, ang, kind] = record;
     B = cellB(x, z);
+    if (record[7]) { buildMappedBuilding(record, B); continue; }
     const w = Math.max(2, w0), d = Math.max(2, d0), area = w * d, hv = hash2(x, z), hv2 = hash2(z, x), hv3 = hash2(x + 3.1, z - 7.7);
     const thin = Math.min(w, d) < 3.2 && Math.max(w, d) > 7;
     let style, floors;
@@ -446,14 +452,22 @@ function buildBuildings() {
   const mk = (b, mat, cast) => { if (b.empty) return null; const m = new T.Mesh(b.build(), mat); m.castShadow = !!cast; m.receiveShadow = true; scene.add(m); return m; };
   const nrm = (k, s2) => TEX[k] ? { normalMap: TEX[k], normalScale: new T.Vector2(s2, s2) } : {};
   const M = { wall: new T.MeshStandardMaterial(Object.assign({ map: TEX.plaster, vertexColors: true, roughness: 0.9 }, nrm('plasterN', 0.5))), tile: new T.MeshStandardMaterial(Object.assign({ map: TEX.tiles, vertexColors: true, roughness: 0.72, side: T.DoubleSide }, nrm('tilesN', 0.9))), mab: new T.MeshStandardMaterial(Object.assign({ map: TEX.mabati, vertexColors: true, roughness: 0.42, metalness: 0.4, side: T.DoubleSide }, nrm('mabatiN', 0.8))), trim: new T.MeshStandardMaterial({ vertexColors: true, roughness: 0.7, metalness: 0.05, side: T.DoubleSide }), glassL: glassLitMat, glassD: glassMat, door: new T.MeshStandardMaterial({ map: TEX.door, roughness: 0.7 }) };
-  for (const cb of cellsB.values()) for (const k of Object.keys(M)) mk(cb[k], M[k], k !== 'glassL' && k !== 'glassD' && k !== 'door');
+  for (const cb of cellsB.values()) for (const k of Object.keys(M)) {
+    const m = mk(cb[k], M[k], k === 'wall' || k === 'tile' || k === 'mab');
+    if (!m) continue;
+    // Keep the map chunks independent: merging these again defeats detail LOD.
+    m.userData.keep = true;
+    const sphere = m.geometry.boundingSphere, detail = ['trim', 'glassL', 'glassD', 'door'].includes(k);
+    m.userData.farCulled = true;
+    LODS.push({ m, c: sphere.center.clone(), r: sphere.radius, far: detail ? 230 : 1700 });
+  }
 }
 
 /* ---------- vegetation ---------- */
 function blockedForPlant(x, z, pad) {
-  for (const f of footprints) {
+  for (const f of plantCandidates(x, z, pad)) {
     if (f.ellipse) { const lx = (x - f.x) / (f.rx + pad), lz = (z - f.z) / (f.rz + pad); if (lx * lx + lz * lz < 1) return true; }
-    else if (f.poly) { if (pointInPoly(x, z, f.poly)) return true; }
+    else if (f.poly) { if (pointInPoly(x, z, f.poly) || f.poly.some((p, i) => { const q = f.poly[(i + 1) % f.poly.length]; return segDist(x, z, p[0], p[1], q[0], q[1]) < pad; })) return true; }
     else if (f.circle) { if (Math.hypot(x - f.x, z - f.z) < f.r + pad) return true; }
     else { const c = Math.cos(f.ang || 0), s = Math.sin(f.ang || 0), dx = x - f.x, dz = z - f.z, u = dx * c + dz * s, v = -dx * s + dz * c; if (Math.abs(u) < f.w / 2 + pad && Math.abs(v) < f.d / 2 + pad) return true; }
   }
@@ -481,6 +495,7 @@ function canopyGeo(n, size, flat) {
   return g;
 }
 function buildVegetation() {
+  preparePlantGrid();
   const palms = [], trees = [], acacias = [], bushes = [], tufts = [];
   const inPlay = (x, z, m) => x > BOUNDS.x0 - m && x < BOUNDS.x1 + m && z > BOUNDS.z0 - m && z < coastZ(x) - 6;
   for (const s of roadSegs) {
@@ -925,8 +940,8 @@ function drawMapBase() {
   poly(rectPts(PARADE.x, PARADE.z, PARADE.w, PARADE.d), '#c9c6bd'); poly(rectPts(AQUA.x, AQUA.z, AQUA.w, AQUA.d), '#5f8fc8');
   poly(rectPts(FZ.x, FZ.z, FZ.w, FZ.d), '#d9c592');
   c.lineCap = 'round'; c.lineJoin = 'round';
-  for (const k of ['K', 'F', 'S', 'R', 'T']) for (const r of WORLD.roads) { if (r.c !== k) continue; c.strokeStyle = { T: '#2c2f3b', R: '#4b4f5d', S: '#5d606c', K: '#a98559', F: '#cdbb92' }[k]; c.lineWidth = ROAD[k].w * MAP.k; c.beginPath(); r.p.forEach((p, i) => i ? c.lineTo(X(p[0]), Z(p[1])) : c.moveTo(X(p[0]), Z(p[1]))); c.stroke(); }
-  for (const [x, z, w, d, a, kind] of WORLD.blds) { c.save(); c.translate(X(x), Z(z)); c.rotate(a); c.fillStyle = (kind === 'industrial' || w * d > 1500) ? '#5f8fc8' : '#efe9de'; c.strokeStyle = '#1f2230'; c.lineWidth = 1; rrect(c, -w / 2 * MAP.k, -d / 2 * MAP.k, w * MAP.k, d * MAP.k, Math.min(2, w * MAP.k / 4)); c.fill(); c.stroke(); c.restore(); }
+  for (const k of ['K', 'F', 'S', 'R', 'T']) for (const r of WORLD.roads) { if (r.c !== k) continue; c.strokeStyle = roadSpec(r).unpaved ? '#a98559' : { T: '#2c2f3b', R: '#4b4f5d', S: '#5d606c', K: '#a98559', F: '#cdbb92' }[k]; c.lineWidth = roadSpec(r).w * MAP.k; c.beginPath(); r.p.forEach((p, i) => i ? c.lineTo(X(p[0]), Z(p[1])) : c.moveTo(X(p[0]), Z(p[1]))); c.stroke(); }
+  for (const record of WORLD.blds) { const [x, z, w, d, a, kind] = record; if (record[7]) { poly(record[7], '#efe9de'); continue; } c.save(); c.translate(X(x), Z(z)); c.rotate(a); c.fillStyle = (kind === 'industrial' || w * d > 1500) ? '#5f8fc8' : '#efe9de'; c.strokeStyle = '#1f2230'; c.lineWidth = 1; rrect(c, -w / 2 * MAP.k, -d / 2 * MAP.k, w * MAP.k, d * MAP.k, Math.min(2, w * MAP.k / 4)); c.fill(); c.stroke(); c.restore(); }
   drawFutureMap(c, X, Z);
   poly(ellipsePts(SC.x, SC.z, S_OUT.rx, S_OUT.rz, 80), '#e2a514'); poly(ellipsePts(SC.x, SC.z, S_IN.rx, S_IN.rz, 80), '#3d9a4a');
   c.fillStyle = '#cfc4ae'; c.fillRect(X(SC.x - 5), Z(SC.z + S_IN.rz - 2), 10 * MAP.k, (S_OUT.rz - S_IN.rz + 6) * MAP.k);
