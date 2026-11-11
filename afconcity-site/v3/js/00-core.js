@@ -600,6 +600,12 @@ function resolveCircle(p, R, hit, skipSmall) {
       const nx = c.x + nu * c.c - nv * c.s, nz = c.z + nu * c.s + nv * c.c;
       if (hit) hit(nx - p.x, nz - p.z, c);
       p.x = nx; p.z = nz;
+    } else if (c.t === 2) {
+      const q = polygonContact(p.x, p.z, c.p);
+      if (q.d >= R) continue;
+      const nx = q.x + q.nx * (R + 0.001), nz = q.z + q.nz * (R + 0.001);
+      if (hit) hit(nx - p.x, nz - p.z, c);
+      p.x = nx; p.z = nz;
     } else {
       const rr2 = c.r + R, dx = p.x - c.x, dz = p.z - c.z;
       if (Math.abs(dx) > rr2 || Math.abs(dz) > rr2) continue;
@@ -612,6 +618,7 @@ function pointBlocked(x, z, pad) {
   const list = cgrid.get(ck(Math.floor(x / CELL), Math.floor(z / CELL))) || EMPTY;
   for (const c of list) {
     if (!c.on || c.tag === 'small') continue;
+    if (c.t === 2 && polygonContact(x, z, c.p).d < pad) return true;
     if (c.t === 0) { const dx = x - c.x, dz = z - c.z, u = dx * c.c + dz * c.s, v = -dx * c.s + dz * c.c; if (Math.abs(u) < c.hw + pad && Math.abs(v) < c.hd + pad && c.hh !== 0) return true; }
   }
   return false;

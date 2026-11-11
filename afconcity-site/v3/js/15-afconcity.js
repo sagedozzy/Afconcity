@@ -6,7 +6,7 @@ const AFCON_ROADS = [
   { c: 'R', p: [[-785, -221], [-785, -407], [-780, -560], [-772, -700], [-860, -744]] },
   { c: 'S', p: [[-1250, -407], [-1240, -560], [-1205, -720], [-1110, -772]] },
 ];
-WORLD.roads.push(...AFCON_ROADS);
+WORLD.roads.push(...AFCON_ROADS.map(r => Object.assign({ source: 'concept' }, r)));
 function inPlot(x, z, pad) { return pointInPoly(x, z, PLOT) && (!pad || pointInPoly(x + pad, z, PLOT) && pointInPoly(x - pad, z, PLOT) && pointInPoly(x, z + pad, PLOT) && pointInPoly(x, z - pad, PLOT)); }
 
 function parkedCars(spots) {
