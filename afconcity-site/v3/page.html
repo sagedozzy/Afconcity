@@ -1179,6 +1179,13 @@ body.no-bubbles .tag-bub{display:none!important}
   .rush{font-size:12px!important;padding:5px 11px!important}
   .ph-toast{top:auto!important;bottom:calc(env(safe-area-inset-bottom,0px) + 118px)!important}
 }
+/* Narrow portrait windows also occur with mice, trackpads and hybrid devices.
+   Keep the objective/help below the money and menus, and let expanded text flow. */
+@media (max-width:600px) and (orientation:portrait){
+  .tl{top:calc(env(safe-area-inset-top,0px) + 150px);left:12px;right:12px;width:auto;gap:8px}
+  .tl .goal{order:-1}
+  .tl .help{position:static;transform:none;width:auto;max-width:none}
+}
 </style>
 
 <canvas id="scene" tabindex="-1" aria-label="3D view of Fumba Uptown, Zanzibar"></canvas>
